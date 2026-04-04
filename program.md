@@ -2,7 +2,36 @@
 
 **An autonomous research-and-build loop for understanding how companies get discovered inside LLMs.**
 
+Inspired by [Tryscope](https://tryscope.app/) — an A/B testing platform for AI search campaigns that simulates how ChatGPT recommends brands before you publish.
+
 Bitsy is not just a tool — it's a self-improving pipeline. It researches GEO (Generative Engine Optimization), synthesizes findings, builds a deliverable Next.js website, and uses a **two-agent loop** (Worker + Expert) to ensure every output meets a quality bar before committing.
+
+### Starting Point — What We've Already Found
+
+These are the sites, tools, and sources discovered during initial research. The Worker agent should use these as a starting point and go deeper from here.
+
+| Source | URL | What It Is |
+|--------|-----|------------|
+| Tryscope | https://tryscope.app/ | Pre-publish A/B testing for AI search. Persona-based simulation, polls 50x/day across ChatGPT, Claude, Gemini, Perplexity. Our primary inspiration. |
+| AthenaHQ | https://athenahq.ai/ | Full-stack GEO monitoring ($295-900/mo). Founded by ex-Google Search and DeepMind staff. |
+| Otterly AI | https://otterly.ai/ | Brand mention tracking from $29/mo. Country-specific monitoring, free tier. |
+| SE Ranking | https://seranking.com/ | Traditional SEO + AI visibility tracking in unified dashboards. From $103/mo. |
+| Semrush AIO | https://www.semrush.com/ | Enterprise AI visibility module. Granular mention tracking, sentiment, competitive benchmarking. |
+| Scrunch AI | https://scrunch.ai/ | Prompt-level monitoring with competitor replacement detection. From $250/mo. |
+| XFunnel | https://xfunnel.ai/ | Conversion attribution from AI search. Custom pricing. |
+| LLMClicks | https://llmclicks.ai/ | Mention rate, share of voice, hallucination tracking. From $49/mo. |
+| Goodie AI | https://goodie.ai/ | ChatGPT mention frequency tracking. From ~$49/mo. |
+| Peec AI | https://peec.ai/ | Inclusion detection and historical trends. From EUR 89/mo. |
+| Knowatoa | https://knowatoa.com/ | Focused on sales/lead-generating queries. From $49/mo. |
+| Geordy.ai | https://geordy.ai/ | Automated content transformation for AI readiness. |
+| Frase | https://frase.io/ | Answer engine optimization with content briefs. From $38/mo. |
+| Surfer SEO | https://surferseo.com/ | On-page optimization with NLP entity focus. From $79/mo. |
+| HubSpot Search Grader | https://website.grader.com/ | Free AI readiness scoring and technical diagnostics. |
+| a16z GEO article | https://a16z.com/geo-over-seo/ | "GEO over SEO" — the $80B+ SEO market is cracking. Key industry analysis. |
+| Search Engine Land (GEO) | https://searchengineland.com/what-is-generative-engine-optimization-geo-444418 | Comprehensive guide on what GEO is and how to win AI mentions. |
+| Search Engine Land (LLM tracking) | https://searchengineland.com/llm-optimization-tracking-visibility-ai-discovery-463860 | LLM optimization in 2026: tracking, visibility, and what's next. |
+
+**The Worker must not stop at these.** These are starting points. The research tasks in Section 2 require going deeper — finding the papers these sites reference, the GitHub repos behind them, the pricing pages, the user reviews, the technical architecture docs.
 
 ---
 

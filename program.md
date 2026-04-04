@@ -1,240 +1,477 @@
 # Bitsy
 
-**Simulate how LLMs find, rank, and recommend companies — before publishing.**
+**An autonomous research-and-build loop for understanding how companies get discovered inside LLMs.**
 
-Inspired by tools like [Tryscope](https://tryscope.app/), Bitsy is an open-source engine for simulating and measuring brand visibility inside LLM-generated responses. While traditional SEO asks "where do I rank on Google?", Bitsy asks **"does the AI even mention me, and what does it say?"**
-
----
-
-## The Problem
-
-The $80B+ SEO market is cracking. Users are shifting from search engines to conversational AI. ChatGPT, Perplexity, Claude, and Gemini now answer questions that used to drive clicks to websites. Companies need to understand:
-
-1. **Am I being mentioned?** When someone asks an LLM "what's the best project management tool?", does my product appear?
-2. **In what context?** Am I the top recommendation, a footnote, or absent entirely?
-3. **How stable is it?** LLM outputs are probabilistic — does my brand show up 90% of the time or 10%?
-4. **What influences it?** Which sources, content patterns, and entity signals drive inclusion or exclusion?
-5. **Can I test changes before publishing?** If I rewrite my landing page, will the AI treat me differently?
-
-Traditional SEO tools (Semrush, Ahrefs, Moz) don't answer these questions. A new category — **Generative Engine Optimization (GEO)** — is emerging, but most tools are post-hoc monitors. Bitsy focuses on **simulation and pre-publication testing**.
+Bitsy is not just a tool — it's a self-improving pipeline. It researches GEO (Generative Engine Optimization), synthesizes findings, builds a deliverable Next.js website, and uses a **two-agent loop** (Worker + Expert) to ensure every output meets a quality bar before committing.
 
 ---
 
-## Core Concepts
+## Section 1: The Aim
 
-### GEO vs SEO
+### What Are We Solving?
 
-| Dimension | Traditional SEO | GEO (what Bitsy targets) |
-|-----------|----------------|--------------------------|
-| Goal | Rank on page 1 of search results | Be cited/mentioned in AI answers |
-| Success metric | Click-through rate, position | Share of voice, mention rate, sentiment |
-| Query style | ~4 keywords | ~23 words, conversational |
-| Key signals | Backlinks, keywords, domain authority | Content structure, entity clarity, evidence density |
-| Feedback loop | Days/weeks via crawl indexing | Probabilistic, varies per request |
+When someone asks ChatGPT "what's the best CRM?", some companies show up and others don't. This is the new battleground — **LLM visibility**. Traditional SEO (Google rankings) is dying. The new game is:
 
-### Key Metrics Bitsy Should Track
+- **SEO** = Search Engine Optimization (Google, Bing — links and keywords)
+- **GEO** = Generative Engine Optimization (ChatGPT, Claude, Gemini, Perplexity — how AI models mention, rank, and recommend companies)
 
-- **Share of Voice (SOV)**: How often brand X appears vs. competitors for a query set
-- **Mention Position**: First recommendation vs. buried in a list vs. absent
-- **Sentiment**: Positive, neutral, negative framing of the brand
-- **Citation Rate**: How often the LLM links back to or names the source
-- **Consistency Score**: Variance across repeated identical queries (statistical confidence)
-- **Hallucination Flag**: Whether the LLM says something factually wrong about the brand
+**Bitsy's aim is to build a complete understanding of this space and turn it into a product:**
 
----
+1. **Understand the mechanics** — How do LLMs decide which companies to mention? What signals matter? What's the science behind it?
+2. **Quantify the cost** — What does it cost to monitor LLM visibility? API calls, token usage, polling frequency — real numbers.
+3. **Simulate visibility** — Given a company and its competitors, run queries across LLMs and measure who gets mentioned, how often, in what position, with what sentiment.
+4. **Package it** — Build a Next.js website that presents all research, findings, and the simulation tool in one place you can open tomorrow and see everything.
 
-## Architecture
+### Why a Loop?
 
-### Phase 1 — Query Engine
-
-Build a system that takes a set of **personas** and **prompts**, runs them against multiple LLMs, and collects structured results.
+This is too complex for a single pass. Research is iterative. You find a paper, it references another paper, that changes your understanding, which changes the architecture. Bitsy works in a **continuous loop**:
 
 ```
-Input:
-  - Company: "Acme CRM"
-  - Competitors: ["Salesforce", "HubSpot", "Pipedrive"]
-  - Persona: "VP of Sales at a 200-person SaaS company"
-  - Queries:
-      - "What's the best CRM for mid-market SaaS?"
-      - "Compare CRM tools for a growing sales team"
-      - "Which CRM has the best pipeline management?"
-
-Output (per query, per model, per run):
-  - brands_mentioned: ["Salesforce", "HubSpot", "Acme CRM"]
-  - position: { "Acme CRM": 3 }
-  - sentiment: { "Acme CRM": "neutral" }
-  - citations: { "Acme CRM": null, "Salesforce": "salesforce.com" }
-  - raw_response: "..."
+┌─────────────────────────────────────────────────────────┐
+│                    THE BITSY LOOP                       │
+│                                                         │
+│   ┌──────────┐    ┌──────────┐    ┌──────────┐         │
+│   │  WORKER  │───▶│  OUTPUT  │───▶│  EXPERT  │         │
+│   │  (tmux)  │    │  (file)  │    │  (tmux)  │         │
+│   └──────────┘    └──────────┘    └────┬─────┘         │
+│        ▲                               │               │
+│        │         ┌──────────┐          │               │
+│        │         │ PASS?    │◀─────────┘               │
+│        │         └────┬─────┘                          │
+│        │              │                                 │
+│        │     ┌────────┴────────┐                       │
+│        │     │                 │                        │
+│        │    NO                YES                       │
+│        │     │                 │                        │
+│        └─────┘          ┌─────▼─────┐                  │
+│                         │  COMMIT   │                  │
+│                         │  & NEXT   │                  │
+│                         └───────────┘                  │
+└─────────────────────────────────────────────────────────┘
 ```
 
-**Components:**
-
-1. **Prompt Builder** — Takes persona + query template and produces a realistic user prompt. Supports variable injection (industry, company size, use case).
-2. **LLM Runner** — Calls ChatGPT, Claude, Gemini, and Perplexity APIs. Handles rate limiting, retries, and cost tracking. Each query is run N times (default 50) for statistical significance.
-3. **Response Parser** — Extracts structured data from free-text LLM responses: brand mentions, ordering, sentiment, citations, and factual claims.
-4. **Storage** — Stores raw responses and parsed results in SQLite for local use, with optional Postgres for teams.
-
-### Phase 2 — Analysis Dashboard
-
-Turn raw polling data into actionable insights.
-
-**Views:**
-
-1. **Brand Scoreboard** — Side-by-side SOV comparison across models and query sets. Shows trends over time.
-2. **Query Explorer** — Drill into individual queries. See every raw response, parsed mentions, and variance.
-3. **Model Comparison** — How does ChatGPT's view of your brand differ from Claude's or Gemini's?
-4. **Consistency Map** — Heatmap showing which queries produce stable mentions vs. volatile ones.
-5. **Hallucination Report** — Flags factually incorrect claims about your company across all responses.
-
-**Tech:** Simple web UI. React + Recharts for visualizations. API layer in Python (FastAPI).
-
-### Phase 3 — Pre-Publication Simulator
-
-The core differentiator. Let users test content changes before publishing.
-
-**How it works:**
-
-1. User provides a **content diff** — e.g., new landing page copy, updated docs, a blog post draft.
-2. Bitsy injects this content into the LLM context (via system prompts or RAG-style retrieval) to simulate what would happen if the LLM had indexed it.
-3. Runs the same query set against the modified context.
-4. Produces a **before/after comparison**: did the content change improve or hurt visibility?
-
-**Limitations to document clearly:**
-- This is a simulation, not a guarantee. Real LLM training data pipelines are opaque.
-- Injection via context window approximates but doesn't replicate actual training/indexing.
-- Results are directional, not definitive.
-
-### Phase 4 — Optimization Recommendations
-
-Based on analysis of what content patterns correlate with higher mention rates:
-
-- **Entity clarity**: Is your brand name unambiguous? Does your content clearly state what you do?
-- **Evidence density**: Do you cite stats, benchmarks, case studies that LLMs can parrot?
-- **Structured data**: Do you use schema.org markup, FAQ sections, comparison tables?
-- **Source authority**: Are you cited by sources the LLMs trust?
-- **Content freshness**: How recently was your content updated?
-
-Generate actionable suggestions: "Add a comparison table to your pricing page" or "Your product description lacks quantitative claims — add benchmark data."
+Nothing gets committed until the Expert agent says it's done.
 
 ---
 
-## Technical Stack
+## Section 2: Research — Understand the Technology
 
-| Layer | Technology | Why |
-|-------|-----------|-----|
-| Language | Python 3.12+ | Ecosystem for LLM APIs, data processing |
-| LLM APIs | OpenAI, Anthropic, Google AI, Perplexity | Cover the big four |
-| Response Parsing | Claude as structured extractor | Best at following extraction schemas |
-| Database | SQLite (local) / Postgres (team) | Simple default, scalable option |
-| API | FastAPI | Async, fast, typed |
-| Frontend | React + Vite + Recharts | Lightweight, good charting |
-| Scheduling | APScheduler or cron | For recurring polling runs |
-| Cost Tracking | Built-in token counter | LLM API costs add up fast |
+### What the Worker Agent Must Research
 
----
+The Worker spins up in a tmux session and systematically researches these topics. Each topic is a **research task** that enters the loop independently.
 
-## Data Model
+#### Task 2.1: How LLMs Decide What to Mention
+
+- How do training data pipelines work? (CommonCrawl, licensed datasets, RLHF)
+- What makes a company "stick" in an LLM's weights vs. get forgotten?
+- Role of recency — how often are models retrained? What's the data cutoff lag?
+- Role of frequency — does appearing on 1,000 pages matter more than appearing on 10 authoritative ones?
+- Role of structured data — do schema.org, JSON-LD, FAQ pages help?
+- **Find and cite**: Academic papers (e.g., the original GEO paper from Princeton/Georgia Tech/IIT Delhi), blog posts from a16z, Search Engine Land, industry reports.
+
+#### Task 2.2: How GEO Tools Work Under the Hood
+
+- Polling architecture — how do tools like Tryscope, AthenaHQ, Otterly poll LLMs?
+- Statistical methods — how many samples per query are needed for confidence?
+- Response parsing — how do you extract brand mentions, sentiment, position from free text?
+- Multi-model comparison — how do you normalize results across GPT, Claude, Gemini, Perplexity?
+- Pre-publication simulation — how does Tryscope simulate "what if I change my content"?
+- **Find and cite**: Tryscope docs, AthenaHQ blog, any open-source implementations on GitHub.
+
+#### Task 2.3: The Economics
+
+- Cost per API call across models (GPT-4o, GPT-4o-mini, Claude Sonnet, Claude Haiku, Gemini Pro, Gemini Flash, Perplexity Sonar)
+- Cost modeling: X queries × Y models × Z samples/day = $/month
+- Where can you cut costs without losing signal? (Cheaper models for polling, expensive models for deep dives)
+- Comparison to traditional SEO tool pricing (Semrush $130-500/mo, Ahrefs $99-999/mo)
+- Break-even analysis: at what price point does a GEO SaaS become viable?
+
+#### Task 2.4: The Competitive Landscape
+
+- Map every GEO/LLMO tool: name, pricing, features, funding, team size
+- What's missing in the market? Where are the gaps?
+- What do users complain about in existing tools? (Check Reddit, Twitter/X, G2 reviews)
+- Open-source alternatives — does anything exist on GitHub?
+
+#### Task 2.5: The Science — Papers and Research
+
+Key papers and sources to find, read, and summarize:
+- "GEO: Generative Engine Optimization" (Princeton/Georgia Tech/IIT Delhi)
+- Any follow-up papers on LLM citation behavior
+- a16z's "GEO over SEO" analysis
+- Brandlight's research on traditional vs. AI search overlap
+- Y Combinator's projections on search volume decline
+- Any papers on LLM recommendation bias, brand mention frequency, or retrieval-augmented generation relevance
+
+### How Research Enters the Loop
 
 ```
-Company
-  - id, name, domain, description
-  - competitors: [Company]
+For each research task (2.1 through 2.5):
 
-QuerySet
-  - id, name, company_id
-  - queries: [Query]
+1. WORKER tmux session:
+   - Searches the internet (web search, fetch URLs, find papers)
+   - Reads and synthesizes findings
+   - Writes a structured output file: research/<task_id>.md
+   - Includes: summary, key findings, sources with URLs, implications for Bitsy
 
-Query
-  - id, text, persona, variables
+2. EXPERT tmux session spins up:
+   - Reads the research output
+   - Evaluates against expert criteria:
+     □ Are the sources credible and cited with URLs?
+     □ Are the key questions from the task answered?
+     □ Is anything missing or superficial?
+     □ Are there contradictions that need resolving?
+     □ Would a product manager have enough info to make decisions?
+   - Returns a verdict: PASS or FAIL with specific feedback
 
-Run
-  - id, query_id, model, timestamp, run_number
+3. If FAIL:
+   - Worker receives feedback
+   - Goes back to research the gaps
+   - Rewrites the output
+   - Expert re-evaluates
+   - Loop continues until PASS
 
-Response
-  - id, run_id, raw_text, latency_ms, token_count, cost_usd
-
-Mention
-  - id, response_id, brand, position, sentiment, citation_url, is_hallucination
-
-Snapshot
-  - id, company_id, date, model
-  - sov, avg_position, mention_rate, sentiment_avg, consistency_score
+4. If PASS:
+   - Output gets committed to git
+   - Next task begins
 ```
 
----
+### Expert Evaluation Criteria (Research)
 
-## Polling Strategy
+The Expert uses a **point system**. Each research task must score 10/10 before passing:
 
-LLM responses are non-deterministic. A single query tells you almost nothing. Bitsy uses **repeated sampling** to build statistical confidence:
+| Criterion | Points | What It Means |
+|-----------|--------|---------------|
+| Source quality | 2 | At least 3 credible sources with URLs |
+| Completeness | 2 | All sub-questions in the task are answered |
+| Depth | 2 | Goes beyond surface-level — includes numbers, specifics, quotes |
+| Accuracy | 2 | No contradictions, hallucinations, or unsupported claims |
+| Actionability | 2 | Findings directly inform what Bitsy should build |
 
-- Each query is run **50 times per model per day** (configurable).
-- Results are aggregated into daily snapshots with confidence intervals.
-- Week-over-week trends require at least 7 days of data.
-- Cost estimate: 50 runs x 4 models x 20 queries = 4,000 API calls/day. At ~$0.01/call average, that's ~$40/day or ~$1,200/month for a single company tracking set.
-
-**Cost optimization:**
-- Use cheaper models (GPT-4o-mini, Haiku) for high-volume polling.
-- Use flagship models (GPT-4o, Opus, Gemini Pro) for weekly deep-dive runs.
-- Cache identical responses to detect when models update.
+**Total: 10 points. Must score 10/10 to pass. Any point lost = back to Worker.**
 
 ---
 
-## CLI-First Design
+## Section 3: Build — The Deliverable
 
-Bitsy starts as a CLI tool. No UI required to get value.
+### What Gets Built
+
+A **Next.js website** that serves as both a research repository and a working product prototype. When you open it tomorrow, you see everything.
+
+#### 3.1: Research Hub (Pages)
+
+Every research task from Section 2 becomes a page on the site:
+
+```
+/                        → Landing page: what is Bitsy, what is GEO
+/research/llm-mechanics  → Task 2.1 findings
+/research/geo-tools      → Task 2.2 findings
+/research/economics      → Task 2.3 findings (with interactive cost calculator)
+/research/landscape      → Task 2.4 findings (competitive comparison table)
+/research/papers         → Task 2.5 findings (paper summaries with links)
+```
+
+#### 3.2: Simulation Tool (Interactive)
+
+A working prototype where you can:
+
+```
+/simulate                → Enter a company name + competitors + queries
+/simulate/results        → See which LLMs mention which brands
+/simulate/compare        → Side-by-side model comparison
+/simulate/trends         → Historical data (if you've run multiple times)
+```
+
+#### 3.3: Cost Calculator (Interactive)
+
+```
+/calculator              → Input: number of queries, models, samples/day
+                           Output: estimated monthly cost, recommended config
+```
+
+### Tech Stack
+
+```
+Framework:    Next.js 14+ (App Router)
+Styling:      Tailwind CSS
+Charts:       Recharts or Nivo
+Database:     SQLite via Prisma (local-first, zero setup)
+LLM APIs:     OpenAI, Anthropic, Google AI SDKs
+Deployment:   Works locally (npm run dev), deployable to Vercel
+```
+
+### How Building Enters the Loop
+
+```
+For each build task (3.1, 3.2, 3.3):
+
+1. WORKER tmux session:
+   - Reads the approved research from Section 2
+   - Builds the Next.js pages/components
+   - Writes working code that renders correctly
+   - Tests: does it build? does it render? does the data display?
+
+2. EXPERT tmux session spins up:
+   - Reviews the code and rendered output
+   - Evaluates against expert criteria:
+     □ Does the page accurately represent the research findings?
+     □ Is the UI clean and readable?
+     □ Does the code build without errors (npm run build)?
+     □ Is the data model correct?
+     □ Are interactive elements functional?
+   - Returns: PASS or FAIL with specific feedback
+
+3. If FAIL:
+   - Worker fixes issues based on feedback
+   - Expert re-evaluates
+   - Loop until PASS
+
+4. If PASS:
+   - Code gets committed to git
+   - Next build task begins
+```
+
+### Expert Evaluation Criteria (Build)
+
+| Criterion | Points | What It Means |
+|-----------|--------|---------------|
+| Builds clean | 2 | `npm run build` succeeds with no errors |
+| Content accuracy | 2 | Research findings are correctly represented |
+| Usability | 2 | A non-technical person can navigate and understand |
+| Code quality | 2 | No hacks, proper components, typed where needed |
+| Completeness | 2 | All required elements from the task spec are present |
+
+**Total: 10/10 required to pass.**
+
+---
+
+## Section 4: The Loop Engine — How It All Runs
+
+### Architecture
+
+Bitsy uses **tmux** to run Worker and Expert agents in separate sessions. A controller script orchestrates the loop.
+
+```
+bitsy/
+├── program.md              ← You are here
+├── controller.sh           ← Main loop orchestrator
+├── worker.sh               ← Worker agent launcher
+├── expert.sh               ← Expert agent launcher
+├── tasks.json              ← Task queue with status tracking
+├── research/               ← Research outputs (written by Worker, reviewed by Expert)
+│   ├── 2.1-llm-mechanics.md
+│   ├── 2.2-geo-tools.md
+│   ├── 2.3-economics.md
+│   ├── 2.4-landscape.md
+│   └── 2.5-papers.md
+├── feedback/               ← Expert feedback per task per iteration
+│   ├── 2.1-round-1.md
+│   ├── 2.1-round-2.md
+│   └── ...
+├── site/                   ← Next.js website
+│   ├── package.json
+│   ├── src/
+│   │   ├── app/
+│   │   │   ├── page.tsx
+│   │   │   ├── research/
+│   │   │   ├── simulate/
+│   │   │   └── calculator/
+│   │   └── components/
+│   └── ...
+└── logs/                   ← Execution logs
+    ├── worker.log
+    └── expert.log
+```
+
+### Controller Flow (Pseudocode)
 
 ```bash
-# Initialize a project
-bitsy init --company "Acme CRM" --competitors "Salesforce,HubSpot,Pipedrive"
+#!/bin/bash
+# controller.sh — The Bitsy Loop
 
-# Add queries
-bitsy add-query "What's the best CRM for mid-market SaaS?" --persona "VP Sales"
+TASKS=("2.1" "2.2" "2.3" "2.4" "2.5" "3.1" "3.2" "3.3")
 
-# Run a single sweep
-bitsy run --models gpt-4o,claude-sonnet,gemini-pro --samples 50
+for task in "${TASKS[@]}"; do
+    echo "=== Starting task: $task ==="
+    passed=false
+    round=1
 
-# View results
-bitsy report --format table
-bitsy report --format json > results.json
+    while [ "$passed" = false ]; do
+        echo "--- Round $round ---"
 
-# Compare over time
-bitsy trend --days 30
+        # 1. Spin up Worker in tmux
+        tmux new-session -d -s worker \
+            "claude --task '$task' --role worker --round $round"
 
-# Pre-publish test
-bitsy simulate --content ./new-landing-page.md --compare
+        # 2. Wait for Worker to finish (writes output file)
+        wait_for_file "output/$task-round-$round.md"
+
+        # 3. Spin up Expert in tmux
+        tmux new-session -d -s expert \
+            "claude --task '$task' --role expert --round $round \
+             --input output/$task-round-$round.md"
+
+        # 4. Wait for Expert verdict
+        wait_for_file "feedback/$task-round-$round.md"
+
+        # 5. Check verdict
+        verdict=$(parse_verdict "feedback/$task-round-$round.md")
+
+        if [ "$verdict" = "PASS" ]; then
+            passed=true
+            echo "Task $task PASSED on round $round"
+            git add .
+            git commit -m "task($task): passed expert review — round $round"
+        else
+            echo "Task $task FAILED round $round — looping back"
+            round=$((round + 1))
+        fi
+    done
+done
+
+echo "=== All tasks complete ==="
+git push origin main
+```
+
+### Worker Agent Prompt Template
+
+```
+You are the Bitsy Worker agent.
+
+TASK: {task_id} — {task_description}
+ROUND: {round_number}
+
+{if round > 1}
+PREVIOUS EXPERT FEEDBACK:
+{feedback from previous round}
+
+Fix the issues identified above. Do not start from scratch — improve your previous output.
+{endif}
+
+INSTRUCTIONS:
+1. Research this topic thoroughly using web search, URL fetching, and paper reading.
+2. Write your findings to: research/{task_id}.md (for research tasks) or build the code (for build tasks).
+3. Be thorough. The Expert will evaluate on: source quality, completeness, depth, accuracy, actionability.
+4. Include URLs for every source.
+5. When done, write "WORKER_DONE" to signal completion.
+```
+
+### Expert Agent Prompt Template
+
+```
+You are the Bitsy Expert agent.
+
+TASK: {task_id} — {task_description}
+ROUND: {round_number}
+
+WORKER OUTPUT:
+{contents of the worker's output file}
+
+EVALUATE the Worker's output against these criteria (2 points each, 10 total):
+
+1. SOURCE QUALITY (2pts): Are there at least 3 credible sources with working URLs?
+2. COMPLETENESS (2pts): Are all sub-questions in the task specification answered?
+3. DEPTH (2pts): Does it go beyond surface-level? Numbers, specifics, quotes?
+4. ACCURACY (2pts): Any contradictions, hallucinations, or unsupported claims?
+5. ACTIONABILITY (2pts): Do findings directly inform what Bitsy should build?
+
+OUTPUT FORMAT:
+---
+verdict: PASS or FAIL
+score: X/10
+---
+
+### Source Quality: X/2
+{evaluation}
+
+### Completeness: X/2
+{evaluation}
+
+### Depth: X/2
+{evaluation}
+
+### Accuracy: X/2
+{evaluation}
+
+### Actionability: X/2
+{evaluation}
+
+### Specific Issues to Fix (if FAIL):
+- Issue 1: ...
+- Issue 2: ...
+
+### What Was Done Well:
+- ...
 ```
 
 ---
 
-## What Success Looks Like
+## Section 5: Execution Order
 
-A user should be able to:
+Everything runs sequentially. Each task must PASS before the next begins.
 
-1. **In 5 minutes**: Install Bitsy, configure API keys, define a company + 5 queries, and run a first sweep.
-2. **In 1 hour**: Have a statistically meaningful baseline of their brand's LLM visibility across 4 models.
-3. **In 1 week**: See trend data showing how their visibility changes (or stays stable) day over day.
-4. **In 1 sprint**: Use the pre-publication simulator to A/B test content changes and pick the version that improves LLM mentions.
+```
+Phase 1: Research (all must pass before building)
+  ├── Task 2.1: How LLMs Decide What to Mention
+  ├── Task 2.2: How GEO Tools Work Under the Hood
+  ├── Task 2.3: The Economics
+  ├── Task 2.4: The Competitive Landscape
+  └── Task 2.5: The Science — Papers and Research
+
+Phase 2: Build (uses approved research as input)
+  ├── Task 3.1: Research Hub Pages
+  ├── Task 3.2: Simulation Tool
+  └── Task 3.3: Cost Calculator
+
+Phase 3: Final Review
+  └── Expert does a full-site review
+      - All pages render
+      - All research is accurately represented
+      - Simulation tool works end-to-end
+      - Cost calculator produces correct numbers
+      - Site builds and runs locally
+```
 
 ---
 
-## Open Questions
+## Section 6: How to Run Bitsy
 
-- **Legal/ToS**: Running thousands of API calls for competitive intelligence may bump against provider ToS. Document clearly and let users bring their own keys.
-- **Perplexity access**: Perplexity doesn't have a public chat completions API in the same way. May need to use their Sonar API or scrape (ToS risk).
-- **Ground truth**: Without knowing what's actually in LLM training data, how do we validate that our simulations are meaningful? Need to build a calibration dataset.
-- **Multi-language**: GEO varies by language. A brand might dominate English queries but be invisible in Spanish. Scope for v2.
-- **Local models**: Could Bitsy run against local models (Llama, Mistral) for free baseline testing? Worth exploring.
+```bash
+# Clone the repo
+git clone https://github.com/edonD/bitsy.git
+cd bitsy
+
+# Set API keys
+export OPENAI_API_KEY="..."
+export ANTHROPIC_API_KEY="..."
+export GOOGLE_AI_API_KEY="..."
+
+# Start the loop
+./controller.sh
+
+# The controller will:
+# 1. Spin up Worker tmux sessions for each task
+# 2. Spin up Expert tmux sessions to evaluate
+# 3. Loop until each task passes
+# 4. Commit after each pass
+# 5. Push when all tasks are done
+
+# To monitor progress:
+tmux attach -t worker    # Watch the Worker
+tmux attach -t expert    # Watch the Expert
+tail -f logs/worker.log  # Stream Worker logs
+tail -f logs/expert.log  # Stream Expert logs
+```
 
 ---
 
-## Competitive Context
+## Summary
 
-| Tool | Focus | Price | Bitsy Difference |
-|------|-------|-------|-----------------|
-| Tryscope | Pre-publish A/B testing | Custom | Bitsy is open-source, CLI-first |
-| AthenaHQ | Full-stack monitoring | $295-900/mo | Bitsy is free, self-hosted |
-| Otterly AI | Brand mention tracking | From $29/mo | Bitsy adds pre-publish simulation |
-| Semrush AIO | Enterprise AI visibility | Enterprise pricing | Bitsy is lightweight, focused |
-| LLMClicks | Mention + hallucination tracking | From $49/mo | Bitsy is open, extensible |
-
-Bitsy's niche: **open-source, CLI-first, simulation-focused GEO tool for developers and technical marketers.**
+| Aspect | Detail |
+|--------|--------|
+| **What** | Research GEO/LLM visibility + build a Next.js product |
+| **How** | Two-agent loop: Worker researches/builds, Expert evaluates |
+| **Where** | tmux sessions, git commits on pass |
+| **Quality gate** | 10/10 expert score required per task |
+| **Output** | Next.js website with research + simulation + calculator |
+| **Loop rule** | Nothing gets committed until Expert exhausts all points |

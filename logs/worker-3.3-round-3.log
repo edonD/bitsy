@@ -1,0 +1,7 @@
+Both bugs are fixed:
+
+1. **Bug 1 (CRITICAL)**: Tiered strategy now uses `getCheapestModel()` to find the actual model object per tier, then `effectiveCost()` checks `model.batchDiscount < 1` before applying any discount — Perplexity models (with `batchDiscount: 1`) are no longer incorrectly discounted.
+
+2. **Bug 2 (MAJOR)**: Tryscope preset `frequency` changed from `1` to `50` to match the "50 polls/day" label and Research 2.2.
+
+Build passes cleanly with zero errors/warnings.

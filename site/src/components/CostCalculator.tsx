@@ -157,7 +157,7 @@ const PRESETS: { label: string; brands: number; queries: number; samples: number
   { label: "Small Business (10 brands)", brands: 10, queries: 5, samples: 3, frequency: 1 },
   { label: "Agency (50 brands)", brands: 50, queries: 8, samples: 3, frequency: 1 },
   { label: "Enterprise (100 brands)", brands: 100, queries: 10, samples: 5, frequency: 1 },
-  { label: "Tryscope-Style (50 polls/day)", brands: 10, queries: 5, samples: 1, frequency: 1 },
+  { label: "Tryscope-Style (50 polls/day)", brands: 10, queries: 5, samples: 1, frequency: 50 },
 ];
 
 function formatCurrency(value: number): string {
@@ -247,21 +247,30 @@ export function CostCalculator({ compact = false }: CalculatorProps) {
       const midShare = 0.09;
       const flagshipShare = 0.01;
 
-      const cheapestBudget = budgetModels.length > 0
-        ? Math.min(...budgetModels.map((m) => m.costPerQuery + (m.hasRequestFee ? m.requestFee : 0)))
-        : Math.min(...activeModels.map((m) => m.costPerQuery + (m.hasRequestFee ? m.requestFee : 0)));
-      const cheapestMid = midModels.length > 0
-        ? Math.min(...midModels.map((m) => m.costPerQuery + (m.hasRequestFee ? m.requestFee : 0)))
-        : cheapestBudget;
-      const cheapestFlagship = flagshipModels.length > 0
-        ? Math.min(...flagshipModels.map((m) => m.costPerQuery + (m.hasRequestFee ? m.requestFee : 0)))
-        : cheapestMid;
+      const getCheapestModel = (models: ModelInfo[], fallback: ModelInfo[]): ModelInfo =>
+        (models.length > 0 ? models : fallback).reduce((best, m) => {
+          const bestCost = best.costPerQuery + (best.hasRequestFee ? best.requestFee : 0);
+          const mCost = m.costPerQuery + (m.hasRequestFee ? m.requestFee : 0);
+          return mCost < bestCost ? m : best;
+        });
 
-      const batchMult = useBatchAPI ? 0.5 : 1;
+      const cheapestBudgetModel = getCheapestModel(budgetModels, activeModels);
+      const cheapestMidModel = getCheapestModel(midModels, [cheapestBudgetModel]);
+      const cheapestFlagshipModel = getCheapestModel(flagshipModels, [cheapestMidModel]);
+
+      const effectiveCost = (model: ModelInfo): number => {
+        let cost = model.costPerQuery;
+        if (useBatchAPI && model.batchDiscount < 1) {
+          cost *= model.batchDiscount;
+        }
+        const reqFee = model.hasRequestFee ? model.requestFee : 0;
+        return cost + reqFee;
+      };
+
       tieredMonthlyCost =
-        totalQueries * budgetShare * cheapestBudget * batchMult +
-        totalQueries * midShare * cheapestMid * batchMult +
-        totalQueries * flagshipShare * cheapestFlagship * batchMult;
+        totalQueries * budgetShare * effectiveCost(cheapestBudgetModel) +
+        totalQueries * midShare * effectiveCost(cheapestMidModel) +
+        totalQueries * flagshipShare * effectiveCost(cheapestFlagshipModel);
     }
 
     const annualCost = naiveMonthlyCost * 12;

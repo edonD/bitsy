@@ -1,0 +1,9 @@
+Evaluation complete. **VERDICT: FAIL — 9/10.**
+
+Two bugs found:
+
+1. **Tiered strategy batch discount bug** (CRITICAL): The tiered calculation applies a blanket 50% batch discount to all tiers, including Perplexity models which don't offer batch pricing. The non-tiered path correctly checks `model.batchDiscount < 1` per-model, but the tiered path doesn't.
+
+2. **Tryscope preset mismatch** (MAJOR): Label says "50 polls/day" but sets `frequency: 1`. Off by 50x.
+
+Both are straightforward fixes — expect a pass on Round 3.

@@ -1,0 +1,11 @@
+Research for Task 2.2 (Round 1) is complete. The document at `/home/ubuntu/bitsy/research/2.2.md` is 862 lines with **61 cited sources** covering:
+
+1. **Response Parsing** (5 techniques): string matching, NER/spaCy, LLM-as-judge, position extraction, native structured output — with code examples
+2. **Statistical Methods**: sample size requirements (353 prompts at 95% CI), Bernoulli SE formula, variance decomposition, paired-difference tests, CLT failure below n=100
+3. **Multi-Model Normalization**: quantified citation differences (Perplexity 21.87 citations/response vs ChatGPT ~7), only 12% URL overlap, Jaccard index methodology
+4. **GEO Metrics**: Share of Model, Generative Position, Citation Drift, the original GEO paper's position-adjusted word count formula
+5. **Polling Architecture**: Two fundamental approaches (browser-based vs API), three open-source implementations (Bright Data, Gego, GetCito) with code/schemas, and deep dives into **10 commercial tools** (Scope, Profound, AthenaHQ, Otterly, Scrunch, Peec, Goodie, Knowatoa, Sellm, LLM Pulse)
+6. **Pre-Publication Simulation**: Scope's persona proxy, Scrunch's AXP edge-layer, E-GEO's RAG approach with 15 rewriting heuristics
+7. **API Specifications**: Exact pricing, rate limits, and temperature/reproducibility for OpenAI, Anthropic, Google, Perplexity
+8. **Open-Source**: 6 repos + 4 curated lists + 10 academic papers
+9. **Actionable Bitsy Recommendations**: 3-layer parsing pipeline, statistical framework, cost-optimal architecture, pricing comparison table, and specific "do NOT build" guidance

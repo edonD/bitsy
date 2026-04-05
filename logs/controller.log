@@ -13,3 +13,36 @@
   [Expert] Waiting for completion...
   [Expert] Done.
   >>> Task 2.1 PASSED on round 1 <<<
+[main 5ea25fe] task(3.3): passed expert review — round 1
+ Committer: Ubuntu <ubuntu@ip-10-99-1-85.ec2.internal>
+Your name and email address were configured automatically based
+on your username and hostname. Please check that they are accurate.
+You can suppress this message by setting them explicitly. Run the
+following command and follow the instructions in your editor to edit
+your configuration file:
+
+    git config --global --edit
+
+After doing this, you may fix the identity used for this commit with:
+
+    git commit --amend --reset-author
+
+ 8 files changed, 724 insertions(+)
+ create mode 100644 README.md
+ create mode 100644 feedback/2.1-round-1.md
+ create mode 100644 logs/controller.log
+ create mode 100644 logs/expert-2.1-round-1.done
+ create mode 100644 logs/expert-2.1-round-1.log
+ create mode 100644 logs/worker-2.1-round-1.done
+ create mode 100644 logs/worker-2.1-round-1.log
+ create mode 100644 research/2.1.md
+
+=== Task 2.2: How GEO Tools Work Under the Hood — polling, parsing, multi-model, simulation architecture ===
+--- Task 2.2 — Round 1 ---
+  [Worker] Launching in tmux session 'bitsy-worker'...
+  [Worker] Waiting for completion...
+  [Worker] Done.
+  [Expert] Launching in tmux session 'bitsy-expert'...
+  [Expert] Waiting for completion...
+  [Expert] Done.
+  >>> Task 2.2 PASSED on round 1 <<<

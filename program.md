@@ -330,16 +330,18 @@ for task in "${TASKS[@]}"; do
     while [ "$passed" = false ]; do
         echo "--- Round $round ---"
 
-        # 1. Spin up Worker in tmux
+        # 1. Spin up Worker in tmux (dangerously skip permissions — fully autonomous)
         tmux new-session -d -s worker \
-            "claude --task '$task' --role worker --round $round"
+            "claude --dangerously-skip-permissions \
+             --task '$task' --role worker --round $round"
 
         # 2. Wait for Worker to finish (writes output file)
         wait_for_file "output/$task-round-$round.md"
 
-        # 3. Spin up Expert in tmux
+        # 3. Spin up Expert in tmux (dangerously skip permissions — fully autonomous)
         tmux new-session -d -s expert \
-            "claude --task '$task' --role expert --round $round \
+            "claude --dangerously-skip-permissions \
+             --task '$task' --role expert --round $round \
              --input output/$task-round-$round.md"
 
         # 4. Wait for Expert verdict
@@ -351,11 +353,18 @@ for task in "${TASKS[@]}"; do
         if [ "$verdict" = "PASS" ]; then
             passed=true
             echo "Task $task PASSED on round $round"
+
+            # Update README.md with current progress before committing
+            update_readme "$task" "$round"
+
             git add .
             git commit -m "task($task): passed expert review — round $round"
+            git push origin main
         else
             echo "Task $task FAILED round $round — looping back"
+            echo "THE LOOP NEVER GIVES UP. Retrying."
             round=$((round + 1))
+            # No max retries. No escape. The loop runs until the Expert passes it.
         fi
     done
 done
@@ -536,6 +545,29 @@ Could an engineer read them and start coding? If not, what's missing?}
 3. [MAJOR] ...
 4. [MINOR] ...
 
+### Research Paths for Next Round:
+{This is MANDATORY on every FAIL. Do not just say "go deeper." Give the Worker
+specific directions to follow. The Worker is not a mind reader.}
+
+For each gap you identified, provide:
+- **What to search for**: Exact search queries, paper titles, or URLs to visit
+- **Where to look**: Specific sites (arxiv.org, GitHub repos, company blogs, API docs)
+- **What to extract**: The specific data points or answers you expect to see
+- **Why it matters**: How this fills the gap in the current output
+
+Example:
+- GAP: Missing data on how Perplexity's Sonar API works
+  - Search: "Perplexity Sonar API documentation pricing"
+  - Visit: https://docs.perplexity.ai/ and https://docs.perplexity.ai/guides/pricing
+  - Extract: pricing per query, rate limits, available models, response format
+  - Why: Task 2.3 requires real cost numbers per model, and Perplexity is one of the four
+
+- GAP: No academic papers cited on LLM citation behavior
+  - Search: arxiv.org for "generative engine optimization", "LLM brand recommendation bias"
+  - Visit: https://arxiv.org/abs/2311.09735 (the original GEO paper)
+  - Extract: methodology, key findings on what content features increase citation rates
+  - Why: Task 2.5 requires paper summaries, not just blog post references
+
 ### What Was Done Well (be brief — max 3 bullets):
 - ...
 
@@ -555,6 +587,77 @@ The Expert is not a cheerleader. These rules are hard constraints:
 6. **No filler tolerance.** Phrases like "it's worth noting", "interestingly", "as the landscape evolves", "further research is needed" without specific next steps are red flags. Flag every instance.
 7. **Cross-reference between tasks.** If Task 2.3 (Economics) contradicts Task 2.1 (LLM Mechanics), the Expert should catch it — even if each task individually looks fine.
 8. **Name names.** Don't say "some sources are weak." Say "Source #3 (example.com/article) is a content farm listicle and does not count as credible."
+9. **Give directions, not just grades.** Every FAIL must include a "Research Paths for Next Round" section with exact search queries, URLs to visit, data points to extract, and why each matters. The Worker should never be left wondering "what do you want me to do?"
+
+### The Loop Never Gives Up
+
+There is no maximum number of rounds. There is no timeout. There is no "good enough after N attempts."
+
+The loop runs **indefinitely** until the Expert scores 10/10. If that takes 3 rounds, fine. If it takes 15 rounds, fine. The Worker and Expert will keep going back and forth until the output is genuinely excellent.
+
+**Why no escape hatch?**
+- If the Expert keeps failing the Worker, it means the output isn't good enough yet.
+- The Expert's job is to guide the Worker toward passing by giving increasingly specific research paths and feedback.
+- If the Worker is stuck, the Expert gives more detailed instructions, not a mercy pass.
+- The cost of running extra rounds is far lower than the cost of shipping mediocre research.
+
+```
+ROUND 1:  Worker submits → Expert rejects (score: 5/10)
+ROUND 2:  Worker improves → Expert rejects (score: 7/10)
+ROUND 3:  Worker goes deeper → Expert rejects (score: 8/10)
+ROUND 4:  Worker nails the gaps → Expert rejects (score: 9/10)
+ROUND 5:  Worker fixes last detail → Expert PASSES (score: 10/10)
+ROUND 6:  does not exist. Move to next task.
+```
+
+This is not optional. The controller has no `max_retries`. The `while` loop has no break condition other than PASS.
+
+### README.md — The Progress Dashboard
+
+The README.md is updated **on every commit**. It is the first thing you see when you open the repo tomorrow morning. It tells you exactly what's done, what's in progress, and what's left.
+
+The `update_readme` function in the controller rewrites README.md before each commit:
+
+```markdown
+# Bitsy — Status
+
+> Last updated: {timestamp}
+
+## Progress
+
+| Task | Description | Status | Rounds | Last Score |
+|------|-------------|--------|--------|------------|
+| 2.1 | How LLMs Decide What to Mention | PASSED | 4 | 10/10 |
+| 2.2 | How GEO Tools Work | PASSED | 3 | 10/10 |
+| 2.3 | The Economics | IN PROGRESS | 2 | 7/10 |
+| 2.4 | The Competitive Landscape | PENDING | - | - |
+| 2.5 | Papers and Research | PENDING | - | - |
+| 3.1 | Research Hub Pages | PENDING | - | - |
+| 3.2 | Simulation Tool | PENDING | - | - |
+| 3.3 | Cost Calculator | PENDING | - | - |
+
+## Latest Expert Feedback
+
+**Task 2.3 — Round 2 — Score: 7/10 — FAIL**
+{summary of what the Expert said}
+
+## Completed Research
+
+- [How LLMs Decide What to Mention](research/2.1-llm-mechanics.md) — passed round 4
+- [How GEO Tools Work](research/2.2-geo-tools.md) — passed round 3
+
+## How to Run
+
+See [program.md](program.md) for full details.
+```
+
+**Rules for README.md:**
+1. Updated BEFORE every git commit (so the commit includes the latest README)
+2. Shows ALL tasks with their current status (PASSED / IN PROGRESS / PENDING)
+3. Shows how many rounds each task took
+4. Shows the last Expert score for the current/most recent task
+5. Links to completed research files
+6. Is the ONLY file you need to read to understand current state
 
 ---
 
@@ -602,17 +705,27 @@ export GOOGLE_AI_API_KEY="..."
 ./controller.sh
 
 # The controller will:
-# 1. Spin up Worker tmux sessions for each task
-# 2. Spin up Expert tmux sessions to evaluate
-# 3. Loop until each task passes
-# 4. Commit after each pass
-# 5. Push when all tasks are done
+# 1. Spin up Worker tmux sessions with --dangerously-skip-permissions
+# 2. Spin up Expert tmux sessions with --dangerously-skip-permissions
+# 3. Both agents run fully autonomous — no permission prompts, no interruptions
+# 4. Loop forever until each task passes (no max retries)
+# 5. Update README.md and commit after each pass
+# 6. Push to origin/main after each commit
 
 # To monitor progress:
-tmux attach -t worker    # Watch the Worker
-tmux attach -t expert    # Watch the Expert
+tmux attach -t worker    # Watch the Worker in real time
+tmux attach -t expert    # Watch the Expert in real time
 tail -f logs/worker.log  # Stream Worker logs
 tail -f logs/expert.log  # Stream Expert logs
+cat README.md            # Check overall progress (updated on every commit)
+
+# IMPORTANT: Both agents use --dangerously-skip-permissions
+# This means they will:
+# - Read/write any file without asking
+# - Run any shell command without asking
+# - Make web requests without asking
+# - Never pause for confirmation
+# This is intentional. The loop must run unattended overnight.
 ```
 
 ---
@@ -623,7 +736,10 @@ tail -f logs/expert.log  # Stream Expert logs
 |--------|--------|
 | **What** | Research GEO/LLM visibility + build a Next.js product |
 | **How** | Two-agent loop: Worker researches/builds, Expert evaluates |
-| **Where** | tmux sessions, git commits on pass |
+| **Where** | tmux sessions with `--dangerously-skip-permissions` |
 | **Quality gate** | 10/10 expert score required per task |
 | **Output** | Next.js website with research + simulation + calculator |
-| **Loop rule** | Nothing gets committed until Expert exhausts all points |
+| **Loop rule** | Never gives up. No max retries. Runs until 10/10. |
+| **Progress** | README.md updated on every commit — check it first tomorrow |
+| **Expert guidance** | Every FAIL includes exact search queries, URLs, and data points for next round |
+| **Permissions** | Both agents run fully autonomous — no prompts, no interruptions |

@@ -1,19 +1,7 @@
-Task 3.3 — Cost Calculator — Round 2 complete. Here's what was built:
+Done. Both critical issues from the Expert feedback are fixed:
 
-**New files:**
-- `site/src/components/CostCalculator.tsx` — Interactive client component with full calculator logic
-- `site/src/app/calculator/page.tsx` — Dedicated `/calculator` route with explanatory content and sources
+1. **SaaS comparison now uses `promptsPerMonth`** (`brands × queriesPerBrand × pollingFrequency × 30`) instead of `queriesPerMonth` (which included model × sample amplification). For default settings: 1,500 prompts instead of 18,000 queries. Otterly shows ~$2,250/mo instead of the inflated ~$27,000/mo.
 
-**Updated files:**
-- `site/src/components/Navigation.tsx` — Added "Calculator" nav link
-- `site/src/app/research/economics/page.tsx` — Embedded interactive calculator (fixes the critical gap from Task 3.1 expert feedback)
+2. **Markup claim corrected** from "10x to 1,000x+" to "1.5x–3x (budget) to 20x–50x (premium)" with context explaining the value-add (parsing, dashboards, managed infra).
 
-**Key features:**
-- 11 models across 4 providers with real pricing from Research 2.3
-- Slider inputs for brands (1-500), queries (1-30), samples (1-30), polling frequency (1-50)
-- 5 quick presets (Startup MVP, Small Business, Agency, Enterprise, Tryscope-Style)
-- Model selection via checkboxes with per-query cost badges (budget/mid/flagship tiers)
-- Batch API toggle (50% off) and tiered strategy toggle (90/9/1 split)
-- Real-time output: summary cards, per-model breakdown table, tiered savings estimate, dynamic recommendations
-- SaaS comparison showing markup vs Rankscale, Otterly, AthenaHQ, Profound
-- Clean build: 0 errors, 0 warnings, 12 routes generated
+3. **Explanatory text added** distinguishing "API calls" (total internal queries across models and samples) from "prompts" (user-level queries that SaaS tools charge for).

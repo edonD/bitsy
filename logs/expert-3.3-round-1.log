@@ -1,0 +1,5 @@
+**Evaluation complete: FAIL — 9/10**
+
+The calculator is well-built with accurate pricing data, clean code, full completeness, and great usability. However, the **"Compared to GEO SaaS Tools" section has a critical math bug**: it multiplies total internal API queries (brands × queries × models × samples × polls × 30) by SaaS per-prompt costs, when SaaS tools charge per user-level prompt (brands × queries × polls × 30). This inflates the SaaS comparison by the model × sample factor (~12x for default settings), making the DIY vs SaaS comparison misleading.
+
+The fix is surgical: compute a separate `promptsPerMonth` variable and use it for the SaaS comparison lines.

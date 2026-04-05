@@ -279,9 +279,16 @@ export function CostCalculator({ compact = false }: CalculatorProps) {
     // Recommended config
     const avgCostPerQuery = naiveMonthlyCost / queriesPerMonth;
 
+    // SaaS tools charge per user-level prompt (one query to their platform),
+    // NOT per individual API call across models and samples.
+    // A "prompt" = one user query (e.g., "best CRM for small business").
+    // The tool handles multi-model querying and sampling internally.
+    const promptsPerMonth = brands * queriesPerBrand * pollingFrequency * 30;
+
     return {
       queriesPerDay,
       queriesPerMonth,
+      promptsPerMonth,
       modelBreakdown,
       naiveMonthlyCost,
       tieredMonthlyCost,
@@ -600,18 +607,27 @@ export function CostCalculator({ compact = false }: CalculatorProps) {
                   <h3 className="text-sm font-semibold text-amber-800 mb-2">Compared to GEO SaaS Tools</h3>
                   <div className="text-sm text-amber-700 space-y-1">
                     <p>
-                      Your raw API cost of <strong>{formatCurrency(results.naiveMonthlyCost)}/mo</strong> for{" "}
-                      {results.queriesPerMonth.toLocaleString()} queries compares to:
+                      Your raw API cost: <strong>{formatCurrency(results.naiveMonthlyCost)}/mo</strong> for{" "}
+                      {results.queriesPerMonth.toLocaleString()} API calls ({results.promptsPerMonth.toLocaleString()}{" "}
+                      unique prompts × {selectedModels.size} models × {samplesPerQuery} samples).
+                    </p>
+                    <p className="text-xs">
+                      SaaS tools charge per <em>user-level prompt</em> (one query to their platform). They handle
+                      multi-model querying and sampling internally. Based on your{" "}
+                      <strong>{results.promptsPerMonth.toLocaleString()} prompts/mo</strong>:
                     </p>
                     <ul className="list-disc list-inside space-y-0.5 ml-1 text-xs">
-                      <li>Rankscale: ~{formatCurrency(results.queriesPerMonth * 0.017)}/mo at $0.017/prompt</li>
-                      <li>Otterly.AI: ~{formatCurrency(results.queriesPerMonth * 1.5)}/mo at ~$1.50/prompt</li>
-                      <li>AthenaHQ: ~{formatCurrency(results.queriesPerMonth * 0.083)}/mo at $0.083/prompt</li>
-                      <li>Profound: ~{formatCurrency(results.queriesPerMonth * 9.98)}/mo at $9.98/prompt</li>
+                      <li>Rankscale: ~{formatCurrency(results.promptsPerMonth * 0.017)}/mo at $0.017/prompt</li>
+                      <li>Otterly.AI: ~{formatCurrency(results.promptsPerMonth * 1.5)}/mo at ~$1.50/prompt</li>
+                      <li>AthenaHQ: ~{formatCurrency(results.promptsPerMonth * 0.083)}/mo at $0.083/prompt</li>
+                      <li>Profound: ~{formatCurrency(results.promptsPerMonth * 9.98)}/mo at $9.98/prompt</li>
                     </ul>
                     <p className="text-xs mt-2">
-                      The markup over raw API cost ranges from <strong>10x</strong> (budget tools) to{" "}
-                      <strong>1,000x+</strong> (premium tools). The value add is parsing, dashboards, and insights.
+                      SaaS markup over raw API cost varies significantly by tool — from roughly{" "}
+                      <strong>1.5x&ndash;3x</strong> (budget tools like Rankscale) to{" "}
+                      <strong>20x&ndash;50x</strong> (premium tools like Profound). The premium covers parsing,
+                      dashboards, competitive insights, and managed infrastructure. Whether the premium is worth it
+                      depends on your team&apos;s ability to build and maintain the DIY pipeline.
                     </p>
                   </div>
                 </div>

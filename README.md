@@ -1,6 +1,6 @@
 # Bitsy — Status
 
-> Last updated: 2026-04-05 02:12 UTC
+> Last updated: 2026-04-05 02:18 UTC
 
 ## What is Bitsy?
 
@@ -17,7 +17,7 @@ An autonomous research-and-build loop for understanding how companies get discov
 | 2.5 | The Science | PASSED | 1 | 10/10 |
 | 3.1 | Build Research Hub Pages | IN PROGRESS | 1 | 9/10 |
 | 3.2 | Build Simulation Tool | PASSED | 1 | 10/10 |
-| 3.3 | Build Cost Calculator | IN PROGRESS | 1 | 9/10 |
+| 3.3 | Build Cost Calculator | PASSED | 2 | 10/10 |
 
 ## Completed Research
 - [How LLMs Decide What to Mention](research/2.1.md) — passed round 1
@@ -26,39 +26,41 @@ An autonomous research-and-build loop for understanding how companies get discov
 - [The Competitive Landscape](research/2.4.md) — passed round 1
 - [The Science](research/2.5.md) — passed round 1
 - Build Simulation Tool — passed round 1
+- Build Cost Calculator — passed round 2
 
-## Latest Expert Feedback (Task 3.3 — Round 1)
+## Latest Expert Feedback (Task 3.3 — Round 2)
 
 ```
-VERDICT: FAIL
+VERDICT: PASS
 
 ---
-verdict: FAIL
-score: 9/10
-round: 1
+verdict: PASS
+score: 10/10
+round: 2
 ---
+
+### Previous Round Feedback Check
+
+Both CRITICAL issues from Round 1 have been fully addressed:
+
+1. **SaaS comparison base fixed.** Line 286: `promptsPerMonth = brands * queriesPerBrand * pollingFrequency * 30` correctly computes user-level prompts without model x sample amplification. The SaaS comparison section (lines 619-623) uses `results.promptsPerMonth` for all four SaaS tool calculations. Verified: with default settings (10 brands, 5 queries, 4 models, 3 samples, 1x/day), `promptsPerMonth` = 1,500 and `queriesPerMonth` = 18,000 — the SaaS section correctly uses 1,500.
+
+2. **Markup claim corrected.** Lines 626-631 now state "1.5x-3x" for budget tools (Rankscale) and "20x-50x" for premium tools (Profound), with context that the premium covers parsing, dashboards, competitive insights, and managed infrastructure. Accurate and nuanced.
+
+Additionally, the Worker also fixed two bugs that were present in earlier iterations:
+
+3. **Tiered strategy batch discount bug fixed.** The `effectiveCost()` function (lines 261-268) now checks `model.batchDiscount < 1` per-model before applying the discount. Perplexity models (batchDiscount: 1) are correctly excluded from batch discounts in the tiered path, matching the non-tiered path behavior.
+
+4. **Tryscope preset frequency fixed.** Line 160: `frequency: 50` now matches the "50 polls/day" label and Tryscope's actual polling behavior per Research 2.2.
 
 ### 1. Builds Clean: 2/2
 
-`npm run build` succeeds with zero errors, zero warnings. No TypeScript errors. All routes compile and generate static pages correctly. The calculator page at `/calculator` is 139 B with 98.1 kB first load JS — reasonable size. No console errors expected at runtime based on code review.
+`npm run build` succeeds with zero errors, zero warnings. `npx tsc --noEmit` returns clean — zero TypeScript errors. All 16 routes generate as static content. `/calculator` is 139B page + 98.3 kB first load JS. `/research/economics` shares the same bundle via the embedded `CostCalculator compact` variant. No runtime console errors expected based on code review — no unguarded property access, no missing dependencies in the `useMemo` hook (all 7 deps listed).
 
-### 2. Content Accuracy: 1/2
+### 2. Content Accuracy: 2/2
 
-**Pricing data is accurate.** Every model's `costPerQuery`, `inputPer1M`, and `outputPer1M` in `CostCalculator.tsx` matches the approved Research 2.3 exactly:
-- GPT-4.1-nano: $0.10/$0.40 per 1M → $0.0002/query ✓
-- Claude Haiku 4.5: $1.00/$5.00 per 1M → $0.0026/query ✓
-- Perplexity Sonar: $1.00/$1.00 per 1M + $0.008/request (medium context) ✓
-- All other models verified ✓
-
-The optimization strategies section accurately represents the research: tiered (90-95%), batch (50%), prompt caching (50-90%), semantic caching (30-73%).
-
-**CRITICAL BUG: The "Compared to GEO SaaS Tools" section is mathematically wrong.** It multiplies `results.queriesPerMonth` by the SaaS per-prompt cost. But `queriesPerMonth` includes the model × sample amplification factor:
-
-```
-queriesPerMonth = brands × queriesPerBrand × modelCount × samplesPerQuery × pollingFrequency × 30
-```
-
-SaaS tools define a "prompt" as a single user-level query (e.g., "best CRM for small business"), NOT the total API calls across all models and samples. When Otterly says "15 prompts" in their $29/mo plan, that means 15 queries to their platform — they handle multi-model querying internally.
+All pricing data matches Research 2.3 exactly:
+- GPT-4.1-nano: $0.10/$0.40 per 1M tokens -> $0.0002/query (verified)
 ```
 
 ## How to Run

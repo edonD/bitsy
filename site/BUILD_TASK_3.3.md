@@ -1,30 +1,32 @@
-# Build Task 3.3: Cost Calculator — Round 3
+# Build Task 3.3: Cost Calculator — Round 4
 
 ## What Was Built
 
 An interactive cost estimation tool that lets users configure LLM brand monitoring parameters and see real-time monthly/annual cost projections. Deployed at two locations: a dedicated `/calculator` page and embedded within the `/research/economics` page.
 
-## Round 3 Changes (Bug Fixes)
+## Round 4 Changes (Bug Fixes from Expert Round 1 Feedback)
 
-### Bug 1 Fix (CRITICAL): Tiered strategy batch discount now respects per-model batchDiscount
+### Previous Rounds (3): Tiered batch discount + Tryscope preset fixes (resolved)
 
-**Problem**: The tiered strategy path applied a blanket `batchMult = 0.5` to all tiers when Batch API was enabled, ignoring per-model `batchDiscount` values. Perplexity models have `batchDiscount: 1` (no batch discount available), but the tiered path would incorrectly halve their costs.
+### Bug Fix (CRITICAL): SaaS comparison now uses correct query count
 
-**Fix** (CostCalculator.tsx lines 250-273): Refactored the tiered calculation to:
-1. Find the cheapest **model object** (not just cost number) in each tier via `getCheapestModel()` helper
-2. Compute effective cost per model using `effectiveCost()` which checks `model.batchDiscount < 1` before applying the discount — the same guard used in the non-tiered path (line 219)
-3. This ensures Perplexity Sonar (`batchDiscount: 1`) and Perplexity Sonar Pro (`batchDiscount: 1`) are never given a batch discount in the tiered path
+**Problem**: The "Compared to GEO SaaS Tools" section multiplied `queriesPerMonth` (which includes model × sample amplification) by the SaaS per-prompt cost. But SaaS tools define a "prompt" as a single user-level query (e.g., "best CRM for small business"), NOT the total API calls across all models and samples. When Otterly says "15 prompts" in their $29/mo plan, they handle multi-model querying internally.
 
-**Verification**: If a user selects only Perplexity Sonar as mid-tier and enables Batch API + Tiered Strategy, the tiered calculation now correctly applies no batch discount to the Perplexity tier, matching the non-tiered behavior.
+With default settings (10 brands, 5 queries, 4 models, 3 samples, 1 poll/day):
+- Old (wrong): Used `queriesPerMonth` = 18,000 → Otterly: ~$27,000/mo
+- New (correct): Uses `promptsPerMonth` = 10 × 5 × 1 × 30 = 1,500 → Otterly: ~$2,250/mo
 
-### Bug 2 Fix (MAJOR): Tryscope preset frequency corrected
+**Fix** (CostCalculator.tsx useMemo block): Added a new computed value:
+```
+promptsPerMonth = brands * queriesPerBrand * pollingFrequency * 30
+```
+This represents the number of unique user-level queries (without model × sample amplification). The SaaS comparison section now uses `promptsPerMonth` instead of `queriesPerMonth`, and includes explanatory text clarifying the distinction between API calls and SaaS prompts.
 
-**Problem**: The Tryscope-Style preset label said "50 polls/day" but set `frequency: 1`, producing costs 50x lower than actual Tryscope usage.
+### Bug Fix (CRITICAL): Markup claim corrected
 
-**Fix** (CostCalculator.tsx line 160): Changed `frequency: 1` to `frequency: 50` to match:
-- The preset label "50 polls/day"
-- Research 2.2 which describes Tryscope as polling "50x/day"
-- The program.md starting point description: "polling 50x/day across ChatGPT, Claude, Gemini, and Perplexity"
+**Problem**: The "10x to 1,000x markup" claim was inflated because the comparison base was wrong.
+
+**Fix**: Updated the text to state the actual markup range of ~1.5x–3x for budget tools (like Rankscale at $0.017/prompt) to ~20x–50x for premium tools (like Profound at $9.98/prompt). Added context that the premium covers parsing, dashboards, competitive insights, and managed infrastructure.
 
 ## Pages Implemented
 
@@ -87,10 +89,12 @@ An interactive cost estimation tool that lets users configure LLM brand monitori
 | Navigation | `src/components/Navigation.tsx` | Includes "Calculator" link |
 
 ### Calculation Logic
-1. **Total queries**: `brands * queriesPerBrand * modelCount * samplesPerQuery * pollingFrequency * 30`
-2. **Per-model cost**: `costPerQuery * perModelQueries + requestFee * perModelQueries`
-3. **Batch discount**: Applied as `model.batchDiscount` multiplier only when `batchDiscount < 1` (excludes Perplexity)
-4. **Tiered strategy**: Finds cheapest model object per tier, computes `effectiveCost()` with per-model batch discount awareness
+1. **Total API queries**: `brands * queriesPerBrand * modelCount * samplesPerQuery * pollingFrequency * 30`
+2. **User-level prompts** (for SaaS comparison): `brands * queriesPerBrand * pollingFrequency * 30`
+3. **Per-model cost**: `costPerQuery * perModelQueries + requestFee * perModelQueries`
+4. **Batch discount**: Applied as `model.batchDiscount` multiplier only when `batchDiscount < 1` (excludes Perplexity)
+5. **Tiered strategy**: Finds cheapest model object per tier, computes `effectiveCost()` with per-model batch discount awareness
+6. **SaaS comparison**: Uses `promptsPerMonth` (not `queriesPerMonth`) as the base for SaaS tool cost estimates
 
 ## Build Status
 

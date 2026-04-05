@@ -1,0 +1,7 @@
+**VERDICT: PASS -- 10/10**
+
+Both bugs from Round 2 are fixed correctly:
+- **Bug 1 (tiered batch discount):** `getCheapestModel()` now returns the full `ModelInfo` object, and `effectiveCost()` checks `model.batchDiscount < 1` per-model -- Perplexity is no longer incorrectly discounted in the tiered path.
+- **Bug 2 (Tryscope preset):** `frequency: 50` now matches the "50 polls/day" label.
+
+Build is clean, content matches Research 2.3, usability is strong, code quality is solid, and all spec elements are complete. Task 3.3 passes.

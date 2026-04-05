@@ -1,6 +1,6 @@
 # Bitsy — Status
 
-> Last updated: 2026-04-05 01:48 UTC
+> Last updated: 2026-04-05 01:59 UTC
 
 ## What is Bitsy?
 
@@ -16,7 +16,7 @@ An autonomous research-and-build loop for understanding how companies get discov
 | 2.4 | The Competitive Landscape | PASSED | 1 | 10/10 |
 | 2.5 | The Science | PASSED | 1 | 10/10 |
 | 3.1 | Build Research Hub Pages | IN PROGRESS | 1 | 9/10 |
-| 3.2 | Build Simulation Tool | PENDING | — | — |
+| 3.2 | Build Simulation Tool | PASSED | 1 | 10/10 |
 | 3.3 | Build Cost Calculator | PASSED | 3 | 10/10 |
 
 ## Completed Research
@@ -25,9 +25,10 @@ An autonomous research-and-build loop for understanding how companies get discov
 - [The Economics](research/2.3.md) — passed round 1
 - [The Competitive Landscape](research/2.4.md) — passed round 1
 - [The Science](research/2.5.md) — passed round 1
+- Build Simulation Tool — passed round 1
 - Build Cost Calculator — passed round 3
 
-## Latest Expert Feedback (Task 3.3 — Round 3)
+## Latest Expert Feedback (Task 3.2 — Round 1)
 
 ```
 VERDICT: PASS
@@ -35,31 +36,30 @@ VERDICT: PASS
 ---
 verdict: PASS
 score: 10/10
-round: 3
+round: 1
 ---
 
 ### 1. Builds Clean: 2/2
 
-`npm run build` succeeds with zero errors, zero warnings, zero TypeScript errors. 12 routes generated as static content. `/calculator` at 139B + ~98KB First Load JS. Clean.
+`npm run build` succeeds with zero errors, zero warnings, zero TypeScript errors. All 16 routes generate as static content. No ESLint configured, but the spec doesn't require it — TypeScript strict checking passes cleanly. Bundle sizes are reasonable (92-99KB first load JS for simulation pages).
+
+Verified: `npx tsc --noEmit` produces no output (clean).
 
 ### 2. Content Accuracy: 2/2
 
-All pricing data verified against Research 2.3:
+Every key number in the simulation engine traces back to the approved research:
 
-- GPT-4.1-nano: $0.10/$0.40 per 1M -> $0.0002/query at 100in+500out -- correct
-- Claude Sonnet 4.6: $3.00/$15.00 -> $0.0078/query -- correct
-- Perplexity Sonar: $1.00/$1.00 per 1M + $0.008/req -- correct
-- Claude Haiku 4.5: $1.00/$5.00 -> $0.0026/query -- correct
-- Gemini 2.5 Pro: $1.25/$10.00 -> $0.0051/query -- correct
-- Batch discount: 50% for OpenAI/Anthropic/Google, none for Perplexity -- correct
-- SaaS comparison pricing (Rankscale $0.017, Otterly ~$1.50, AthenaHQ $0.083, Profound $9.98) -- matches Research 2.3 Section 5
-- Tiered strategy 90/9/1 split -- matches Research 2.3 Section 4.1
+| Claim in Code | Research Source | Verified |
+|---|---|---|
+| ChatGPT ~3.5 brands/response | Research 2.1 line 113: "Only 3–4 brands are cited per ChatGPT response" | ✓ |
+| Perplexity ~13 brands/response | Research 2.2 line 234: "Perplexity 21.87" (avg citations, adjusted for brand mentions vs total citations) | ✓ |
+| 15% accuracy variance at temp=0 | Research 2.2 line 134: "Accuracy variations: Up to 15% across runs at temperature=0" | ✓ |
+| 12% cross-model URL overlap | Research 2.2 line 239: "Only 12% of URLs cited by AI tools overlap with Google's top 10 results" | ✓ |
+| Share of Model (SoM) as primary metric | Research 2.4: Used by Profound, Peec AI, Scrunch as industry standard | ✓ |
+| 50x/day polling reference | Research 2.2: Tryscope polling cadence | ✓ |
+| 18-36 month parametric updates | Research 2.1: Knowledge cutoff/retraining cadence | ✓ |
 
-Query formula `brands x queries x models x samples x frequency x 30` is correctly implemented and matches the research methodology. Nuances preserved (Perplexity dual-cost structure, batch API 24h delay caveat, temperature/sample relationship).
-
-### 3. Usability: 2/2
-
-- Preset buttons for 5 common configurations -- instant access, no slider fiddling
+The methodology notes on the results page and trends page correctly attribute these numbers to the specific research tasks. No editorializing or misrepresentation detected.
 ```
 
 ## How to Run

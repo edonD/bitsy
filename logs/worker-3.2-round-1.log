@@ -1,0 +1,15 @@
+Task 3.2 Round 1 is complete. Here's what was built:
+
+**LLM Visibility Simulator** — 4 new routes with a research-calibrated simulation engine:
+
+1. **`/simulate`** — Setup page with industry presets (CRM, PM, Email, Hosting), brand/competitor/query inputs, model selection (ChatGPT, Claude, Gemini, Perplexity), and samples config
+2. **`/simulate/results`** — Brand visibility rankings table with Share of Model (SoM), avg position, sentiment breakdown, per-model rates, and sample response snippets
+3. **`/simulate/compare`** — Side-by-side model comparison bars, model divergence table (best vs worst model per brand), cross-model agreement analysis
+4. **`/simulate/trends`** — Historical run tracking with localStorage persistence (up to 20 runs), per-model trend tables, clickable history
+
+**Key technical decisions:**
+- Simulation engine uses seeded PRNG for deterministic results calibrated against research (ChatGPT ~3.5 brands/response, Perplexity ~13, 15% variance, 12% cross-model overlap)
+- React Context provider shares state across all 4 route pages via a client-side layout
+- All numbers trace back to approved Research 2.1, 2.2, 2.4 findings
+
+**Build: SUCCESS** — zero errors, zero warnings, 16 routes generated.

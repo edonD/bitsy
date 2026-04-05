@@ -10,6 +10,7 @@ const navItems = [
   { href: "/research/economics", label: "Economics" },
   { href: "/research/landscape", label: "Landscape" },
   { href: "/research/papers", label: "Papers" },
+  { href: "/simulate", label: "Simulate" },
   { href: "/calculator", label: "Calculator" },
 ];
 

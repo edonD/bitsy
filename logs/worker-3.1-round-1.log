@@ -1,0 +1,13 @@
+Task 3.1 is complete. Here's what was built:
+
+**8 pages** in a Next.js 14 + Tailwind CSS site, all building and rendering cleanly:
+
+- `/` — Landing page with GEO overview, key market stats, SEO vs GEO comparison
+- `/research` — Index linking to all 5 research pages
+- `/research/llm-mechanics` — Task 2.1: training pipelines, RLHF, parametric vs RAG, signal ranking
+- `/research/geo-tools` — Task 2.2: 4 parsing methods, statistical methods, polling architecture
+- `/research/economics` — Task 2.3: API pricing tables, cost modeling, optimization strategies
+- `/research/landscape` — Task 2.4: 40+ tools across 6 tiers with funding/pricing
+- `/research/papers` — Task 2.5: GEO paper results, citation studies, myth-busting
+
+**Build status**: `npm run build` succeeds with zero errors, zero warnings, all 11 routes statically generated. Reusable component library (`ResearchPage.tsx`) with `DataTable`, `KeyStat`, `Callout`, `Quote`, `SourceList` components. Every number, finding, and source URL from the approved research is preserved.

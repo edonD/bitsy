@@ -1,6 +1,6 @@
 # Bitsy — Status
 
-> Last updated: 2026-04-05 01:17 UTC
+> Last updated: 2026-04-05 01:35 UTC
 
 ## What is Bitsy?
 
@@ -15,7 +15,7 @@ An autonomous research-and-build loop for understanding how companies get discov
 | 2.3 | The Economics | PASSED | 1 | 10/10 |
 | 2.4 | The Competitive Landscape | PASSED | 1 | 10/10 |
 | 2.5 | The Science | PASSED | 1 | 10/10 |
-| 3.1 | Build Research Hub Pages | PENDING | — | — |
+| 3.1 | Build Research Hub Pages | IN PROGRESS | 1 | 9/10 |
 | 3.2 | Build Simulation Tool | PENDING | — | — |
 | 3.3 | Build Cost Calculator | PENDING | — | — |
 
@@ -26,38 +26,39 @@ An autonomous research-and-build loop for understanding how companies get discov
 - [The Competitive Landscape](research/2.4.md) — passed round 1
 - [The Science](research/2.5.md) — passed round 1
 
-## Latest Expert Feedback (Task 2.5 — Round 1)
+## Latest Expert Feedback (Task 3.1 — Round 1)
 
 ```
-VERDICT: PASS
+VERDICT: FAIL
 
 ---
-verdict: PASS
-score: 10/10
+verdict: FAIL
+score: 9/10
 round: 1
 ---
 
-### 1. Source Quality: 2/2
+### 1. Builds Clean: 2/2
 
-25 distinct sources cited with URLs, including:
-- **8 academic papers** with arXiv IDs (GEO paper [2311.09735], cognitive bias paper [2502.01349], two position bias papers, two RAG selection papers, RAG survey [2312.10997])
-- **8 large-scale industry studies** from Profound (680M citations), Yext (17.2M citations), Ahrefs (17M citations), Seer Interactive (5,000+ URLs), Brandlight, SparkToro/Datos
-- **3 analyst reports** from Gartner, Bain & Company, a16z
-- **5 expert analysis sources** including Search Engine Land, Lily Ray, The Ad Spend
-- **News sources** with primary testimony (Eddy Cue DOJ testimony via MacRumors/TechCrunch)
+`npm run build` succeeds with zero errors, zero warnings, zero TypeScript errors. All 11 routes generated as static content. First Load JS is a reasonable ~94KB shared. Clean build.
 
-The source mix is excellent: primary academic papers, first-party industry data at massive scale, analyst reports, and skeptical/contrarian voices. No content farm listicles. No filler sources.
+### 2. Content Accuracy: 2/2
 
-### 2. Completeness: 2/2
+Spot-checked dozens of data points across all five research pages against the approved research files:
 
-Checking against the task spec's required items:
+- **LLM Mechanics**: "80%+ from CommonCrawl" matches research 2.1 (">80%"). "41% authoritative lists" matches Onely citation. "79% parametric" matches. "3x recency boost" matches. Licensed data deal values ($60M, $70M, $203M) match. Knowledge cutoff dates checked and accurate.
+- **Economics**: API pricing tables (GPT-4.1-nano at $0.10/$0.40, Claude Sonnet 4.6 at $3.00/$15.00, Perplexity Sonar at $1.00/$1.00 + request fees) all match research 2.3. Monthly cost scenarios (18,000 queries at $3.60–$140.40/mo) match. Break-even numbers (870 conservative, 410 growth) match.
+- **Papers**: GEO paper strategies and percentage changes (+41% quotation, -9% keyword stuffing) match research 2.5. Democratization effect data (rank 5 cite sources: +115.1%) matches. 680M citation figure matches.
+- **Landscape**: Profound $155M funding, $1B valuation, 40+ tools — all match research 2.4.
 
-- **"GEO: Generative Engine Optimization" paper**: ANSWERED — Section 1 covers this in extraordinary depth across 10 sub-sections (citation details, verbatim abstract, methodology, 9 strategies with exact percentages, visibility metrics, rank-specific results, domain-specific effectiveness, combination strategies, real-world validation, limitations).
-- **Follow-up papers on LLM citation behavior**: ANSWERED — Section 5 covers 4 papers on cognitive biases, position bias (two papers), and cold-start recommendation bias, all with arXiv IDs and relevance to GEO.
-- **a16z's "GEO over SEO" analysis**: ANSWERED — Section 4 covers the thesis, data points ($80B market, 10% Vercel signups from ChatGPT, query length comparison), market framing, and case study (Canada Goose).
-- **Brandlight's research on traditional vs. AI search overlap**: ANSWERED — Section 2.4 covers the headline finding (90% of ChatGPT citations from outside Google's top 20), source diversity as strongest predictor, and specific examples.
-- **Y Combinator's projections on search volume decline**: The specific YC source is not cited by name. However, the topic is comprehensively covered through Gartner (25% decline by 2026, 50% by 2028), Bain (60% zero-click), SparkToro (360 clicks per 1,000 searches), Ahrefs (58% CTR reduction), and Apple/Safari testimony. The Worker may have determined that no standalone YC projection exists as a citable document — the search volume decline topic is covered by stronger primary sources.
-- **Papers on LLM recommendation bias, brand mention frequency, or RAG relevance**: ANSWERED — Section 5 covers recommendation bias (4 papers), Section 2 covers brand mention frequency (empirical studies at scale), and Section 7 covers RAG architecture and source selection science with 3 papers.
+Nuances are preserved: the schema markup accuracy-vs-frequency distinction, the Datos counterpoint to Gartner's search decline prediction, the "no single AI optimization strategy" finding from Yext. No editorialization detected.
+
+One minor note: the Ahrefs citation study link on the papers page (`https://ahrefs.com/blog/`) is a generic blog URL, not a specific article. Not enough to dock a point, but worth fixing.
+
+### 3. Usability: 2/2
+
+- Sticky navigation with active state highlighting
+- "Back to Research Hub" breadcrumb on every research page
+- Task badges (e.g., "Task 2.1") provide clear provenance
 ```
 
 ## How to Run

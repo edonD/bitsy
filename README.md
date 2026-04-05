@@ -28,41 +28,6 @@ An autonomous research-and-build loop for understanding how companies get discov
 - Build Simulation Tool — passed round 1
 - Build Cost Calculator — passed round 2
 
-## Latest Expert Feedback (Task 3.3 — Round 2)
-
-```
-VERDICT: PASS
-
----
-verdict: PASS
-score: 10/10
-round: 2
----
-
-### Previous Round Feedback Check
-
-Both CRITICAL issues from Round 1 have been fully addressed:
-
-1. **SaaS comparison base fixed.** Line 286: `promptsPerMonth = brands * queriesPerBrand * pollingFrequency * 30` correctly computes user-level prompts without model x sample amplification. The SaaS comparison section (lines 619-623) uses `results.promptsPerMonth` for all four SaaS tool calculations. Verified: with default settings (10 brands, 5 queries, 4 models, 3 samples, 1x/day), `promptsPerMonth` = 1,500 and `queriesPerMonth` = 18,000 — the SaaS section correctly uses 1,500.
-
-2. **Markup claim corrected.** Lines 626-631 now state "1.5x-3x" for budget tools (Rankscale) and "20x-50x" for premium tools (Profound), with context that the premium covers parsing, dashboards, competitive insights, and managed infrastructure. Accurate and nuanced.
-
-Additionally, the Worker also fixed two bugs that were present in earlier iterations:
-
-3. **Tiered strategy batch discount bug fixed.** The `effectiveCost()` function (lines 261-268) now checks `model.batchDiscount < 1` per-model before applying the discount. Perplexity models (batchDiscount: 1) are correctly excluded from batch discounts in the tiered path, matching the non-tiered path behavior.
-
-4. **Tryscope preset frequency fixed.** Line 160: `frequency: 50` now matches the "50 polls/day" label and Tryscope's actual polling behavior per Research 2.2.
-
-### 1. Builds Clean: 2/2
-
-`npm run build` succeeds with zero errors, zero warnings. `npx tsc --noEmit` returns clean — zero TypeScript errors. All 16 routes generate as static content. `/calculator` is 139B page + 98.3 kB first load JS. `/research/economics` shares the same bundle via the embedded `CostCalculator compact` variant. No runtime console errors expected based on code review — no unguarded property access, no missing dependencies in the `useMemo` hook (all 7 deps listed).
-
-### 2. Content Accuracy: 2/2
-
-All pricing data matches Research 2.3 exactly:
-- GPT-4.1-nano: $0.10/$0.40 per 1M tokens -> $0.0002/query (verified)
-```
-
 ## How to Run
 
 ```bash

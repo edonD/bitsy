@@ -1,6 +1,6 @@
 # Bitsy — Status
 
-> Last updated: 2026-04-05 00:44 UTC
+> Last updated: 2026-04-05 01:06 UTC
 
 ## What is Bitsy?
 
@@ -13,7 +13,7 @@ An autonomous research-and-build loop for understanding how companies get discov
 | 2.1 | How LLMs Decide What to Mention | PASSED | 1 | 10/10 |
 | 2.2 | How GEO Tools Work Under the Hood | PASSED | 1 | 10/10 |
 | 2.3 | The Economics | PASSED | 1 | 10/10 |
-| 2.4 | The Competitive Landscape | PENDING | — | — |
+| 2.4 | The Competitive Landscape | PASSED | 1 | 10/10 |
 | 2.5 | The Science | PENDING | — | — |
 | 3.1 | Build Research Hub Pages | PENDING | — | — |
 | 3.2 | Build Simulation Tool | PENDING | — | — |
@@ -23,8 +23,9 @@ An autonomous research-and-build loop for understanding how companies get discov
 - [How LLMs Decide What to Mention](research/2.1.md) — passed round 1
 - [How GEO Tools Work Under the Hood](research/2.2.md) — passed round 1
 - [The Economics](research/2.3.md) — passed round 1
+- [The Competitive Landscape](research/2.4.md) — passed round 1
 
-## Latest Expert Feedback (Task 2.3 — Round 1)
+## Latest Expert Feedback (Task 2.4 — Round 1)
 
 ```
 VERDICT: PASS
@@ -37,25 +38,26 @@ round: 1
 
 ### 1. Source Quality: 2/2
 
-This is exceptional sourcing. The document cites 35+ distinct sources with URLs, organized into a clean source index (Section 12). The mix is exactly what I demand:
+72 sources cited in a dedicated Source Index. The mix is excellent:
+- **Primary sources**: Fortune, TechCrunch, AdExchanger, PR Newswire, GlobeNewsWire for funding/company data. Official pricing pages for every tool (Evertune, Peec AI, Otterly, Scrunch, AthenaHQ, etc.). GitHub repositories with star counts.
+- **Secondary sources**: G2 reviews, Capterra, Rankability reviews, industry analysis blogs.
+- **Academic/research repos**: GEO-optim/GEO (Princeton), AutoGEO (CMU/ICLR 2026), Awesome-GEO.
+- **Revenue data**: GetLatka for Otterly ($770K), AthenaHQ ($990K), Goodie AI ($1.2M).
 
-- **Primary sources**: Official API pricing pages for all four major providers (OpenAI, Anthropic, Google, Perplexity), with direct links to rate limit documentation.
-- **Financial data from SEC filings**: Semrush investor relations page (NASDAQ: SEMR) for revenue, ARPU, and growth metrics — not some blogger's guess.
-- **Vendor pricing pages**: Direct links to AthenaHQ, Otterly.AI, Peec AI, Rankscale, Profound, Scrunch, Sellm — first-party pricing, not secondhand summaries.
-- **Industry benchmarks**: First Page Sage for GEO-specific CAC data, Dimension Market Research for market sizing, Menlo Ventures for market trends.
-- **Technical references**: AWS architecture patterns, Redis LLMOps guide, inference.net batch vs. real-time analysis.
-
-No source is a listicle or content farm. The Geoptie and ZipTie.dev tool comparisons are borderline, but they're used alongside direct vendor pricing pages, not as sole sources. Acceptable.
+No source is a content farm listicle used as a primary authority. Review aggregator sites (G2, Capterra) are used appropriately for user complaint data, not as substitutes for primary research.
 
 ### 2. Completeness: 2/2
 
-Checking every sub-question from the task spec:
+Every sub-question from the task spec is answered substantively:
 
-- **Cost per API call across models (GPT-4o, GPT-4o-mini, Claude Sonnet, Claude Haiku, Gemini Pro, Gemini Flash, Perplexity Sonar)**: ANSWERED — Section 1 covers all specified models plus extras (GPT-4.1 series, Grok, Gemini 3.x previews). Includes input/output/batch/cached pricing. Includes rate limits by tier. Goes beyond the spec.
-- **Cost modeling: X queries x Y models x Z samples/day = $/month**: ANSWERED — Section 3 provides four distinct scenarios (Small SaaS, Enterprise, Tryscope-style, Budget MVP) with explicit formulas: brands x queries x models x samples x days = queries/month, then priced across model strategies.
-- **Where can you cut costs without losing signal?**: ANSWERED — Section 4 devotes 7 sub-sections to this: tiered models, batch API, prompt caching, semantic caching, low-temperature sampling, smart scheduling, and a combined impact table. Each with specific savings percentages.
-- **Comparison to traditional SEO tool pricing (Semrush $130-500/mo, Ahrefs $99-999/mo)**: ANSWERED — Section 6 provides current pricing for Semrush, Ahrefs, and Moz with annual discounts and hidden costs. Includes Semrush public financial data (ARR, ARPU, AI revenue contribution). Side-by-side comparison table (Section 6.3).
-- **Break-even analysis: at what price point does a GEO SaaS become viable?**: ANSWERED — Section 7 provides unit economics at three price points ($99, $199, $499), annual cost structure across 3 years, revenue projections by month, and a specific break-even point (~230 customers at $199/mo, month 22). Includes CAC benchmarks and market sizing.
+- **"Map every GEO/LLMO tool: name, pricing, features, funding, team size"** — ANSWERED. 40+ tools mapped across 8 tiers with structured tables for each. Pricing is specific to the dollar/euro. Funding amounts include round details and lead investors. Team sizes provided where available. Client names included (Target, Figma, Walmart, Chanel, ElevenLabs, etc.).
+- **"What's missing in the market? Where are the gaps?"** — ANSWERED. Section 14.1 identifies 7 specific gaps: pre-publish simulation, revenue attribution, real-time alerting, e-commerce GEO, multi-language depth, open standards, statistical rigor.
+- **"What do users complain about in existing tools?"** — ANSWERED. Section 14.2 identifies 5 structural complaints with specific examples, direct quotes ("Don't just tell me I'm not showing up — tell me what to fix"), and tool-specific complaints (Profound's $499/50 prompts, Ahrefs' inconsistent accuracy, BrightEdge's $50K+ contracts).
+- **"Open-source alternatives — does anything exist on GitHub?"** — ANSWERED. Section 14.3 covers 15 open-source projects across 4 categories: dedicated GEO monitors (AICW, geo-aeo-tracker, AiCMO, GetCito, Citatra), multi-LLM libraries (LiteLLM, ChainForge, LLM Council, prompto), academic repos (GEO-optim, AutoGEO, Awesome-GEO), and content linters (geo-lint, GEO Optimizer Skill, GEO Analyzer).
+
+### 3. Depth: 2/2
+
+This goes well beyond surface-level:
 ```
 
 ## How to Run

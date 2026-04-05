@@ -1,0 +1,17 @@
+Task 2.4 Round 1 is complete. Here's what was delivered to `/home/ubuntu/bitsy/research/2.4.md`:
+
+**Scope of research:**
+- **40+ GEO/LLMO tools** mapped across 8 tiers (Enterprise, Mid-Market, Budget, SEO Incumbents, Free/Freemium, API Infrastructure, Pre-Publish Simulation, Agencies)
+- **72 cited sources** with URLs
+- **~$290M+ in tracked funding** across the sector
+
+**Key findings:**
+- **Market leader**: Profound ($155M raised, $1B unicorn valuation, 700+ enterprise clients)
+- **Fastest-growing**: Peec AI ($29M raised in <12 months, 300 new customers/month)
+- **Cheapest**: Rankscale ($20/mo), Trackerly ($27/mo), AEO Checker ($5/mo)
+- **Pre-publish simulation**: Only Tryscope does this — deep-dived their founder, YC backing, features, and early-stage caveats
+- **15 open-source alternatives** cataloged including AICW, GEO/AEO Tracker, LiteLLM (42.2K stars), and AutoGEO (CMU/ICLR 2026)
+
+**User complaints** (top 5 with quotes and specifics): monitoring without action, hallucination blindness, credit pricing traps, API vs real-UI data gap, no ROI attribution
+
+**Actionable Bitsy recommendations**: Build pre-publish simulation, expose statistical confidence, target $49-199/month, cover 8+ engines. Do NOT build full SEO platform, do NOT pursue enterprise-only pricing, do NOT build an agency model.

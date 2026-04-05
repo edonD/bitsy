@@ -1,0 +1,12 @@
+Research for Task 2.3 (The Economics) — Round 1 is complete. The document at `/home/ubuntu/bitsy/research/2.3.md` covers:
+
+1. **API pricing for all major models** — OpenAI (GPT-4o, 4.1, 4.1-nano, 4o-mini), Anthropic (Opus 4.6, Sonnet 4.6, Haiku 4.5), Google (Gemini 2.5 Pro/Flash/Flash-Lite), Perplexity (Sonar/Sonar Pro), xAI Grok — with per-1M-token pricing, batch discounts, and rate limits
+2. **Per-query cost table** — concrete costs from $0.0002 (GPT-4.1-nano) to $0.02+ (Sonar Pro with request fees)
+3. **4 cost modeling scenarios** — Small SaaS (10 brands), Enterprise (100 brands), Tryscope-style, MVP startup
+4. **7 cost optimization strategies** with specific savings percentages and cumulative impact (90-97% total savings possible)
+5. **Complete GEO SaaS market pricing** — 15+ competitors with exact monthly prices, per-prompt costs, features (Rankscale $20/mo to Profound $499+/mo)
+6. **Traditional SEO tool comparison** — Semrush and Ahrefs pricing, Semrush public financial data ($3,522 avg ARR/customer)
+7. **Full break-even analysis** — unit economics model, margin benchmarks (80-91% for optimized GEO SaaS), cost structure, revenue projections, ~22-month break-even timeline
+8. **GEO market size** — $848M-$1.01B (2025) growing to $17-34B by 2034
+9. **Actionable recommendations** — 7 "do this" and 5 "don't do this" with specific reasoning
+10. **45+ cited sources** with URLs across official docs, market data, financial reports, and industry analyses

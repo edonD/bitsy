@@ -1,6 +1,6 @@
 # Bitsy — Status
 
-> Last updated: 2026-04-05 01:59 UTC
+> Last updated: 2026-04-05 02:12 UTC
 
 ## What is Bitsy?
 
@@ -17,7 +17,7 @@ An autonomous research-and-build loop for understanding how companies get discov
 | 2.5 | The Science | PASSED | 1 | 10/10 |
 | 3.1 | Build Research Hub Pages | IN PROGRESS | 1 | 9/10 |
 | 3.2 | Build Simulation Tool | PASSED | 1 | 10/10 |
-| 3.3 | Build Cost Calculator | PASSED | 3 | 10/10 |
+| 3.3 | Build Cost Calculator | IN PROGRESS | 1 | 9/10 |
 
 ## Completed Research
 - [How LLMs Decide What to Mention](research/2.1.md) — passed round 1
@@ -26,40 +26,39 @@ An autonomous research-and-build loop for understanding how companies get discov
 - [The Competitive Landscape](research/2.4.md) — passed round 1
 - [The Science](research/2.5.md) — passed round 1
 - Build Simulation Tool — passed round 1
-- Build Cost Calculator — passed round 3
 
-## Latest Expert Feedback (Task 3.2 — Round 1)
+## Latest Expert Feedback (Task 3.3 — Round 1)
 
 ```
-VERDICT: PASS
+VERDICT: FAIL
 
 ---
-verdict: PASS
-score: 10/10
+verdict: FAIL
+score: 9/10
 round: 1
 ---
 
 ### 1. Builds Clean: 2/2
 
-`npm run build` succeeds with zero errors, zero warnings, zero TypeScript errors. All 16 routes generate as static content. No ESLint configured, but the spec doesn't require it — TypeScript strict checking passes cleanly. Bundle sizes are reasonable (92-99KB first load JS for simulation pages).
+`npm run build` succeeds with zero errors, zero warnings. No TypeScript errors. All routes compile and generate static pages correctly. The calculator page at `/calculator` is 139 B with 98.1 kB first load JS — reasonable size. No console errors expected at runtime based on code review.
 
-Verified: `npx tsc --noEmit` produces no output (clean).
+### 2. Content Accuracy: 1/2
 
-### 2. Content Accuracy: 2/2
+**Pricing data is accurate.** Every model's `costPerQuery`, `inputPer1M`, and `outputPer1M` in `CostCalculator.tsx` matches the approved Research 2.3 exactly:
+- GPT-4.1-nano: $0.10/$0.40 per 1M → $0.0002/query ✓
+- Claude Haiku 4.5: $1.00/$5.00 per 1M → $0.0026/query ✓
+- Perplexity Sonar: $1.00/$1.00 per 1M + $0.008/request (medium context) ✓
+- All other models verified ✓
 
-Every key number in the simulation engine traces back to the approved research:
+The optimization strategies section accurately represents the research: tiered (90-95%), batch (50%), prompt caching (50-90%), semantic caching (30-73%).
 
-| Claim in Code | Research Source | Verified |
-|---|---|---|
-| ChatGPT ~3.5 brands/response | Research 2.1 line 113: "Only 3–4 brands are cited per ChatGPT response" | ✓ |
-| Perplexity ~13 brands/response | Research 2.2 line 234: "Perplexity 21.87" (avg citations, adjusted for brand mentions vs total citations) | ✓ |
-| 15% accuracy variance at temp=0 | Research 2.2 line 134: "Accuracy variations: Up to 15% across runs at temperature=0" | ✓ |
-| 12% cross-model URL overlap | Research 2.2 line 239: "Only 12% of URLs cited by AI tools overlap with Google's top 10 results" | ✓ |
-| Share of Model (SoM) as primary metric | Research 2.4: Used by Profound, Peec AI, Scrunch as industry standard | ✓ |
-| 50x/day polling reference | Research 2.2: Tryscope polling cadence | ✓ |
-| 18-36 month parametric updates | Research 2.1: Knowledge cutoff/retraining cadence | ✓ |
+**CRITICAL BUG: The "Compared to GEO SaaS Tools" section is mathematically wrong.** It multiplies `results.queriesPerMonth` by the SaaS per-prompt cost. But `queriesPerMonth` includes the model × sample amplification factor:
 
-The methodology notes on the results page and trends page correctly attribute these numbers to the specific research tasks. No editorializing or misrepresentation detected.
+```
+queriesPerMonth = brands × queriesPerBrand × modelCount × samplesPerQuery × pollingFrequency × 30
+```
+
+SaaS tools define a "prompt" as a single user-level query (e.g., "best CRM for small business"), NOT the total API calls across all models and samples. When Otterly says "15 prompts" in their $29/mo plan, that means 15 queries to their platform — they handle multi-model querying internally.
 ```
 
 ## How to Run

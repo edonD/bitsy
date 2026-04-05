@@ -1,6 +1,6 @@
 # Bitsy — Status
 
-> Last updated: 2026-04-05 01:35 UTC
+> Last updated: 2026-04-05 01:45 UTC
 
 ## What is Bitsy?
 
@@ -17,7 +17,7 @@ An autonomous research-and-build loop for understanding how companies get discov
 | 2.5 | The Science | PASSED | 1 | 10/10 |
 | 3.1 | Build Research Hub Pages | IN PROGRESS | 1 | 9/10 |
 | 3.2 | Build Simulation Tool | PENDING | — | — |
-| 3.3 | Build Cost Calculator | PENDING | — | — |
+| 3.3 | Build Cost Calculator | PENDING | 2 | 9/10 |
 
 ## Completed Research
 - [How LLMs Decide What to Mention](research/2.1.md) — passed round 1
@@ -26,7 +26,7 @@ An autonomous research-and-build loop for understanding how companies get discov
 - [The Competitive Landscape](research/2.4.md) — passed round 1
 - [The Science](research/2.5.md) — passed round 1
 
-## Latest Expert Feedback (Task 3.1 — Round 1)
+## Latest Expert Feedback (Task 3.3 — Round 2)
 
 ```
 VERDICT: FAIL
@@ -34,31 +34,31 @@ VERDICT: FAIL
 ---
 verdict: FAIL
 score: 9/10
-round: 1
+round: 2
 ---
 
 ### 1. Builds Clean: 2/2
 
-`npm run build` succeeds with zero errors, zero warnings, zero TypeScript errors. All 11 routes generated as static content. First Load JS is a reasonable ~94KB shared. Clean build.
+`npm run build` succeeds with zero errors, zero warnings, zero TypeScript errors. 12 routes generated as static content. `/calculator` at 139B + ~98KB First Load JS. Clean.
 
 ### 2. Content Accuracy: 2/2
 
-Spot-checked dozens of data points across all five research pages against the approved research files:
+Spot-checked all pricing data against Research 2.3:
 
-- **LLM Mechanics**: "80%+ from CommonCrawl" matches research 2.1 (">80%"). "41% authoritative lists" matches Onely citation. "79% parametric" matches. "3x recency boost" matches. Licensed data deal values ($60M, $70M, $203M) match. Knowledge cutoff dates checked and accurate.
-- **Economics**: API pricing tables (GPT-4.1-nano at $0.10/$0.40, Claude Sonnet 4.6 at $3.00/$15.00, Perplexity Sonar at $1.00/$1.00 + request fees) all match research 2.3. Monthly cost scenarios (18,000 queries at $3.60–$140.40/mo) match. Break-even numbers (870 conservative, 410 growth) match.
-- **Papers**: GEO paper strategies and percentage changes (+41% quotation, -9% keyword stuffing) match research 2.5. Democratization effect data (rank 5 cite sources: +115.1%) matches. 680M citation figure matches.
-- **Landscape**: Profound $155M funding, $1B valuation, 40+ tools — all match research 2.4.
+- GPT-4.1-nano: $0.10/$0.40 per 1M → $0.0002/query at 100in+500out — **correct** (matches research Section 1.1)
+- Claude Sonnet 4.6: $3.00/$15.00 → $0.0078/query — **correct** (matches research Section 1.2)
+- Perplexity Sonar: $1.00/$1.00 per 1M + $5-12/1K requests → $0.0006 + $0.008/req — **correct** (matches research Section 1.4)
+- Claude Haiku 4.5: $1.00/$5.00 → $0.0026/query — **correct**
+- Gemini 2.5 Pro: $1.25/$10.00 → $0.0051/query — **correct**
+- Batch discount: 50% for OpenAI/Anthropic/Google — **correct** (matches research Sections 1.1-1.3)
+- Tiered strategy savings: 90-95% — **correct** (matches research Section 4.1)
+- SaaS comparison pricing: Rankscale $0.017, Otterly ~$1.50, AthenaHQ $0.083, Profound $9.98 — **correct** (matches research Section 5)
 
-Nuances are preserved: the schema markup accuracy-vs-frequency distinction, the Datos counterpoint to Gartner's search decline prediction, the "no single AI optimization strategy" finding from Yext. No editorialization detected.
+The query formula `brands × queries × models × samples × frequency × 30` is correctly implemented and matches the research methodology.
 
-One minor note: the Ahrefs citation study link on the papers page (`https://ahrefs.com/blog/`) is a generic blog URL, not a specific article. Not enough to dock a point, but worth fixing.
+Research findings are accurately represented. Nuances preserved (e.g., Perplexity dual-cost structure, batch API 24h delay caveat).
 
 ### 3. Usability: 2/2
-
-- Sticky navigation with active state highlighting
-- "Back to Research Hub" breadcrumb on every research page
-- Task badges (e.g., "Task 2.1") provide clear provenance
 ```
 
 ## How to Run

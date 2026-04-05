@@ -8,6 +8,7 @@ import {
   SourceList,
   Prose,
 } from "@/components/ResearchPage";
+import { CostCalculator } from "@/components/CostCalculator";
 
 export const metadata = {
   title: "The Economics — Bitsy Research",
@@ -144,6 +145,18 @@ export default function EconomicsPage() {
               ]}
             />
           </SubSection>
+        </Section>
+
+        <Section title="Interactive Cost Calculator">
+          <Prose>
+            <p>
+              Configure your own monitoring parameters to estimate monthly API costs. Adjust brands, queries,
+              models, and optimization settings to see real-time projections based on the pricing data above.
+            </p>
+          </Prose>
+          <div className="mt-6">
+            <CostCalculator compact />
+          </div>
         </Section>
 
         <Section title="4. Cost Optimization Strategies">

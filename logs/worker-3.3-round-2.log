@@ -1,0 +1,19 @@
+Task 3.3 — Cost Calculator — Round 2 complete. Here's what was built:
+
+**New files:**
+- `site/src/components/CostCalculator.tsx` — Interactive client component with full calculator logic
+- `site/src/app/calculator/page.tsx` — Dedicated `/calculator` route with explanatory content and sources
+
+**Updated files:**
+- `site/src/components/Navigation.tsx` — Added "Calculator" nav link
+- `site/src/app/research/economics/page.tsx` — Embedded interactive calculator (fixes the critical gap from Task 3.1 expert feedback)
+
+**Key features:**
+- 11 models across 4 providers with real pricing from Research 2.3
+- Slider inputs for brands (1-500), queries (1-30), samples (1-30), polling frequency (1-50)
+- 5 quick presets (Startup MVP, Small Business, Agency, Enterprise, Tryscope-Style)
+- Model selection via checkboxes with per-query cost badges (budget/mid/flagship tiers)
+- Batch API toggle (50% off) and tiered strategy toggle (90/9/1 split)
+- Real-time output: summary cards, per-model breakdown table, tiered savings estimate, dynamic recommendations
+- SaaS comparison showing markup vs Rankscale, Otterly, AthenaHQ, Profound
+- Clean build: 0 errors, 0 warnings, 12 routes generated

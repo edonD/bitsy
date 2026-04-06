@@ -1,37 +1,64 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Cormorant_Garamond, Manrope } from "next/font/google";
 import "./globals.css";
 import { Navigation } from "@/components/Navigation";
+import { Providers } from "./providers";
 
-const inter = Inter({ subsets: ["latin"] });
+const bodyFont = Manrope({
+  subsets: ["latin"],
+  variable: "--font-body",
+});
+
+const displayFont = Cormorant_Garamond({
+  subsets: ["latin"],
+  variable: "--font-display",
+  weight: ["400", "500", "600", "700"],
+});
 
 export const metadata: Metadata = {
-  title: "Bitsy — GEO & LLM Visibility Research Hub",
+  title: "Bitsy | AI Search Scenario Lab",
   description:
-    "Comprehensive research on Generative Engine Optimization: how LLMs decide what to mention, the tools, the economics, and the science.",
+    "Bitsy lets you test how AI tools might talk about your product before you publish.",
 };
 
 export default function RootLayout({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode;
-}) {
+}>) {
   return (
-    <html lang="en" className="h-full">
-      <body className={`${inter.className} min-h-full flex flex-col bg-white text-slate-900`}>
-        <Navigation />
-        <main className="flex-1">{children}</main>
-        <footer className="border-t border-slate-200 bg-slate-50 py-8 mt-16">
-          <div className="max-w-6xl mx-auto px-6 text-center text-sm text-slate-500">
-            <p>Bitsy Research Hub &mdash; Built with Next.js. All research sourced and cited.</p>
-            <p className="mt-1">
-              Inspired by{" "}
-              <a href="https://tryscope.app/" className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">
-                Tryscope
-              </a>
-            </p>
-          </div>
-        </footer>
+    <html
+      lang="en"
+      className={`${bodyFont.variable} ${displayFont.variable} h-full`}
+    >
+      <body className="flex min-h-full flex-col bg-[var(--paper)] font-[family:var(--font-body)] text-[var(--ink)] antialiased">
+        <Providers>
+          <Navigation />
+          <main className="flex-1">{children}</main>
+          <footer className="border-t border-[color:var(--line)] py-8">
+            <div className="mx-auto grid max-w-6xl gap-8 px-6 md:grid-cols-[1.2fr,0.8fr]">
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--ink)]">
+                  Bitsy
+                </p>
+                <p className="mt-3 max-w-sm text-sm leading-relaxed text-[var(--muted)]">
+                  A simple way to test how AI tools might mention your product before launch.
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
+                  Focus
+                </p>
+                <div className="mt-3 space-y-2 text-sm text-[var(--muted)]">
+                  <p>Set up a test</p>
+                  <p>Compare AI answers</p>
+                  <p>The core engine comes next</p>
+                </div>
+              </div>
+            </div>
+          </footer>
+        </Providers>
       </body>
     </html>
   );

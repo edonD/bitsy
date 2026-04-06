@@ -23,6 +23,9 @@
       }
     ],
     "paths": {
+      "@/convex/*": [
+        "./convex/*"
+      ],
       "@/*": [
         "./src/*"
       ]
@@ -34,9 +37,11 @@
     "**/*.tsx",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
-    "**/*.mts"
+    "**/*.mts",
+    ".next-dev/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "convex"
   ]
 }

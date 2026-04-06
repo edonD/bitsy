@@ -10,8 +10,8 @@ export default function CalculatorPage() {
     <div>
       <PageHeader
         task="3.3"
-        title="LLM Monitoring Cost Calculator"
-        subtitle="Estimate your monthly API costs for brand monitoring across LLMs. Configure brands, queries, models, and optimization strategies to see real-time cost projections."
+        title="AI-Search Monitoring Cost Model"
+        subtitle="Estimate monthly API cost for repeated prompt sampling across multiple models. Configure brands, prompt volume, model mix, and optimization choices to pressure-test the economics."
       />
 
       <div className="max-w-5xl mx-auto px-6 pb-16">
@@ -26,7 +26,7 @@ export default function CalculatorPage() {
               response (~500 output tokens) that may or may not mention your brand. The total number of API calls is:
             </p>
           </Prose>
-          <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 my-4 font-mono text-sm text-slate-700">
+          <div className="paper-card my-4 rounded-2xl p-4 font-mono text-sm text-[var(--ink)]">
             Total queries/month = brands &times; queries_per_brand &times; models &times; samples &times;
             polls_per_day &times; 30
           </div>

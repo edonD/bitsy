@@ -7,8 +7,8 @@ import { SimulationProvider } from "@/components/SimulationProvider";
 const tabs = [
   { href: "/simulate", label: "Setup", exact: true },
   { href: "/simulate/results", label: "Results" },
-  { href: "/simulate/compare", label: "Compare Models" },
-  { href: "/simulate/trends", label: "Trends" },
+  { href: "/simulate/compare", label: "Compare" },
+  { href: "/simulate/trends", label: "Runs" },
 ];
 
 export default function SimulateLayout({ children }: { children: React.ReactNode }) {
@@ -16,35 +16,53 @@ export default function SimulateLayout({ children }: { children: React.ReactNode
 
   return (
     <SimulationProvider>
-      <div className="bg-gradient-to-b from-slate-50 to-white border-b border-slate-100 py-10">
-        <div className="max-w-6xl mx-auto px-6">
-          <Link href="/" className="text-sm text-blue-600 hover:underline mb-4 inline-block">
-            &larr; Back to Research Hub
+      <div className="border-b border-[color:var(--line)] py-10">
+        <div className="mx-auto max-w-6xl px-6">
+          <Link href="/" className="ink-link mb-4 inline-block text-sm">
+            Back to Bitsy
           </Link>
-          <span className="block text-xs font-medium text-blue-600 bg-blue-50 rounded px-2 py-0.5 w-fit mb-3">
-            Task 3.2
+          <span className="surface-chip mb-3 inline-flex px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-[var(--muted)]">
+            Scenario lab
           </span>
-          <h1 className="text-3xl md:text-4xl font-bold text-slate-900 leading-tight">
-            LLM Visibility Simulator
+          <h1 className="max-w-3xl text-4xl leading-tight text-[var(--ink)] md:text-5xl">
+            Test your product against real buyer questions.
           </h1>
-          <p className="mt-3 text-lg text-slate-600 max-w-2xl leading-relaxed">
-            Simulate how ChatGPT, Claude, Gemini, and Perplexity mention your brand vs. competitors.
-            Powered by research-calibrated models reflecting real citation patterns.
+          <p className="mt-3 max-w-2xl text-lg leading-relaxed text-[var(--muted)]">
+            Add your product, a few competitors, and the questions buyers ask. Bitsy then shows
+            how different AI tools might respond.
           </p>
+          <div className="mt-5 flex flex-wrap gap-2 text-xs text-[var(--muted)]">
+            <span className="surface-chip px-3 py-1.5">
+              Before you publish
+            </span>
+            <span className="surface-chip px-3 py-1.5">
+              Compare AI tools
+            </span>
+            <span className="surface-chip px-3 py-1.5">
+              Saved local runs
+            </span>
+          </div>
 
-          <nav className="mt-8 flex gap-1 border-b border-slate-200">
+          <div className="surface-inset mt-6 rounded-[1.5rem] px-4 py-4 text-sm leading-relaxed text-[var(--muted)]">
+            <strong className="text-[var(--ink)]">What this test answers:</strong> for these
+            questions, how often are AI tools likely to mention your product and where does it
+            appear relative to competitors?
+          </div>
+
+          <nav className="mt-8 flex flex-wrap gap-2">
             {tabs.map((tab) => {
               const isActive = tab.exact
                 ? pathname === tab.href
                 : pathname.startsWith(tab.href);
+
               return (
                 <Link
                   key={tab.href}
                   href={tab.href}
-                  className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                  className={`rounded-full px-4 py-2 text-sm ${
                     isActive
-                      ? "border-blue-600 text-blue-700"
-                      : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
+                      ? "bg-[rgba(34,30,26,0.92)] text-[var(--paper-soft)]"
+                      : "border border-[color:var(--line)] bg-[rgba(255,255,255,0.42)] text-[var(--muted)] hover:text-[var(--ink)]"
                   }`}
                 >
                   {tab.label}
@@ -54,7 +72,8 @@ export default function SimulateLayout({ children }: { children: React.ReactNode
           </nav>
         </div>
       </div>
-      <div className="max-w-6xl mx-auto px-6 py-8">{children}</div>
+
+      <div className="mx-auto max-w-6xl px-6 py-10">{children}</div>
     </SimulationProvider>
   );
 }

@@ -15,16 +15,20 @@ export function PageHeader({
   subtitle: string;
 }) {
   return (
-    <div className="bg-gradient-to-b from-slate-50 to-white border-b border-slate-100 py-12">
-      <div className="max-w-4xl mx-auto px-6">
-        <Link href="/" className="text-sm text-blue-600 hover:underline mb-4 inline-block">
-          &larr; Back to Research Hub
+    <div className="border-b border-[color:var(--line)] py-12">
+      <div className="mx-auto max-w-4xl px-6">
+        <Link href="/research" className="ink-link mb-4 inline-block text-sm">
+          Back to methodology
         </Link>
-        <span className="block text-xs font-medium text-blue-600 bg-blue-50 rounded px-2 py-0.5 w-fit mb-3">
-          Task {task}
+        <span className="mb-3 inline-flex rounded-full border border-[color:var(--line)] bg-[rgba(255,255,255,0.48)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-[var(--muted)]">
+          Research note {task}
         </span>
-        <h1 className="text-3xl md:text-4xl font-bold text-slate-900 leading-tight">{title}</h1>
-        <p className="mt-4 text-lg text-slate-600 leading-relaxed">{subtitle}</p>
+        <h1 className="max-w-3xl text-4xl leading-tight text-[var(--ink)] md:text-5xl">
+          {title}
+        </h1>
+        <p className="mt-4 max-w-2xl text-lg leading-relaxed text-[var(--muted)]">
+          {subtitle}
+        </p>
       </div>
     </div>
   );
@@ -41,7 +45,7 @@ export function Section({
 }) {
   return (
     <section id={id} className="mt-12">
-      <h2 className="text-2xl font-bold text-slate-900 mb-6">{title}</h2>
+      <h2 className="mb-6 text-3xl text-[var(--ink)]">{title}</h2>
       {children}
     </section>
   );
@@ -50,7 +54,7 @@ export function Section({
 export function SubSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="mt-8">
-      <h3 className="text-lg font-semibold text-slate-800 mb-3">{title}</h3>
+      <h3 className="mb-3 text-xl text-[var(--ink)]">{title}</h3>
       {children}
     </div>
   );
@@ -58,9 +62,9 @@ export function SubSection({ title, children }: { title: string; children: React
 
 export function KeyStat({ value, label }: { value: string; label: string }) {
   return (
-    <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 text-center">
-      <div className="text-2xl font-bold text-blue-700">{value}</div>
-      <div className="text-sm text-blue-600 mt-1">{label}</div>
+    <div className="paper-card rounded-2xl p-4 text-center">
+      <div className="text-3xl text-[var(--ink)]">{value}</div>
+      <div className="mt-1 text-sm text-[var(--muted)]">{label}</div>
     </div>
   );
 }
@@ -73,25 +77,25 @@ export function DataTable({
   rows: (string | React.ReactNode)[][];
 }) {
   return (
-    <div className="overflow-x-auto my-4">
-      <table className="w-full text-sm border-collapse border border-slate-200 rounded-lg overflow-hidden">
+    <div className="my-4 overflow-x-auto rounded-2xl border border-[color:var(--line)] bg-[rgba(255,255,255,0.38)]">
+      <table className="w-full border-collapse text-sm">
         <thead>
-          <tr className="bg-slate-50">
-            {headers.map((h, i) => (
+          <tr className="bg-[rgba(255,255,255,0.38)]">
+            {headers.map((header, index) => (
               <th
-                key={i}
-                className="text-left py-2.5 px-3 font-semibold text-slate-700 border-b border-slate-200"
+                key={index}
+                className="border-b border-[color:var(--line)] px-4 py-3 text-left font-semibold text-[var(--ink)]"
               >
-                {h}
+                {header}
               </th>
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100">
-          {rows.map((row, i) => (
-            <tr key={i} className="hover:bg-slate-50">
-              {row.map((cell, j) => (
-                <td key={j} className="py-2.5 px-3 text-slate-600">
+        <tbody className="divide-y divide-[color:var(--line)]">
+          {rows.map((row, rowIndex) => (
+            <tr key={rowIndex} className="hover:bg-[rgba(255,255,255,0.28)]">
+              {row.map((cell, cellIndex) => (
+                <td key={cellIndex} className="px-4 py-3 text-[var(--muted)]">
                   {cell}
                 </td>
               ))}
@@ -111,12 +115,13 @@ export function Callout({
   children: React.ReactNode;
 }) {
   const styles = {
-    info: "bg-blue-50 border-blue-200 text-blue-800",
-    warning: "bg-amber-50 border-amber-200 text-amber-800",
-    insight: "bg-green-50 border-green-200 text-green-800",
+    info: "bg-[rgba(255,255,255,0.46)]",
+    warning: "bg-[rgba(238,228,207,0.78)]",
+    insight: "bg-[rgba(242,239,231,0.86)]",
   };
+
   return (
-    <div className={`border rounded-lg p-4 my-4 text-sm leading-relaxed ${styles[type]}`}>
+    <div className={`my-4 rounded-2xl border border-[color:var(--line)] p-4 text-sm leading-relaxed text-[var(--ink)] ${styles[type]}`}>
       {children}
     </div>
   );
@@ -124,18 +129,18 @@ export function Callout({
 
 export function SourceList({ sources }: { sources: Source[] }) {
   return (
-    <div className="mt-12 border-t border-slate-200 pt-8">
-      <h2 className="text-lg font-semibold text-slate-900 mb-4">Sources</h2>
-      <ul className="space-y-2 text-sm">
-        {sources.map((s, i) => (
-          <li key={i}>
+    <div className="mt-12 border-t border-[color:var(--line)] pt-8">
+      <h2 className="mb-4 text-xl text-[var(--ink)]">Sources</h2>
+      <ul className="space-y-2 text-sm text-[var(--muted)]">
+        {sources.map((source, index) => (
+          <li key={index}>
             <a
-              href={s.url}
-              className="text-blue-600 hover:underline"
+              href={source.url}
+              className="ink-link"
               target="_blank"
               rel="noopener noreferrer"
             >
-              {s.label}
+              {source.label}
             </a>
           </li>
         ))}
@@ -145,14 +150,16 @@ export function SourceList({ sources }: { sources: Source[] }) {
 }
 
 export function Prose({ children }: { children: React.ReactNode }) {
-  return <div className="text-slate-600 leading-relaxed space-y-3">{children}</div>;
+  return <div className="space-y-3 leading-relaxed text-[var(--muted)]">{children}</div>;
 }
 
 export function Quote({ text, source }: { text: string; source: string }) {
   return (
-    <blockquote className="border-l-4 border-blue-300 bg-blue-50/50 rounded-r-lg pl-4 py-3 pr-4 my-4 text-sm">
-      <p className="text-slate-700 italic">&ldquo;{text}&rdquo;</p>
-      <cite className="text-slate-500 text-xs mt-1 block not-italic">&mdash; {source}</cite>
+    <blockquote className="my-4 rounded-2xl border border-[color:var(--line)] bg-[rgba(255,255,255,0.34)] px-5 py-4 text-sm">
+      <p className="italic text-[var(--ink)]">&ldquo;{text}&rdquo;</p>
+      <cite className="mt-2 block text-xs not-italic text-[var(--muted)]">
+        {source}
+      </cite>
     </blockquote>
   );
 }

@@ -302,13 +302,13 @@ export function CostCalculator({ compact = false }: CalculatorProps) {
     <div className={compact ? "" : "max-w-4xl mx-auto"}>
       {/* Presets */}
       <div className="mb-6">
-        <label className="block text-sm font-semibold text-slate-700 mb-2">Quick Presets</label>
+        <label className="mb-2 block text-sm font-semibold text-[var(--ink)]">Quick presets</label>
         <div className="flex flex-wrap gap-2">
           {PRESETS.map((p) => (
             <button
               key={p.label}
               onClick={() => applyPreset(p)}
-              className="px-3 py-1.5 text-xs font-medium rounded-full border border-slate-300 text-slate-600 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 transition-colors"
+              className="rounded-full border border-[color:var(--line)] bg-[rgba(255,255,255,0.46)] px-3 py-1.5 text-xs font-medium text-[var(--muted)] hover:border-[color:var(--line-strong)] hover:text-[var(--ink)]"
             >
               {p.label}
             </button>
@@ -319,13 +319,13 @@ export function CostCalculator({ compact = false }: CalculatorProps) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Left: Inputs */}
         <div className="space-y-5">
-          <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 space-y-4">
-            <h3 className="text-sm font-semibold text-slate-800">Monitoring Parameters</h3>
+          <div className="paper-card space-y-4 rounded-[1.5rem] p-4">
+            <h3 className="text-sm font-semibold text-[var(--ink)]">Monitoring parameters</h3>
 
             <div>
-              <label className="flex items-center justify-between text-sm text-slate-600 mb-1">
+              <label className="mb-1 flex items-center justify-between text-sm text-[var(--muted)]">
                 <span>Brands to monitor</span>
-                <span className="font-mono text-slate-900 font-semibold">{brands}</span>
+                <span className="font-mono font-semibold text-[var(--ink)]">{brands}</span>
               </label>
               <input
                 type="range"
@@ -333,17 +333,17 @@ export function CostCalculator({ compact = false }: CalculatorProps) {
                 max={500}
                 value={brands}
                 onChange={(e) => setBrands(Number(e.target.value))}
-                className="w-full accent-blue-600"
+                className="w-full accent-stone-900"
               />
-              <div className="flex justify-between text-xs text-slate-400 mt-0.5">
+              <div className="mt-0.5 flex justify-between text-xs text-[var(--muted)]">
                 <span>1</span><span>500</span>
               </div>
             </div>
 
             <div>
-              <label className="flex items-center justify-between text-sm text-slate-600 mb-1">
+              <label className="mb-1 flex items-center justify-between text-sm text-[var(--muted)]">
                 <span>Queries per brand</span>
-                <span className="font-mono text-slate-900 font-semibold">{queriesPerBrand}</span>
+                <span className="font-mono font-semibold text-[var(--ink)]">{queriesPerBrand}</span>
               </label>
               <input
                 type="range"
@@ -351,17 +351,17 @@ export function CostCalculator({ compact = false }: CalculatorProps) {
                 max={30}
                 value={queriesPerBrand}
                 onChange={(e) => setQueriesPerBrand(Number(e.target.value))}
-                className="w-full accent-blue-600"
+                className="w-full accent-stone-900"
               />
-              <div className="flex justify-between text-xs text-slate-400 mt-0.5">
+              <div className="mt-0.5 flex justify-between text-xs text-[var(--muted)]">
                 <span>1</span><span>30</span>
               </div>
             </div>
 
             <div>
-              <label className="flex items-center justify-between text-sm text-slate-600 mb-1">
+              <label className="mb-1 flex items-center justify-between text-sm text-[var(--muted)]">
                 <span>Samples per query</span>
-                <span className="font-mono text-slate-900 font-semibold">{samplesPerQuery}</span>
+                <span className="font-mono font-semibold text-[var(--ink)]">{samplesPerQuery}</span>
               </label>
               <input
                 type="range"
@@ -369,17 +369,17 @@ export function CostCalculator({ compact = false }: CalculatorProps) {
                 max={30}
                 value={samplesPerQuery}
                 onChange={(e) => setSamplesPerQuery(Number(e.target.value))}
-                className="w-full accent-blue-600"
+                className="w-full accent-stone-900"
               />
-              <div className="flex justify-between text-xs text-slate-400 mt-0.5">
+              <div className="mt-0.5 flex justify-between text-xs text-[var(--muted)]">
                 <span>1</span><span>30</span>
               </div>
             </div>
 
             <div>
-              <label className="flex items-center justify-between text-sm text-slate-600 mb-1">
+              <label className="mb-1 flex items-center justify-between text-sm text-[var(--muted)]">
                 <span>Polls per day</span>
-                <span className="font-mono text-slate-900 font-semibold">{pollingFrequency}</span>
+                <span className="font-mono font-semibold text-[var(--ink)]">{pollingFrequency}</span>
               </label>
               <input
                 type="range"
@@ -387,36 +387,36 @@ export function CostCalculator({ compact = false }: CalculatorProps) {
                 max={50}
                 value={pollingFrequency}
                 onChange={(e) => setPollingFrequency(Number(e.target.value))}
-                className="w-full accent-blue-600"
+                className="w-full accent-stone-900"
               />
-              <div className="flex justify-between text-xs text-slate-400 mt-0.5">
+              <div className="mt-0.5 flex justify-between text-xs text-[var(--muted)]">
                 <span>1</span><span>50</span>
               </div>
             </div>
           </div>
 
           {/* Model Selection */}
-          <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
-            <h3 className="text-sm font-semibold text-slate-800 mb-3">Models</h3>
+          <div className="paper-card rounded-[1.5rem] p-4">
+            <h3 className="mb-3 text-sm font-semibold text-[var(--ink)]">Models</h3>
             <div className="space-y-1.5">
               {MODELS.map((model) => (
                 <label
                   key={model.name}
-                  className="flex items-center gap-2 text-sm cursor-pointer hover:bg-white rounded px-1.5 py-1 -mx-1.5 transition-colors"
+                  className="mx-[-0.375rem] flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-sm transition-colors hover:bg-[rgba(255,255,255,0.5)]"
                 >
                   <input
                     type="checkbox"
                     checked={selectedModels.has(model.name)}
                     onChange={() => toggleModel(model.name)}
-                    className="accent-blue-600 rounded"
+                    className="rounded accent-stone-900"
                   />
-                  <span className="flex-1 text-slate-700">{model.name}</span>
+                  <span className="flex-1 text-[var(--ink)]">{model.name}</span>
                   <span className={`text-xs px-1.5 py-0.5 rounded ${
                     model.tier === "budget"
-                      ? "bg-green-100 text-green-700"
+                      ? "bg-[rgba(255,255,255,0.7)] text-[var(--ink)]"
                       : model.tier === "mid"
-                      ? "bg-amber-100 text-amber-700"
-                      : "bg-red-100 text-red-700"
+                      ? "bg-[rgba(255,255,255,0.54)] text-[var(--ink)]"
+                      : "bg-[rgba(36,32,28,0.14)] text-[var(--ink)]"
                   }`}>
                     {formatCurrency(model.costPerQuery)}/q
                   </span>
@@ -426,25 +426,25 @@ export function CostCalculator({ compact = false }: CalculatorProps) {
           </div>
 
           {/* Optimizations */}
-          <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
-            <h3 className="text-sm font-semibold text-slate-800 mb-3">Optimizations</h3>
-            <label className="flex items-center gap-2 text-sm cursor-pointer mb-2">
+          <div className="paper-card rounded-[1.5rem] p-4">
+            <h3 className="mb-3 text-sm font-semibold text-[var(--ink)]">Optimizations</h3>
+            <label className="mb-2 flex cursor-pointer items-center gap-2 text-sm">
               <input
                 type="checkbox"
                 checked={useBatchAPI}
                 onChange={(e) => setUseBatchAPI(e.target.checked)}
-                className="accent-blue-600"
+                className="accent-stone-900"
               />
-              <span className="text-slate-700">Use Batch API (50% off, 24h delay)</span>
+              <span className="text-[var(--ink)]">Use Batch API (50% off, 24h delay)</span>
             </label>
-            <label className="flex items-center gap-2 text-sm cursor-pointer">
+            <label className="flex cursor-pointer items-center gap-2 text-sm">
               <input
                 type="checkbox"
                 checked={useTieredStrategy}
                 onChange={(e) => setUseTieredStrategy(e.target.checked)}
-                className="accent-blue-600"
+                className="accent-stone-900"
               />
-              <span className="text-slate-700">Tiered strategy (90% budget / 9% mid / 1% flagship)</span>
+              <span className="text-[var(--ink)]">Tiered strategy (90% budget / 9% mid / 1% flagship)</span>
             </label>
           </div>
         </div>
@@ -455,27 +455,27 @@ export function CostCalculator({ compact = false }: CalculatorProps) {
             <>
               {/* Summary Cards */}
               <div className="grid grid-cols-2 gap-3">
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
-                  <div className="text-xs text-blue-600 font-medium">Queries/Month</div>
-                  <div className="text-xl font-bold text-blue-800 mt-1">
+                <div className="paper-card rounded-[1.5rem] p-3 text-center">
+                  <div className="text-xs font-medium uppercase tracking-[0.16em] text-[var(--muted)]">Queries/month</div>
+                  <div className="mt-1 text-xl text-[var(--ink)]">
                     {results.queriesPerMonth.toLocaleString()}
                   </div>
                 </div>
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
-                  <div className="text-xs text-blue-600 font-medium">Queries/Day</div>
-                  <div className="text-xl font-bold text-blue-800 mt-1">
+                <div className="paper-card rounded-[1.5rem] p-3 text-center">
+                  <div className="text-xs font-medium uppercase tracking-[0.16em] text-[var(--muted)]">Queries/day</div>
+                  <div className="mt-1 text-xl text-[var(--ink)]">
                     {results.queriesPerDay.toLocaleString()}
                   </div>
                 </div>
-                <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
-                  <div className="text-xs text-green-600 font-medium">Monthly Cost</div>
-                  <div className="text-xl font-bold text-green-800 mt-1">
+                <div className="paper-card rounded-[1.5rem] p-3 text-center">
+                  <div className="text-xs font-medium uppercase tracking-[0.16em] text-[var(--muted)]">Monthly cost</div>
+                  <div className="mt-1 text-xl text-[var(--ink)]">
                     {formatCurrency(results.naiveMonthlyCost)}
                   </div>
                 </div>
-                <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
-                  <div className="text-xs text-green-600 font-medium">Annual Cost</div>
-                  <div className="text-xl font-bold text-green-800 mt-1">
+                <div className="paper-card rounded-[1.5rem] p-3 text-center">
+                  <div className="text-xs font-medium uppercase tracking-[0.16em] text-[var(--muted)]">Annual cost</div>
+                  <div className="mt-1 text-xl text-[var(--ink)]">
                     {formatCurrency(results.annualCost)}
                   </div>
                 </div>
@@ -483,82 +483,82 @@ export function CostCalculator({ compact = false }: CalculatorProps) {
 
               {/* Tiered Strategy Result */}
               {results.tieredMonthlyCost !== null && (
-                <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
-                  <div className="text-sm font-semibold text-emerald-800">Tiered Strategy Estimate</div>
+                <div className="paper-card rounded-[1.5rem] p-4">
+                  <div className="text-sm font-semibold text-[var(--ink)]">Tiered strategy estimate</div>
                   <div className="flex items-baseline gap-3 mt-1">
-                    <span className="text-2xl font-bold text-emerald-700">
+                    <span className="text-2xl font-bold text-[var(--ink)]">
                       {formatCurrency(results.tieredMonthlyCost)}
                     </span>
-                    <span className="text-sm text-emerald-600">/month</span>
-                    <span className="text-sm text-emerald-600">
+                    <span className="text-sm text-[var(--muted)]">/month</span>
+                    <span className="text-sm text-[var(--muted)]">
                       ({Math.round((1 - results.tieredMonthlyCost / results.naiveMonthlyCost) * 100)}% savings)
                     </span>
                   </div>
-                  <div className="text-xs text-emerald-600 mt-1">
+                  <div className="mt-1 text-xs text-[var(--muted)]">
                     Annual: {formatCurrency(results.annualTiered!)} (vs {formatCurrency(results.annualCost)} uniform)
                   </div>
                 </div>
               )}
 
               {/* Avg Cost Per Query */}
-              <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
-                <div className="text-sm font-semibold text-slate-700">Average Cost Per Query</div>
-                <div className="text-lg font-bold text-slate-900 mt-1">
+              <div className="paper-card rounded-[1.5rem] p-4">
+                <div className="text-sm font-semibold text-[var(--muted)]">Average cost per query</div>
+                <div className="mt-1 text-lg font-bold text-[var(--ink)]">
                   {formatCurrency(results.avgCostPerQuery)}
                 </div>
               </div>
 
               {/* Per-Model Breakdown */}
-              <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
-                <div className="px-4 py-3 bg-slate-50 border-b border-slate-200">
-                  <h3 className="text-sm font-semibold text-slate-800">Cost Breakdown by Model</h3>
+              <div className="paper-card overflow-hidden rounded-[1.5rem]">
+                <div className="border-b border-[color:var(--line)] px-4 py-3">
+                  <h3 className="text-sm font-semibold text-[var(--ink)]">Cost breakdown by model</h3>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-slate-100 text-left">
-                        <th className="py-2 px-3 font-medium text-slate-600">Model</th>
-                        <th className="py-2 px-3 font-medium text-slate-600 text-right">Queries</th>
-                        <th className="py-2 px-3 font-medium text-slate-600 text-right">Token Cost</th>
-                        <th className="py-2 px-3 font-medium text-slate-600 text-right">Req. Fees</th>
-                        <th className="py-2 px-3 font-medium text-slate-600 text-right">Total</th>
+                        <th className="py-2 px-3 font-medium text-[var(--muted)]">Model</th>
+                        <th className="py-2 px-3 text-right font-medium text-[var(--muted)]">Queries</th>
+                        <th className="py-2 px-3 text-right font-medium text-[var(--muted)]">Token cost</th>
+                        <th className="py-2 px-3 text-right font-medium text-[var(--muted)]">Req. fees</th>
+                        <th className="py-2 px-3 text-right font-medium text-[var(--muted)]">Total</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50">
                       {results.modelBreakdown.map((row) => (
-                        <tr key={row.model.name} className="hover:bg-slate-50">
-                          <td className="py-2 px-3 text-slate-700">
+                        <tr key={row.model.name} className="hover:bg-[rgba(255,255,255,0.2)]">
+                          <td className="py-2 px-3 text-[var(--ink)]">
                             <div className="font-medium">{row.model.name}</div>
-                            <div className="text-xs text-slate-400">{row.model.provider}</div>
+                            <div className="text-xs text-[var(--muted)]">{row.model.provider}</div>
                           </td>
-                          <td className="py-2 px-3 text-right text-slate-600 font-mono text-xs">
+                          <td className="py-2 px-3 text-right font-mono text-xs text-[var(--muted)]">
                             {row.queriesPerMonth.toLocaleString()}
                           </td>
-                          <td className="py-2 px-3 text-right text-slate-600 font-mono text-xs">
+                          <td className="py-2 px-3 text-right font-mono text-xs text-[var(--muted)]">
                             {formatCurrency(row.tokenCost)}
                           </td>
-                          <td className="py-2 px-3 text-right text-slate-600 font-mono text-xs">
+                          <td className="py-2 px-3 text-right font-mono text-xs text-[var(--muted)]">
                             {row.requestFees > 0 ? formatCurrency(row.requestFees) : "—"}
                           </td>
-                          <td className="py-2 px-3 text-right font-semibold text-slate-900 font-mono text-xs">
+                          <td className="py-2 px-3 text-right font-mono text-xs font-semibold text-[var(--ink)]">
                             {formatCurrency(row.totalCost)}
                           </td>
                         </tr>
                       ))}
                     </tbody>
                     <tfoot>
-                      <tr className="border-t border-slate-200 bg-slate-50">
-                        <td className="py-2 px-3 font-semibold text-slate-800">Total</td>
-                        <td className="py-2 px-3 text-right font-mono text-xs font-semibold text-slate-800">
+                      <tr className="border-t border-[color:var(--line)] bg-[rgba(255,255,255,0.26)]">
+                        <td className="py-2 px-3 font-semibold text-[var(--ink)]">Total</td>
+                        <td className="py-2 px-3 text-right font-mono text-xs font-semibold text-[var(--ink)]">
                           {results.queriesPerMonth.toLocaleString()}
                         </td>
-                        <td className="py-2 px-3 text-right font-mono text-xs text-slate-600">
+                        <td className="py-2 px-3 text-right font-mono text-xs text-[var(--muted)]">
                           {formatCurrency(results.modelBreakdown.reduce((s, m) => s + m.tokenCost, 0))}
                         </td>
-                        <td className="py-2 px-3 text-right font-mono text-xs text-slate-600">
+                        <td className="py-2 px-3 text-right font-mono text-xs text-[var(--muted)]">
                           {formatCurrency(results.modelBreakdown.reduce((s, m) => s + m.requestFees, 0))}
                         </td>
-                        <td className="py-2 px-3 text-right font-mono text-xs font-bold text-slate-900">
+                        <td className="py-2 px-3 text-right font-mono text-xs font-bold text-[var(--ink)]">
                           {formatCurrency(results.naiveMonthlyCost)}
                         </td>
                       </tr>
@@ -568,9 +568,9 @@ export function CostCalculator({ compact = false }: CalculatorProps) {
               </div>
 
               {/* Recommendation */}
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <h3 className="text-sm font-semibold text-blue-800 mb-2">Recommendation</h3>
-                <div className="text-sm text-blue-700 space-y-1">
+              <div className="paper-card rounded-[1.5rem] p-4">
+                <h3 className="mb-2 text-sm font-semibold text-[var(--ink)]">Recommendation</h3>
+                <div className="space-y-1 text-sm text-[var(--muted)]">
                   {results.naiveMonthlyCost < 20 && (
                     <p>Your configuration is very cost-effective. Consider adding more models for broader coverage.</p>
                   )}
@@ -603,9 +603,9 @@ export function CostCalculator({ compact = false }: CalculatorProps) {
 
               {/* Comparison to SaaS */}
               {!compact && (
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                  <h3 className="text-sm font-semibold text-amber-800 mb-2">Compared to GEO SaaS Tools</h3>
-                  <div className="text-sm text-amber-700 space-y-1">
+                <div className="paper-card rounded-[1.5rem] p-4">
+                  <h3 className="mb-2 text-sm font-semibold text-[var(--ink)]">Compared to GEO SaaS tools</h3>
+                  <div className="space-y-1 text-sm text-[var(--muted)]">
                     <p>
                       Your raw API cost: <strong>{formatCurrency(results.naiveMonthlyCost)}/mo</strong> for{" "}
                       {results.queriesPerMonth.toLocaleString()} API calls ({results.promptsPerMonth.toLocaleString()}{" "}
@@ -622,7 +622,7 @@ export function CostCalculator({ compact = false }: CalculatorProps) {
                       <li>AthenaHQ: ~{formatCurrency(results.promptsPerMonth * 0.083)}/mo at $0.083/prompt</li>
                       <li>Profound: ~{formatCurrency(results.promptsPerMonth * 9.98)}/mo at $9.98/prompt</li>
                     </ul>
-                    <p className="text-xs mt-2">
+                    <p className="mt-2 text-xs">
                       SaaS markup over raw API cost varies significantly by tool — from roughly{" "}
                       <strong>1.5x&ndash;3x</strong> (budget tools like Rankscale) to{" "}
                       <strong>20x&ndash;50x</strong> (premium tools like Profound). The premium covers parsing,
@@ -634,7 +634,7 @@ export function CostCalculator({ compact = false }: CalculatorProps) {
               )}
             </>
           ) : (
-            <div className="bg-slate-50 border border-slate-200 rounded-lg p-8 text-center text-sm text-slate-500">
+            <div className="paper-card rounded-[1.5rem] p-8 text-center text-sm text-[var(--muted)]">
               Select at least one model to see cost estimates.
             </div>
           )}

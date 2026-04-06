@@ -11,7 +11,6 @@ import {
 import {
   type SimulationConfig,
   type SimulationResult,
-  type ModelId,
   runSimulation,
   saveSimulationResult,
   getSimulationHistory,
@@ -50,14 +49,12 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
 
   const run = useCallback((config: SimulationConfig) => {
     setIsRunning(true);
-    // Simulate a brief delay for UX
-    setTimeout(() => {
-      const result = runSimulation(config);
-      saveSimulationResult(result);
-      setCurrentResult(result);
-      setHistory(getSimulationHistory());
-      setIsRunning(false);
-    }, 800);
+
+    const result = runSimulation(config);
+    saveSimulationResult(result);
+    setCurrentResult(result);
+    setHistory(getSimulationHistory());
+    setIsRunning(false);
   }, []);
 
   const handleClearHistory = useCallback(() => {

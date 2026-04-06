@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import { useSimulation } from "@/components/SimulationProvider";
-import { MODEL_META, type ModelId } from "@/lib/simulation-engine";
+import { MODEL_META } from "@/lib/simulation-engine";
 
 function formatPercent(value: number): string {
   return `${(value * 100).toFixed(1)}%`;
 }
 
-function formatDate(ts: number): string {
-  return new Date(ts).toLocaleString("en-US", {
+function formatDate(timestamp: number): string {
+  return new Date(timestamp).toLocaleString("en-US", {
     month: "short",
     day: "numeric",
     hour: "2-digit",
@@ -24,29 +24,28 @@ export default function SimulateTrendsPage() {
   if (isRunning) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto" />
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-stone-900 border-t-transparent" />
       </div>
     );
   }
 
   if (history.length === 0) {
     return (
-      <div className="text-center py-20">
-        <p className="text-slate-500 mb-2">No simulation history yet.</p>
-        <p className="text-sm text-slate-400 mb-4">
-          Run multiple simulations to track changes over time.
+      <div className="py-20 text-center">
+        <p className="mb-2 text-[var(--muted)]">No simulation history yet.</p>
+        <p className="mb-4 text-sm text-[var(--muted)]">
+          Run multiple scenarios to build a comparison trail.
         </p>
         <Link
           href="/simulate"
-          className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors"
+          className="btn-primary rounded-full px-5 py-3 text-sm font-semibold"
         >
-          Run your first simulation
+          Run your first test
         </Link>
       </div>
     );
   }
 
-  // Group history by target brand
   const byBrand: Record<string, typeof history> = {};
   for (const result of history) {
     const brand = result.config.targetBrand;
@@ -54,158 +53,142 @@ export default function SimulateTrendsPage() {
     byBrand[brand].push(result);
   }
 
-  // For the current brand, show a trend table
   const currentBrand = currentResult?.config.targetBrand;
   const brandHistory = currentBrand ? (byBrand[currentBrand] ?? []) : [];
 
   return (
     <div className="space-y-8">
-      {/* History Overview */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-slate-900">
-          Simulation History ({history.length})
-        </h2>
-        <button
-          onClick={clearHistory}
-          className="text-xs text-red-600 hover:text-red-700 hover:underline"
-        >
-          Clear all history
-        </button>
-      </div>
+      <section className="paper-panel rounded-[2.2rem] p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="muted-label text-xs">Runs</p>
+            <h2 className="mt-3 text-4xl text-[var(--ink)]">Saved test history</h2>
+            <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
+              Load old runs, compare changes, and track how your test setup evolved.
+            </p>
+          </div>
+          <button
+            onClick={clearHistory}
+            className="btn-secondary rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em]"
+          >
+            Clear
+          </button>
+        </div>
+      </section>
 
-      {/* Trend for current brand */}
       {currentBrand && brandHistory.length > 1 && (
-        <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
-          <div className="px-5 py-4 bg-slate-50 border-b border-slate-200">
-            <h2 className="text-lg font-semibold text-slate-900">
-              Trend: {currentBrand}
-            </h2>
-            <p className="text-sm text-slate-500 mt-0.5">
-              Share of Model over {brandHistory.length} simulation runs
+        <section className="paper-card overflow-hidden rounded-[1.75rem]">
+          <div className="border-b border-[color:var(--line)] px-5 py-4">
+            <h2 className="text-3xl text-[var(--ink)]">Trend: {currentBrand}</h2>
+            <p className="mt-1 text-sm text-[var(--muted)]">
+              Mention rate across {brandHistory.length} saved runs.
             </p>
           </div>
 
-          {/* ASCII-style trend visualization */}
-          <div className="p-5">
-            <div className="space-y-4">
-              {brandHistory
-                .slice()
-                .reverse()
-                .map((result, idx) => {
-                  const targetStat = result.brandStats.find((b) => b.isTarget);
-                  const mentionRate = targetStat?.mentionRate ?? 0;
-                  const isActive = result.id === currentResult?.id;
+          <div className="space-y-4 p-5">
+            {brandHistory
+              .slice()
+              .reverse()
+              .map((result, index) => {
+                const target = result.brandStats.find((brand) => brand.isTarget);
+                const mentionRate = target?.mentionRate ?? 0;
+                const isActive = result.id === currentResult?.id;
 
-                  return (
-                    <button
-                      key={result.id}
-                      onClick={() => loadFromHistory(result.id)}
-                      className={`w-full flex items-center gap-3 p-3 rounded-lg border transition-colors text-left ${
-                        isActive
-                          ? "bg-blue-50 border-blue-200"
-                          : "border-slate-200 hover:bg-slate-50"
-                      }`}
-                    >
-                      <span className="text-xs text-slate-400 w-6 text-center font-mono">
-                        #{idx + 1}
-                      </span>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-xs text-slate-500">
-                            {formatDate(result.timestamp)}
-                          </span>
-                          <span className="text-xs text-slate-400">
-                            {result.config.queries.length} queries &times;{" "}
-                            {result.config.models.length} models &times;{" "}
-                            {result.config.samplesPerQuery} samples
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="flex-1 bg-slate-100 rounded-full h-3 overflow-hidden">
-                            <div
-                              className="h-full bg-blue-500 rounded-full transition-all"
-                              style={{ width: `${mentionRate * 100}%` }}
-                            />
-                          </div>
-                          <span className="text-sm font-mono font-semibold text-slate-800 w-14 text-right">
-                            {formatPercent(mentionRate)}
-                          </span>
-                        </div>
-                      </div>
-                      {isActive && (
-                        <span className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded">
-                          current
+                return (
+                  <button
+                    key={result.id}
+                    onClick={() => loadFromHistory(result.id)}
+                    className={`flex w-full items-center gap-3 rounded-2xl border p-3 text-left ${
+                      isActive
+                        ? "border-[color:var(--line-strong)] bg-[rgba(255,255,255,0.7)]"
+                        : "border-[color:var(--line)] bg-[rgba(255,255,255,0.32)] hover:bg-[rgba(255,255,255,0.48)]"
+                    }`}
+                  >
+                    <span className="w-6 text-center font-mono text-xs text-[var(--muted)]">
+                      #{index + 1}
+                    </span>
+                    <div className="flex-1">
+                      <div className="mb-1 flex items-center gap-2">
+                        <span className="text-xs text-[var(--muted)]">
+                          {formatDate(result.timestamp)}
                         </span>
-                      )}
-                    </button>
-                  );
-                })}
-            </div>
+                        <span className="text-xs text-[var(--muted)]">
+                          {result.config.queries.length} queries x {result.config.models.length} models x{" "}
+                          {result.config.samplesPerQuery} samples
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="h-3 flex-1 overflow-hidden rounded-full bg-stone-200">
+                          <div
+                            className="h-full rounded-full bg-stone-900"
+                            style={{ width: `${mentionRate * 100}%` }}
+                          />
+                        </div>
+                        <span className="w-14 text-right font-mono text-sm font-semibold text-[var(--ink)]">
+                          {formatPercent(mentionRate)}
+                        </span>
+                      </div>
+                    </div>
+                    {isActive && (
+                      <span className="rounded-full border border-[color:var(--line)] bg-[rgba(255,255,255,0.64)] px-2 py-0.5 text-[10px] uppercase tracking-[0.18em] text-[var(--muted)]">
+                        current
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
           </div>
 
-          {/* Per-model trend */}
           <div className="px-5 pb-5">
-            <h3 className="text-sm font-semibold text-slate-800 mb-3">
-              Per-Model Mention Rate Trend
-            </h3>
+            <h3 className="mb-3 text-2xl text-[var(--ink)]">Per-model trend</h3>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-slate-200 text-left">
-                    <th className="py-2 px-3 font-medium text-slate-600">Run</th>
-                    <th className="py-2 px-3 font-medium text-slate-600">Date</th>
-                    {brandHistory[0].config.models.map((m) => (
-                      <th key={m} className="py-2 px-3 font-medium text-slate-600 text-center">
+                  <tr className="border-b border-[color:var(--line)] text-left">
+                    <th className="px-3 py-2 font-medium text-[var(--muted)]">Run</th>
+                    <th className="px-3 py-2 font-medium text-[var(--muted)]">Date</th>
+                    {brandHistory[0].config.models.map((model) => (
+                      <th key={model} className="px-3 py-2 text-center font-medium text-[var(--muted)]">
                         <span
-                          className="inline-block w-2 h-2 rounded-full mr-1"
-                          style={{ backgroundColor: MODEL_META[m].color }}
+                          className="mr-1 inline-block h-2 w-2 rounded-full"
+                          style={{ backgroundColor: MODEL_META[model].color }}
                         />
-                        {MODEL_META[m].provider}
+                        {MODEL_META[model].provider}
                       </th>
                     ))}
-                    <th className="py-2 px-3 font-medium text-slate-600 text-center">
-                      Overall SoM
-                    </th>
+                    <th className="px-3 py-2 text-center font-medium text-[var(--muted)]">Overall</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-50">
+                <tbody className="divide-y divide-[color:var(--line)]">
                   {brandHistory
                     .slice()
                     .reverse()
-                    .map((result, idx) => {
-                      const targetStat = result.brandStats.find((b) => b.isTarget);
+                    .map((result, index) => {
+                      const target = result.brandStats.find((brand) => brand.isTarget);
                       const isActive = result.id === currentResult?.id;
+
                       return (
                         <tr
                           key={result.id}
-                          className={`hover:bg-slate-50 ${isActive ? "bg-blue-50/50" : ""}`}
+                          className={isActive ? "bg-[rgba(255,255,255,0.34)]" : "hover:bg-[rgba(255,255,255,0.22)]"}
                         >
-                          <td className="py-2 px-3 font-mono text-xs text-slate-400">
-                            #{idx + 1}
+                          <td className="px-3 py-2 font-mono text-xs text-[var(--muted)]">
+                            #{index + 1}
                           </td>
-                          <td className="py-2 px-3 text-xs text-slate-500">
+                          <td className="px-3 py-2 text-xs text-[var(--muted)]">
                             {formatDate(result.timestamp)}
                           </td>
-                          {result.config.models.map((m) => {
-                            const rate =
-                              targetStat?.modelBreakdown[m]?.mentionRate ?? 0;
+                          {result.config.models.map((model) => {
+                            const rate = target?.modelBreakdown[model]?.mentionRate ?? 0;
+
                             return (
-                              <td
-                                key={m}
-                                className={`py-2 px-3 text-center font-mono text-xs ${
-                                  rate > 0.6
-                                    ? "text-green-700"
-                                    : rate > 0.3
-                                    ? "text-amber-700"
-                                    : "text-red-700"
-                                }`}
-                              >
+                              <td key={model} className="px-3 py-2 text-center font-mono text-xs text-[var(--ink)]">
                                 {formatPercent(rate)}
                               </td>
                             );
                           })}
-                          <td className="py-2 px-3 text-center font-mono text-xs font-semibold text-slate-800">
-                            {formatPercent(targetStat?.mentionRate ?? 0)}
+                          <td className="px-3 py-2 text-center font-mono text-xs font-semibold text-[var(--ink)]">
+                            {formatPercent(target?.mentionRate ?? 0)}
                           </td>
                         </tr>
                       );
@@ -214,71 +197,71 @@ export default function SimulateTrendsPage() {
               </table>
             </div>
           </div>
-        </div>
+        </section>
       )}
 
-      {/* All simulation history */}
-      <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
-        <div className="px-5 py-4 bg-slate-50 border-b border-slate-200">
-          <h2 className="text-lg font-semibold text-slate-900">All Simulations</h2>
+      <section className="paper-card overflow-hidden rounded-[1.75rem]">
+        <div className="border-b border-[color:var(--line)] px-5 py-4">
+          <h2 className="text-3xl text-[var(--ink)]">All runs</h2>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-slate-100 text-left">
-                <th className="py-3 px-4 font-medium text-slate-600">Date</th>
-                <th className="py-3 px-4 font-medium text-slate-600">Target Brand</th>
-                <th className="py-3 px-4 font-medium text-slate-600">Competitors</th>
-                <th className="py-3 px-4 font-medium text-slate-600 text-center">Queries</th>
-                <th className="py-3 px-4 font-medium text-slate-600 text-center">Models</th>
-                <th className="py-3 px-4 font-medium text-slate-600 text-center">SoM</th>
-                <th className="py-3 px-4 font-medium text-slate-600 text-center">Action</th>
+              <tr className="border-b border-[color:var(--line)] text-left">
+                <th className="px-4 py-3 font-medium text-[var(--muted)]">Date</th>
+                <th className="px-4 py-3 font-medium text-[var(--muted)]">Target brand</th>
+                <th className="px-4 py-3 font-medium text-[var(--muted)]">Competitors</th>
+                <th className="px-4 py-3 text-center font-medium text-[var(--muted)]">Queries</th>
+                <th className="px-4 py-3 text-center font-medium text-[var(--muted)]">Models</th>
+                <th className="px-4 py-3 text-center font-medium text-[var(--muted)]">SoM</th>
+                <th className="px-4 py-3 text-center font-medium text-[var(--muted)]">Action</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-50">
+            <tbody className="divide-y divide-[color:var(--line)]">
               {history.map((result) => {
-                const targetStat = result.brandStats.find((b) => b.isTarget);
+                const target = result.brandStats.find((brand) => brand.isTarget);
                 const isActive = result.id === currentResult?.id;
+
                 return (
                   <tr
                     key={result.id}
-                    className={`hover:bg-slate-50 ${isActive ? "bg-blue-50/50" : ""}`}
+                    className={isActive ? "bg-[rgba(255,255,255,0.34)]" : "hover:bg-[rgba(255,255,255,0.22)]"}
                   >
-                    <td className="py-3 px-4 text-xs text-slate-500">
+                    <td className="px-4 py-3 text-xs text-[var(--muted)]">
                       {formatDate(result.timestamp)}
                     </td>
-                    <td className="py-3 px-4 font-medium text-slate-800">
+                    <td className="px-4 py-3 font-semibold text-[var(--ink)]">
                       {result.config.targetBrand}
                     </td>
-                    <td className="py-3 px-4 text-slate-600 text-xs">
+                    <td className="px-4 py-3 text-xs text-[var(--muted)]">
                       {result.config.competitors.slice(0, 3).join(", ")}
                       {result.config.competitors.length > 3 &&
                         ` +${result.config.competitors.length - 3}`}
                     </td>
-                    <td className="py-3 px-4 text-center font-mono text-xs text-slate-600">
+                    <td className="px-4 py-3 text-center font-mono text-xs text-[var(--muted)]">
                       {result.config.queries.length}
                     </td>
-                    <td className="py-3 px-4 text-center">
+                    <td className="px-4 py-3 text-center">
                       <div className="flex items-center justify-center gap-1">
-                        {result.config.models.map((m) => (
+                        {result.config.models.map((model) => (
                           <span
-                            key={m}
-                            className="w-2 h-2 rounded-full"
-                            style={{ backgroundColor: MODEL_META[m].color }}
+                            key={model}
+                            className="h-2 w-2 rounded-full"
+                            style={{ backgroundColor: MODEL_META[model].color }}
                           />
                         ))}
                       </div>
                     </td>
-                    <td className="py-3 px-4 text-center font-mono text-xs font-semibold text-slate-800">
-                      {formatPercent(targetStat?.mentionRate ?? 0)}
+                    <td className="px-4 py-3 text-center font-mono text-xs font-semibold text-[var(--ink)]">
+                      {formatPercent(target?.mentionRate ?? 0)}
                     </td>
-                    <td className="py-3 px-4 text-center">
+                    <td className="px-4 py-3 text-center">
                       <button
                         onClick={() => loadFromHistory(result.id)}
-                        className={`text-xs px-2.5 py-1 rounded transition-colors ${
+                        className={`rounded-full px-3 py-1 text-xs ${
                           isActive
-                            ? "bg-blue-100 text-blue-700"
-                            : "text-blue-600 hover:bg-blue-50"
+                            ? "border border-[color:var(--line)] bg-[rgba(255,255,255,0.64)] text-[var(--ink)]"
+                            : "btn-secondary"
                         }`}
                       >
                         {isActive ? "Viewing" : "Load"}
@@ -290,17 +273,12 @@ export default function SimulateTrendsPage() {
             </tbody>
           </table>
         </div>
-      </div>
+      </section>
 
-      {/* How Trends Work Note */}
-      <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800">
-        <strong>How Trends Work:</strong> Each simulation run is saved to your browser&rsquo;s
-        local storage (up to 20 runs). In a production system, this data would persist to a
-        database and be polled automatically (e.g., 50x/day per Tryscope&rsquo;s approach). The
-        trend view shows how your brand&rsquo;s Share of Model changes across runs, which in
-        production maps to changes over time as you optimize content or as LLM training data
-        updates (Research 2.1: parametric knowledge updates every 18-36 months; RAG updates
-        immediately).
+      <div className="surface-inset rounded-[1.75rem] p-5 text-sm leading-relaxed text-[var(--ink)]">
+        <strong>How this works now:</strong> runs are stored locally in the browser so you can
+        compare scenario changes quickly. Continuous monitoring and recalibrated confidence still
+        need the live collection layer.
       </div>
     </div>
   );

@@ -15,20 +15,22 @@ function ComparisonBar({
   values: Record<ModelId, number>;
   models: ModelId[];
 }) {
-  const max = Math.max(...models.map((m) => values[m] ?? 0), 0.01);
+  const max = Math.max(...models.map((model) => values[model] ?? 0), 0.01);
+
   return (
-    <div className="flex items-end gap-1.5 h-16">
+    <div className="flex h-16 items-end gap-1.5">
       {models.map((modelId) => {
         const value = values[modelId] ?? 0;
         const height = max > 0 ? (value / max) * 100 : 0;
         const meta = MODEL_META[modelId];
+
         return (
-          <div key={modelId} className="flex-1 flex flex-col items-center">
-            <span className="text-[10px] font-mono text-slate-500 mb-0.5">
+          <div key={modelId} className="flex flex-1 flex-col items-center">
+            <span className="mb-1 text-[10px] font-mono text-[var(--muted)]">
               {formatPercent(value)}
             </span>
             <div
-              className="w-full rounded-t transition-all duration-500"
+              className="w-full rounded-t"
               style={{
                 height: `${Math.max(height, 4)}%`,
                 backgroundColor: meta.color,
@@ -48,279 +50,259 @@ export default function SimulateComparePage() {
   if (isRunning) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto" />
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-stone-900 border-t-transparent" />
       </div>
     );
   }
 
   if (!currentResult) {
     return (
-      <div className="text-center py-20">
-        <p className="text-slate-500 mb-4">No simulation results to compare.</p>
+      <div className="py-20 text-center">
+        <p className="mb-4 text-[var(--muted)]">No simulation results to compare.</p>
         <Link
           href="/simulate"
-          className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors"
+          className="btn-primary rounded-full px-5 py-3 text-sm font-semibold"
         >
-          Run a simulation first
+          Start a test
         </Link>
       </div>
     );
   }
 
-  const { config, brandStats, modelStats, queryResults } = currentResult;
+  const { config, brandStats, queryResults } = currentResult;
   const models = config.models;
   const allBrands = [config.targetBrand, ...config.competitors];
 
-  // Per-model, per-brand mention rates
   const mentionRatesByBrand = allBrands.map((brand) => {
-    const stat = brandStats.find((b) => b.brand === brand);
+    const stat = brandStats.find((entry) => entry.brand === brand);
     const rates: Record<ModelId, number> = {} as Record<ModelId, number>;
-    for (const m of models) {
-      rates[m] = stat?.modelBreakdown[m]?.mentionRate ?? 0;
+
+    for (const model of models) {
+      rates[model] = stat?.modelBreakdown[model]?.mentionRate ?? 0;
     }
+
     return { brand, isTarget: brand === config.targetBrand, rates };
   });
 
-  // Cross-model agreement: for each query, how many models agree on mentioning each brand
   const agreementData = config.queries.map((query) => {
     const brandAgreement = allBrands.map((brand) => {
       let mentioningModels = 0;
+
       for (const model of models) {
         const results = queryResults.filter(
-          (qr) => qr.query === query && qr.model === model
+          (entry) => entry.query === query && entry.model === model
         );
-        const mentionedInAny = results.some((r) =>
-          r.mentions.some((m) => m.brand === brand && m.mentioned)
+        const mentionedInAny = results.some((result) =>
+          result.mentions.some((mention) => mention.brand === brand && mention.mentioned)
         );
+
         if (mentionedInAny) mentioningModels++;
       }
+
       return { brand, agreementRate: mentioningModels / models.length };
     });
 
     return { query, brandAgreement };
   });
 
-  // Average agreement across all queries
   const avgAgreement = allBrands.map((brand) => {
     const rates = agreementData.map(
-      (d) => d.brandAgreement.find((b) => b.brand === brand)?.agreementRate ?? 0
+      (entry) => entry.brandAgreement.find((item) => item.brand === brand)?.agreementRate ?? 0
     );
+
     return {
       brand,
-      avgAgreement: rates.reduce((a, b) => a + b, 0) / rates.length,
+      avgAgreement: rates.reduce((sum, value) => sum + value, 0) / rates.length,
     };
   });
 
-  // Model divergence: which brand has the biggest gap between best and worst model
-  const divergenceData = mentionRatesByBrand.map((item) => {
-    const rates = models.map((m) => item.rates[m]);
-    const maxRate = Math.max(...rates);
-    const minRate = Math.min(...rates);
-    return {
-      brand: item.brand,
-      isTarget: item.isTarget,
-      maxRate,
-      minRate,
-      gap: maxRate - minRate,
-      bestModel: models[rates.indexOf(maxRate)],
-      worstModel: models[rates.indexOf(minRate)],
-    };
-  });
-  divergenceData.sort((a, b) => b.gap - a.gap);
+  const divergenceData = mentionRatesByBrand
+    .map((item) => {
+      const rates = models.map((model) => item.rates[model]);
+      const maxRate = Math.max(...rates);
+      const minRate = Math.min(...rates);
+
+      return {
+        brand: item.brand,
+        isTarget: item.isTarget,
+        maxRate,
+        minRate,
+        gap: maxRate - minRate,
+        bestModel: models[rates.indexOf(maxRate)],
+        worstModel: models[rates.indexOf(minRate)],
+      };
+    })
+    .sort((a, b) => b.gap - a.gap);
 
   return (
     <div className="space-y-8">
-      {/* Model Legend */}
-      <div className="flex flex-wrap gap-4">
-        {models.map((m) => {
-          const meta = MODEL_META[m];
-          return (
-            <div key={m} className="flex items-center gap-2">
-              <div
-                className="w-3 h-3 rounded-full"
-                style={{ backgroundColor: meta.color }}
-              />
-              <span className="text-sm text-slate-700">{meta.label}</span>
-            </div>
-          );
-        })}
-      </div>
+      <section className="paper-panel rounded-[2.2rem] p-6">
+        <p className="muted-label text-xs">Compare</p>
+        <h2 className="mt-3 text-4xl text-[var(--ink)]">Where the AI tools agree or split</h2>
+        <div className="mt-5 flex flex-wrap gap-4">
+          {models.map((model) => {
+            const meta = MODEL_META[model];
+            return (
+              <div key={model} className="flex items-center gap-2">
+                <div className="h-3 w-3 rounded-full" style={{ backgroundColor: meta.color }} />
+                <span className="text-sm text-[var(--muted)]">{meta.label}</span>
+              </div>
+            );
+          })}
+        </div>
+      </section>
 
-      {/* Side-by-side Brand Mention Rates */}
-      <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
-        <div className="px-5 py-4 bg-slate-50 border-b border-slate-200">
-          <h2 className="text-lg font-semibold text-slate-900">
-            Brand Mention Rate by Model
-          </h2>
-          <p className="text-sm text-slate-500 mt-0.5">
-            How often each model mentions each brand across all queries
+      <section className="paper-card overflow-hidden rounded-[1.75rem]">
+        <div className="border-b border-[color:var(--line)] px-5 py-4">
+          <h2 className="text-3xl text-[var(--ink)]">Brand mention rate by model</h2>
+          <p className="mt-1 text-sm text-[var(--muted)]">
+            How often each model mentions each brand across the scenario set.
           </p>
         </div>
-        <div className="p-5 space-y-6">
+        <div className="space-y-6 p-5">
           {mentionRatesByBrand
             .sort(
               (a, b) =>
-                Math.max(...models.map((m) => b.rates[m])) -
-                Math.max(...models.map((m) => a.rates[m]))
+                Math.max(...models.map((model) => b.rates[model])) -
+                Math.max(...models.map((model) => a.rates[model]))
             )
             .map((item) => (
               <div key={item.brand}>
-                <div className="flex items-center gap-2 mb-2">
-                  <span
-                    className={`text-sm font-medium ${
-                      item.isTarget ? "text-blue-700" : "text-slate-800"
-                    }`}
-                  >
-                    {item.brand}
-                  </span>
+                <div className="mb-2 flex items-center gap-2">
+                  <span className="text-sm font-semibold text-[var(--ink)]">{item.brand}</span>
                   {item.isTarget && (
-                    <span className="text-xs bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded">
-                      you
+                    <span className="rounded-full border border-[color:var(--line)] bg-[rgba(255,255,255,0.5)] px-2 py-0.5 text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]">
+                      target
                     </span>
                   )}
                 </div>
                 <ComparisonBar values={item.rates} models={models} />
-                <div className="flex gap-1.5 mt-1">
-                  {models.map((m) => (
+                <div className="mt-2 flex gap-1.5">
+                  {models.map((model) => (
                     <div
-                      key={m}
-                      className="flex-1 text-center text-[10px] text-slate-400"
+                      key={model}
+                      className="flex-1 text-center text-[10px] text-[var(--muted)]"
                     >
-                      {MODEL_META[m].provider}
+                      {MODEL_META[model].provider}
                     </div>
                   ))}
                 </div>
               </div>
             ))}
         </div>
-      </div>
+      </section>
 
-      {/* Model Divergence Table */}
-      <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
-        <div className="px-5 py-4 bg-slate-50 border-b border-slate-200">
-          <h2 className="text-lg font-semibold text-slate-900">Model Divergence</h2>
-          <p className="text-sm text-slate-500 mt-0.5">
-            Brands with the biggest gap between their best and worst model. Research shows only
-            12% URL overlap between models (Research 2.2).
+      <section className="paper-card overflow-hidden rounded-[1.75rem]">
+        <div className="border-b border-[color:var(--line)] px-5 py-4">
+          <h2 className="text-3xl text-[var(--ink)]">Model divergence</h2>
+          <p className="mt-1 text-sm text-[var(--muted)]">
+            Which brands see the largest spread between their best and worst model.
           </p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-slate-100 text-left">
-                <th className="py-3 px-4 font-medium text-slate-600">Brand</th>
-                <th className="py-3 px-4 font-medium text-slate-600 text-center">Best Model</th>
-                <th className="py-3 px-4 font-medium text-slate-600 text-center">Best Rate</th>
-                <th className="py-3 px-4 font-medium text-slate-600 text-center">Worst Model</th>
-                <th className="py-3 px-4 font-medium text-slate-600 text-center">Worst Rate</th>
-                <th className="py-3 px-4 font-medium text-slate-600 text-center">Gap</th>
+              <tr className="border-b border-[color:var(--line)] text-left">
+                <th className="px-4 py-3 font-medium text-[var(--muted)]">Brand</th>
+                <th className="px-4 py-3 text-center font-medium text-[var(--muted)]">Best model</th>
+                <th className="px-4 py-3 text-center font-medium text-[var(--muted)]">Best rate</th>
+                <th className="px-4 py-3 text-center font-medium text-[var(--muted)]">Worst model</th>
+                <th className="px-4 py-3 text-center font-medium text-[var(--muted)]">Worst rate</th>
+                <th className="px-4 py-3 text-center font-medium text-[var(--muted)]">Gap</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-50">
+            <tbody className="divide-y divide-[color:var(--line)]">
               {divergenceData.map((row) => (
                 <tr
                   key={row.brand}
-                  className={`hover:bg-slate-50 ${row.isTarget ? "bg-blue-50/50" : ""}`}
+                  className={row.isTarget ? "bg-[rgba(255,255,255,0.34)]" : "hover:bg-[rgba(255,255,255,0.22)]"}
                 >
-                  <td className="py-3 px-4 font-medium text-slate-800">
+                  <td className="px-4 py-3 font-semibold text-[var(--ink)]">
                     {row.brand}
                     {row.isTarget && (
-                      <span className="ml-2 text-xs bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded">
-                        you
+                      <span className="ml-2 rounded-full border border-[color:var(--line)] bg-[rgba(255,255,255,0.5)] px-2 py-0.5 text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]">
+                        target
                       </span>
                     )}
                   </td>
-                  <td className="py-3 px-4 text-center">
+                  <td className="px-4 py-3 text-center">
                     <span className="inline-flex items-center gap-1">
                       <span
-                        className="w-2 h-2 rounded-full"
+                        className="h-2 w-2 rounded-full"
                         style={{ backgroundColor: MODEL_META[row.bestModel].color }}
                       />
-                      <span className="text-xs">{MODEL_META[row.bestModel].provider}</span>
+                      <span className="text-xs text-[var(--ink)]">
+                        {MODEL_META[row.bestModel].provider}
+                      </span>
                     </span>
                   </td>
-                  <td className="py-3 px-4 text-center font-mono text-green-700 text-xs">
+                  <td className="px-4 py-3 text-center font-mono text-xs text-[var(--ink)]">
                     {formatPercent(row.maxRate)}
                   </td>
-                  <td className="py-3 px-4 text-center">
+                  <td className="px-4 py-3 text-center">
                     <span className="inline-flex items-center gap-1">
                       <span
-                        className="w-2 h-2 rounded-full"
+                        className="h-2 w-2 rounded-full"
                         style={{ backgroundColor: MODEL_META[row.worstModel].color }}
                       />
-                      <span className="text-xs">{MODEL_META[row.worstModel].provider}</span>
+                      <span className="text-xs text-[var(--ink)]">
+                        {MODEL_META[row.worstModel].provider}
+                      </span>
                     </span>
                   </td>
-                  <td className="py-3 px-4 text-center font-mono text-red-700 text-xs">
+                  <td className="px-4 py-3 text-center font-mono text-xs text-[var(--ink)]">
                     {formatPercent(row.minRate)}
                   </td>
-                  <td className="py-3 px-4 text-center">
-                    <span
-                      className={`font-mono text-xs font-semibold ${
-                        row.gap > 0.3
-                          ? "text-red-600"
-                          : row.gap > 0.15
-                          ? "text-amber-600"
-                          : "text-green-600"
-                      }`}
-                    >
-                      {formatPercent(row.gap)}
-                    </span>
+                  <td className="px-4 py-3 text-center font-mono text-xs font-semibold text-[var(--ink)]">
+                    {formatPercent(row.gap)}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-      </div>
+      </section>
 
-      {/* Cross-Model Agreement */}
-      <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
-        <div className="px-5 py-4 bg-slate-50 border-b border-slate-200">
-          <h2 className="text-lg font-semibold text-slate-900">Cross-Model Agreement</h2>
-          <p className="text-sm text-slate-500 mt-0.5">
-            What percentage of models agree on mentioning each brand (averaged across queries)
+      <section className="paper-card overflow-hidden rounded-[1.75rem]">
+        <div className="border-b border-[color:var(--line)] px-5 py-4">
+          <h2 className="text-3xl text-[var(--ink)]">Cross-model agreement</h2>
+          <p className="mt-1 text-sm text-[var(--muted)]">
+            What share of models agree on mentioning each brand, averaged across queries.
           </p>
         </div>
-        <div className="p-5 space-y-3">
+        <div className="space-y-3 p-5">
           {avgAgreement
             .sort((a, b) => b.avgAgreement - a.avgAgreement)
             .map((item) => {
               const isTarget = item.brand === config.targetBrand;
+
               return (
                 <div key={item.brand} className="flex items-center gap-3">
-                  <span
-                    className={`w-28 text-sm truncate ${
-                      isTarget ? "font-medium text-blue-700" : "text-slate-700"
-                    }`}
-                  >
+                  <span className={`w-28 truncate text-sm ${isTarget ? "font-semibold text-[var(--ink)]" : "text-[var(--muted)]"}`}>
                     {item.brand}
                   </span>
-                  <div className="flex-1 bg-slate-100 rounded-full h-4 overflow-hidden">
+                  <div className="h-4 flex-1 overflow-hidden rounded-full bg-stone-200">
                     <div
-                      className="h-full rounded-full transition-all"
+                      className="h-full rounded-full"
                       style={{
                         width: `${item.avgAgreement * 100}%`,
-                        backgroundColor: isTarget ? "#3b82f6" : "#64748b",
+                        backgroundColor: isTarget ? "#26211c" : "#7d7368",
                       }}
                     />
                   </div>
-                  <span className="w-12 text-right text-xs font-mono text-slate-600">
+                  <span className="w-12 text-right font-mono text-xs text-[var(--muted)]">
                     {formatPercent(item.avgAgreement)}
                   </span>
                 </div>
               );
             })}
         </div>
-      </div>
+      </section>
 
-      {/* Key Insight */}
-      <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-sm text-green-800">
-        <strong>Key Insight:</strong> Models disagree significantly on brand recommendations.
-        Perplexity (with web search) cites ~13 brands per response while ChatGPT cites only ~3-4
-        (Research 2.1). A brand invisible on ChatGPT may be prominent on Perplexity. Multi-model
-        monitoring is essential — single-model tracking misses 88% of the picture (Research 2.2:
-        only 12% URL overlap).
+      <div className="surface-inset rounded-[1.75rem] p-5 text-sm leading-relaxed text-[var(--ink)]">
+        <strong>Why this view matters:</strong> the signal is not one answer from one model. The
+        useful part is the spread between engines and which brands hold up across the full model
+        basket.
       </div>
     </div>
   );

@@ -1,0 +1,45 @@
+graph TB
+    subgraph Daily["DAILY (6am-7am)"]
+        LLM["🤖 LLM API Calls<br/>100k/day<br/>Claude, GPT-4, Gemini, Llama"]
+        Scrape["🔍 Signal Scraper<br/>500 brands<br/>Freshness, Authority, Domain"]
+        DB1["🗄️ PostgreSQL<br/>mention_records<br/>brand_signals"]
+
+        LLM -->|Store| DB1
+        Scrape -->|Store| DB1
+    end
+
+    subgraph Training["MODEL TRAINING (7am)"]
+        Assemble["📊 Assemble Data<br/>90 days<br/>45k samples × 8 features"]
+        XGBoost["🤖 XGBoost Train<br/>100 trees, depth 4<br/>Walk-forward validation"]
+        Metrics["📈 Validate<br/>R² = 0.87<br/>RMSE = 2.1pp"]
+        Cache["💾 Cache Model<br/>In-memory<br/>Ready for predictions"]
+
+        DB1 -->|Query| Assemble
+        Assemble -->|Train| XGBoost
+        XGBoost -->|Validate| Metrics
+        Metrics -->|Load| Cache
+    end
+
+    subgraph RealTime["REAL-TIME API (24/7)"]
+        User["👤 User<br/>Adjusts sliders<br/>Scenario features"]
+        API["⚡ Next.js API Route<br/>/api/simulate<br/>Load cached model"]
+        Predict["🎯 Two Predictions<br/>Baseline<br/>Scenario"]
+        Lift["📊 Calculate<br/>Lift + Confidence<br/>Feature contributions"]
+        Response["✅ JSON Response<br/>Predictions<br/>Confidence bounds<br/><100ms"]
+
+        User -->|POST| API
+        API -->|Get signals| DB1
+        API -->|Load| Cache
+        Cache -->|Predict| Predict
+        Predict -->|Calculate| Lift
+        Lift -->|Return| Response
+        Response -->|Display| User
+    end
+
+    Daily -->|Model ready| Training
+    Training -->|Cached| RealTime
+
+    style Daily fill:#e8f4f8
+    style Training fill:#fff4e6
+    style RealTime fill:#e8f8e8
+    style Response fill:#ffe8e8

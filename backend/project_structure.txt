@@ -1,0 +1,41 @@
+bitsy-backend/
+├── pyproject.toml              # Poetry dependencies
+├── main.py                     # Entry point
+├── config.py                   # Configuration (API keys, etc)
+│
+├── core/
+│   ├── __init__.py
+│   ├── database.py            # PostgreSQL connection
+│   ├── cache.py               # In-memory model cache
+│   └── logger.py              # Logging setup
+│
+├── data/
+│   ├── __init__.py
+│   ├── llm_collector.py       # LLM API calls for mention data
+│   ├── signal_scraper.py      # Brand signal scraping
+│   └── assembler.py           # Join signals + mentions → training data
+│
+├── models/
+│   ├── __init__.py
+│   ├── trainer.py             # XGBoost training + validation
+│   └── predictor.py           # Make predictions for users
+│
+├── jobs/
+│   ├── __init__.py
+│   └── daily_pipeline.py      # Scheduled daily job (6am + 7am)
+│
+├── api/
+│   ├── __init__.py
+│   ├── app.py                 # FastAPI factory
+│   ├── models.py              # Pydantic schemas
+│   └── routes/
+│       ├── __init__.py
+│       ├── health.py          # Health check
+│       └── simulate.py        # /simulate endpoint
+│
+└── tests/
+    ├── __init__.py
+    ├── test_collector.py
+    ├── test_scraper.py
+    ├── test_trainer.py
+    └── test_predictor.py

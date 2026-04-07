@@ -18,7 +18,7 @@ function ComparisonBar({
   const max = Math.max(...models.map((model) => values[model] ?? 0), 0.01);
 
   return (
-    <div className="flex h-16 items-end gap-1.5">
+    <div className="flex h-20 items-end gap-2">
       {models.map((modelId) => {
         const value = values[modelId] ?? 0;
         const height = max > 0 ? (value / max) * 100 : 0;
@@ -30,9 +30,9 @@ function ComparisonBar({
               {formatPercent(value)}
             </span>
             <div
-              className="w-full rounded-t"
+              className="w-full rounded-t-[0.8rem]"
               style={{
-                height: `${Math.max(height, 4)}%`,
+                height: `${Math.max(height, 5)}%`,
                 backgroundColor: meta.color,
                 opacity: value > 0 ? 1 : 0.2,
               }}
@@ -134,29 +134,116 @@ export default function SimulateComparePage() {
     })
     .sort((a, b) => b.gap - a.gap);
 
+  const targetRates = mentionRatesByBrand.find((item) => item.isTarget);
+  const targetAgreement = avgAgreement.find((item) => item.brand === config.targetBrand);
+  const targetSpread = divergenceData.find((item) => item.isTarget);
+
   return (
     <div className="space-y-8">
-      <section className="paper-panel rounded-[2.2rem] p-6">
-        <p className="muted-label text-xs">Compare</p>
-        <h2 className="mt-3 text-4xl text-[var(--ink)]">Where the AI tools agree or split</h2>
-        <div className="mt-5 flex flex-wrap gap-4">
-          {models.map((model) => {
-            const meta = MODEL_META[model];
-            return (
-              <div key={model} className="flex items-center gap-2">
-                <div className="h-3 w-3 rounded-full" style={{ backgroundColor: meta.color }} />
-                <span className="text-sm text-[var(--muted)]">{meta.label}</span>
-              </div>
-            );
-          })}
+      <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr),320px]">
+        <div className="paper-panel rounded-[2.2rem] p-6 md:p-7">
+          <p className="muted-label text-xs">Compare</p>
+          <h2 className="mt-3 text-4xl text-[var(--ink)]">
+            Model spread for {config.targetBrand}
+          </h2>
+          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-[var(--muted)]">
+            {targetSpread
+              ? `${MODEL_META[targetSpread.bestModel].provider} is the strongest tool for ${config.targetBrand}, while ${MODEL_META[targetSpread.worstModel].provider} is the weakest. The current spread is ${formatPercent(targetSpread.gap)}.`
+              : "Review the model spread to see which engines are most favorable."}
+          </p>
+
+          <div className="mt-6 grid gap-3 md:grid-cols-4">
+            <div className="metric-card">
+              <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+                Best tool
+              </p>
+              <p className="mt-2 text-2xl text-[var(--ink)]">
+                {targetSpread ? MODEL_META[targetSpread.bestModel].provider : "-"}
+              </p>
+            </div>
+            <div className="metric-card">
+              <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+                Weakest tool
+              </p>
+              <p className="mt-2 text-2xl text-[var(--ink)]">
+                {targetSpread ? MODEL_META[targetSpread.worstModel].provider : "-"}
+              </p>
+            </div>
+            <div className="metric-card">
+              <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+                Spread
+              </p>
+              <p className="mt-2 text-2xl text-[var(--ink)]">
+                {targetSpread ? formatPercent(targetSpread.gap) : "-"}
+              </p>
+            </div>
+            <div className="metric-card">
+              <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+                Agreement
+              </p>
+              <p className="mt-2 text-2xl text-[var(--ink)]">
+                {targetAgreement ? formatPercent(targetAgreement.avgAgreement) : "-"}
+              </p>
+            </div>
+          </div>
         </div>
+
+        <aside className="paper-card rounded-[2rem] p-5">
+          <p className="muted-label text-xs">Tools in this run</p>
+          <div className="mt-4 space-y-3">
+            {models.map((model) => (
+              <div key={model} className="flex items-center gap-2 text-sm text-[var(--muted)]">
+                <span
+                  className="h-2.5 w-2.5 rounded-full"
+                  style={{ backgroundColor: MODEL_META[model].color }}
+                />
+                <span>{MODEL_META[model].provider}</span>
+              </div>
+            ))}
+          </div>
+        </aside>
       </section>
+
+      {targetRates && (
+        <section className="paper-card rounded-[1.75rem] p-5">
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <p className="muted-label text-xs">Target brand</p>
+              <h2 className="mt-2 text-3xl text-[var(--ink)]">
+                {config.targetBrand} by model
+              </h2>
+            </div>
+            <span className="font-mono text-xs text-[var(--muted)]">
+              {models.length} tools selected
+            </span>
+          </div>
+          <div className="mt-5">
+            <ComparisonBar values={targetRates.rates} models={models} />
+            <div className="mt-3 grid gap-2 sm:grid-cols-4">
+              {models.map((model) => (
+                <div key={model} className="surface-inset rounded-[1rem] px-3 py-3 text-sm">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="h-2 w-2 rounded-full"
+                      style={{ backgroundColor: MODEL_META[model].color }}
+                    />
+                    <span className="text-[var(--ink)]">{MODEL_META[model].provider}</span>
+                  </div>
+                  <div className="mt-2 font-mono text-xs text-[var(--muted)]">
+                    {formatPercent(targetRates.rates[model])}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       <section className="paper-card overflow-hidden rounded-[1.75rem]">
         <div className="border-b border-[color:var(--line)] px-5 py-4">
-          <h2 className="text-3xl text-[var(--ink)]">Brand mention rate by model</h2>
+          <h2 className="text-3xl text-[var(--ink)]">All brands by model</h2>
           <p className="mt-1 text-sm text-[var(--muted)]">
-            How often each model mentions each brand across the scenario set.
+            How often each model mentions each brand across the current scenario set.
           </p>
         </div>
         <div className="space-y-6 p-5">
@@ -196,7 +283,7 @@ export default function SimulateComparePage() {
         <div className="border-b border-[color:var(--line)] px-5 py-4">
           <h2 className="text-3xl text-[var(--ink)]">Model divergence</h2>
           <p className="mt-1 text-sm text-[var(--muted)]">
-            Which brands see the largest spread between their best and worst model.
+            Which brands see the biggest gap between their best and worst engine.
           </p>
         </div>
         <div className="overflow-x-auto">
@@ -204,10 +291,18 @@ export default function SimulateComparePage() {
             <thead>
               <tr className="border-b border-[color:var(--line)] text-left">
                 <th className="px-4 py-3 font-medium text-[var(--muted)]">Brand</th>
-                <th className="px-4 py-3 text-center font-medium text-[var(--muted)]">Best model</th>
-                <th className="px-4 py-3 text-center font-medium text-[var(--muted)]">Best rate</th>
-                <th className="px-4 py-3 text-center font-medium text-[var(--muted)]">Worst model</th>
-                <th className="px-4 py-3 text-center font-medium text-[var(--muted)]">Worst rate</th>
+                <th className="px-4 py-3 text-center font-medium text-[var(--muted)]">
+                  Best tool
+                </th>
+                <th className="px-4 py-3 text-center font-medium text-[var(--muted)]">
+                  Best rate
+                </th>
+                <th className="px-4 py-3 text-center font-medium text-[var(--muted)]">
+                  Weakest tool
+                </th>
+                <th className="px-4 py-3 text-center font-medium text-[var(--muted)]">
+                  Weakest rate
+                </th>
                 <th className="px-4 py-3 text-center font-medium text-[var(--muted)]">Gap</th>
               </tr>
             </thead>
@@ -215,7 +310,11 @@ export default function SimulateComparePage() {
               {divergenceData.map((row) => (
                 <tr
                   key={row.brand}
-                  className={row.isTarget ? "bg-[rgba(255,255,255,0.34)]" : "hover:bg-[rgba(255,255,255,0.22)]"}
+                  className={
+                    row.isTarget
+                      ? "bg-[rgba(255,255,255,0.34)]"
+                      : "hover:bg-[rgba(255,255,255,0.22)]"
+                  }
                 >
                   <td className="px-4 py-3 font-semibold text-[var(--ink)]">
                     {row.brand}
@@ -267,7 +366,7 @@ export default function SimulateComparePage() {
         <div className="border-b border-[color:var(--line)] px-5 py-4">
           <h2 className="text-3xl text-[var(--ink)]">Cross-model agreement</h2>
           <p className="mt-1 text-sm text-[var(--muted)]">
-            What share of models agree on mentioning each brand, averaged across queries.
+            What share of tools agree on mentioning each brand, averaged across queries.
           </p>
         </div>
         <div className="space-y-3 p-5">
@@ -278,7 +377,11 @@ export default function SimulateComparePage() {
 
               return (
                 <div key={item.brand} className="flex items-center gap-3">
-                  <span className={`w-28 truncate text-sm ${isTarget ? "font-semibold text-[var(--ink)]" : "text-[var(--muted)]"}`}>
+                  <span
+                    className={`w-28 truncate text-sm ${
+                      isTarget ? "font-semibold text-[var(--ink)]" : "text-[var(--muted)]"
+                    }`}
+                  >
                     {item.brand}
                   </span>
                   <div className="h-4 flex-1 overflow-hidden rounded-full bg-stone-200">
@@ -286,7 +389,7 @@ export default function SimulateComparePage() {
                       className="h-full rounded-full"
                       style={{
                         width: `${item.avgAgreement * 100}%`,
-                        backgroundColor: isTarget ? "#26211c" : "#7d7368",
+                        backgroundColor: isTarget ? "#191612" : "#7d7368",
                       }}
                     />
                   </div>
@@ -300,9 +403,8 @@ export default function SimulateComparePage() {
       </section>
 
       <div className="surface-inset rounded-[1.75rem] p-5 text-sm leading-relaxed text-[var(--ink)]">
-        <strong>Why this view matters:</strong> the signal is not one answer from one model. The
-        useful part is the spread between engines and which brands hold up across the full model
-        basket.
+        <strong>Why this matters:</strong> the useful signal is not one answer from one model. It
+        is the spread between engines and which brands hold up across the full basket.
       </div>
     </div>
   );

@@ -20,7 +20,7 @@ function SentimentDot({ sentiment }: { sentiment: "positive" | "neutral" | "nega
 
 function MentionBar({ rate, color }: { rate: number; color: string }) {
   return (
-    <div className="h-3 w-full overflow-hidden rounded-full bg-stone-200">
+    <div className="h-2.5 w-full overflow-hidden rounded-full bg-stone-200">
       <div
         className="h-full rounded-full transition-all duration-500"
         style={{ width: `${rate * 100}%`, backgroundColor: color }}
@@ -59,46 +59,140 @@ export default function SimulateResultsPage() {
 
   const { config, brandStats, modelStats, queryResults } = currentResult;
   const target = brandStats.find((brand) => brand.isTarget);
+  const leader = brandStats[0];
+  const targetRank = brandStats.findIndex((brand) => brand.isTarget) + 1;
+  const targetQueryHits = new Set(
+    queryResults
+      .filter((result) =>
+        result.mentions.some(
+          (mention) => mention.brand === config.targetBrand && mention.mentioned
+        )
+      )
+      .map((result) => result.query)
+  ).size;
+
+  const modelSpread = config.models
+    .map((model) => ({
+      model,
+      rate: target?.modelBreakdown[model]?.mentionRate ?? 0,
+    }))
+    .sort((a, b) => b.rate - a.rate);
+
+  const bestModel = modelSpread[0];
+  const weakestModel = modelSpread[modelSpread.length - 1];
+  const gapToLeader =
+    target && leader && leader.brand !== target.brand
+      ? leader.mentionRate - target.mentionRate
+      : 0;
+
+  const summary =
+    target && leader
+      ? leader.brand === target.brand
+        ? `${target.brand} leads this scenario and appears in ${formatPercent(
+            target.mentionRate
+          )} of sampled responses. ${MODEL_META[bestModel.model].provider} is currently the most favorable tool.`
+        : `${target.brand} ranks #${targetRank} and trails ${leader.brand} by ${formatPercent(
+            gapToLeader
+          )}. ${MODEL_META[bestModel.model].provider} is currently the best place to gain visibility.`
+      : "Review the current run, then compare engines to see where the strongest opportunities sit.";
 
   return (
     <div className="space-y-8">
-      <section className="paper-panel rounded-[2.2rem] p-6">
-        <p className="muted-label text-xs">Results</p>
-        <h2 className="mt-3 text-4xl text-[var(--ink)]">How the test turned out</h2>
-        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[var(--muted)]">
-          This is a fast read on how often your product appeared, where it showed up, and which
-          AI tools were most favorable.
-        </p>
+      <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr),320px]">
+        <div className="paper-panel rounded-[2.2rem] p-6 md:p-7">
+          <p className="muted-label text-xs">Results</p>
+          <h2 className="mt-3 text-4xl leading-tight text-[var(--ink)]">
+            {target ? formatPercent(target.mentionRate) : "0.0%"} of responses mention{" "}
+            {config.targetBrand}
+          </h2>
+          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-[var(--muted)]">
+            {summary}
+          </p>
 
-        <div className="mt-6 grid gap-4 md:grid-cols-4">
-          <div className="surface-inset rounded-[1.5rem] p-4 text-center">
-            <div className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">Product</div>
-            <div className="mt-2 text-2xl text-[var(--ink)]">{config.targetBrand}</div>
-          </div>
-          <div className="surface-inset rounded-[1.5rem] p-4 text-center">
-            <div className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">Mention rate</div>
-            <div className="mt-2 text-2xl text-[var(--ink)]">
-              {formatPercent(target?.mentionRate ?? 0)}
+          <div className="mt-6 grid gap-3 md:grid-cols-4">
+            <div className="metric-card">
+              <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">Rank</p>
+              <p className="mt-2 text-3xl text-[var(--ink)]">#{targetRank}</p>
+            </div>
+            <div className="metric-card">
+              <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+                Avg position
+              </p>
+              <p className="mt-2 text-3xl text-[var(--ink)]">
+                {target?.avgPosition ? `#${target.avgPosition.toFixed(1)}` : "-"}
+              </p>
+            </div>
+            <div className="metric-card">
+              <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+                Strongest tool
+              </p>
+              <p className="mt-2 text-3xl text-[var(--ink)]">
+                {MODEL_META[bestModel.model].provider}
+              </p>
+            </div>
+            <div className="metric-card">
+              <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+                Questions hit
+              </p>
+              <p className="mt-2 text-3xl text-[var(--ink)]">
+                {targetQueryHits}/{config.queries.length}
+              </p>
             </div>
           </div>
-          <div className="surface-inset rounded-[1.5rem] p-4 text-center">
-            <div className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">Average rank</div>
-            <div className="mt-2 text-2xl text-[var(--ink)]">
-              #{(target?.avgPosition ?? 0).toFixed(1)}
-            </div>
-          </div>
-          <div className="surface-inset rounded-[1.5rem] p-4 text-center">
-            <div className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">Responses checked</div>
-            <div className="mt-2 text-2xl text-[var(--ink)]">{queryResults.length}</div>
+
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Link
+              href="/simulate"
+              className="btn-secondary rounded-full px-5 py-3 text-sm font-semibold"
+            >
+              Edit test
+            </Link>
+            <Link
+              href="/simulate/compare"
+              className="btn-primary rounded-full px-5 py-3 text-sm font-semibold"
+            >
+              Compare tools
+            </Link>
           </div>
         </div>
+
+        <aside className="paper-card rounded-[2rem] p-5">
+          <p className="muted-label text-xs">Quick take</p>
+          <div className="mt-4 space-y-3 text-sm leading-relaxed text-[var(--muted)]">
+            <div className="surface-inset rounded-[1.25rem] px-4 py-4">
+              <p className="text-xs uppercase tracking-[0.16em] text-[var(--muted)]">
+                Best current read
+              </p>
+              <p className="mt-2 text-[var(--ink)]">
+                {MODEL_META[bestModel.model].provider} mentions {config.targetBrand} most often.
+              </p>
+            </div>
+            <div className="surface-inset rounded-[1.25rem] px-4 py-4">
+              <p className="text-xs uppercase tracking-[0.16em] text-[var(--muted)]">
+                Weakest current read
+              </p>
+              <p className="mt-2 text-[var(--ink)]">
+                {MODEL_META[weakestModel.model].provider} is the lowest-visibility tool in this run.
+              </p>
+            </div>
+            <div className="surface-inset rounded-[1.25rem] px-4 py-4">
+              <p className="text-xs uppercase tracking-[0.16em] text-[var(--muted)]">
+                Sample size
+              </p>
+              <p className="mt-2 text-[var(--ink)]">
+                {queryResults.length} responses across {config.models.length} tools and{" "}
+                {config.samplesPerQuery} repeats per question.
+              </p>
+            </div>
+          </div>
+        </aside>
       </section>
 
       <section className="paper-card overflow-hidden rounded-[1.75rem]">
         <div className="border-b border-[color:var(--line)] px-5 py-4">
           <h2 className="text-3xl text-[var(--ink)]">Brand ranking</h2>
           <p className="mt-1 text-sm text-[var(--muted)]">
-            Ranked by how often each brand was mentioned across all selected questions and tools.
+            Ranked by how often each brand was mentioned across the current run.
           </p>
         </div>
         <div className="overflow-x-auto">
@@ -107,94 +201,74 @@ export default function SimulateResultsPage() {
               <tr className="border-b border-[color:var(--line)] text-left">
                 <th className="w-8 px-4 py-3 font-medium text-[var(--muted)]">#</th>
                 <th className="px-4 py-3 font-medium text-[var(--muted)]">Brand</th>
-                <th className="w-48 px-4 py-3 font-medium text-[var(--muted)]">Mention rate</th>
-                <th className="px-4 py-3 text-center font-medium text-[var(--muted)]">Avg position</th>
-                <th className="px-4 py-3 text-center font-medium text-[var(--muted)]">Sentiment</th>
-                {config.models.map((model) => (
-                  <th key={model} className="px-4 py-3 text-center font-medium text-[var(--muted)]">
-                    <span
-                      className="mr-1 inline-block h-2 w-2 rounded-full"
-                      style={{ backgroundColor: MODEL_META[model].color }}
-                    />
-                    {MODEL_META[model].provider}
-                  </th>
-                ))}
+                <th className="w-56 px-4 py-3 font-medium text-[var(--muted)]">Mention rate</th>
+                <th className="px-4 py-3 text-center font-medium text-[var(--muted)]">
+                  Avg position
+                </th>
+                <th className="px-4 py-3 text-center font-medium text-[var(--muted)]">
+                  Strongest tool
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[color:var(--line)]">
-              {brandStats.map((brand, index) => (
-                <tr
-                  key={brand.brand}
-                  className={brand.isTarget ? "bg-[rgba(255,255,255,0.38)]" : "hover:bg-[rgba(255,255,255,0.28)]"}
-                >
-                  <td className="px-4 py-3 font-mono text-xs text-[var(--muted)]">{index + 1}</td>
-                  <td className="px-4 py-3">
-                    <span className={`font-semibold ${brand.isTarget ? "text-[var(--ink)]" : "text-[var(--ink)]"}`}>
-                      {brand.brand}
-                    </span>
-                    {brand.isTarget && (
-                      <span className="ml-2 rounded-full border border-[color:var(--line)] bg-[rgba(255,255,255,0.52)] px-2 py-0.5 text-[10px] uppercase tracking-[0.18em] text-[var(--muted)]">
-                        target
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <MentionBar
-                        rate={brand.mentionRate}
-                        color={brand.isTarget ? "#26211c" : "#8a8175"}
-                      />
-                      <span className="w-12 text-right font-mono text-xs text-[var(--muted)]">
-                        {formatPercent(brand.mentionRate)}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    {brand.avgPosition !== null ? (
-                      <span className="font-mono text-sm text-[var(--ink)]">
-                        #{brand.avgPosition.toFixed(1)}
-                      </span>
-                    ) : (
-                      <span className="text-[var(--muted)]">&mdash;</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center justify-center gap-1.5">
-                      <SentimentDot sentiment="positive" />
-                      <span className="text-xs text-[var(--muted)]">
-                        {brand.sentimentBreakdown.positive}
-                      </span>
-                      <SentimentDot sentiment="neutral" />
-                      <span className="text-xs text-[var(--muted)]">
-                        {brand.sentimentBreakdown.neutral}
-                      </span>
-                      <SentimentDot sentiment="negative" />
-                      <span className="text-xs text-[var(--muted)]">
-                        {brand.sentimentBreakdown.negative}
-                      </span>
-                    </div>
-                  </td>
-                  {config.models.map((model) => {
-                    const modelData = brand.modelBreakdown[model];
+              {brandStats.map((brand, index) => {
+                const strongest = config.models
+                  .map((model) => ({
+                    model,
+                    rate: brand.modelBreakdown[model]?.mentionRate ?? 0,
+                  }))
+                  .sort((a, b) => b.rate - a.rate)[0];
 
-                    if (!modelData) {
-                      return (
-                        <td key={model} className="px-4 py-3 text-center text-[var(--muted)]">
-                          &mdash;
-                        </td>
-                      );
+                return (
+                  <tr
+                    key={brand.brand}
+                    className={
+                      brand.isTarget
+                        ? "bg-[rgba(255,255,255,0.38)]"
+                        : "hover:bg-[rgba(255,255,255,0.28)]"
                     }
-
-                    return (
-                      <td key={model} className="px-4 py-3 text-center">
-                        <span className="font-mono text-xs font-medium text-[var(--ink)]">
-                          {formatPercent(modelData.mentionRate)}
+                  >
+                    <td className="px-4 py-3 font-mono text-xs text-[var(--muted)]">
+                      {index + 1}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="font-semibold text-[var(--ink)]">{brand.brand}</span>
+                      {brand.isTarget && (
+                        <span className="ml-2 rounded-full border border-[color:var(--line)] bg-[rgba(255,255,255,0.52)] px-2 py-0.5 text-[10px] uppercase tracking-[0.18em] text-[var(--muted)]">
+                          target
                         </span>
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <MentionBar
+                          rate={brand.mentionRate}
+                          color={brand.isTarget ? "#191612" : "#7b7267"}
+                        />
+                        <span className="w-12 text-right font-mono text-xs text-[var(--muted)]">
+                          {formatPercent(brand.mentionRate)}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <span className="font-mono text-sm text-[var(--ink)]">
+                        {brand.avgPosition ? `#${brand.avgPosition.toFixed(1)}` : "-"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <span className="inline-flex items-center gap-1.5">
+                        <span
+                          className="h-2 w-2 rounded-full"
+                          style={{ backgroundColor: MODEL_META[strongest.model].color }}
+                        />
+                        <span className="text-xs text-[var(--ink)]">
+                          {MODEL_META[strongest.model].provider}
+                        </span>
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -206,53 +280,53 @@ export default function SimulateResultsPage() {
           <h2 className="mt-2 text-3xl text-[var(--ink)]">Which AI tools were strongest</h2>
         </div>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {config.models.map((modelId) => {
-          const meta = MODEL_META[modelId];
-          const stats = modelStats[modelId];
+          {config.models.map((modelId) => {
+            const meta = MODEL_META[modelId];
+            const stats = modelStats[modelId];
 
-          if (!stats) return null;
+            if (!stats) return null;
 
-          return (
-            <div
-              key={modelId}
-              className="paper-card rounded-[1.5rem] p-4"
-            >
-              <div className="mb-3 flex items-center gap-2">
-                <div className="h-3 w-3 rounded-full" style={{ backgroundColor: meta.color }} />
-                <h3 className="text-lg text-[var(--ink)]">{meta.label}</h3>
-              </div>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-[var(--muted)]">Brand mention rate</span>
-                  <span className="font-mono text-[var(--ink)]">
-                    {formatPercent(stats.targetMentionRate)}
-                  </span>
+            return (
+              <div key={modelId} className="paper-card rounded-[1.5rem] p-4">
+                <div className="mb-3 flex items-center gap-2">
+                  <div className="h-3 w-3 rounded-full" style={{ backgroundColor: meta.color }} />
+                  <h3 className="text-lg text-[var(--ink)]">{meta.provider}</h3>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-[var(--muted)]">Avg brands/response</span>
-                  <span className="font-mono text-[var(--ink)]">
-                    {stats.avgBrandsMentioned.toFixed(1)}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-[var(--muted)]">Research expectation</span>
-                  <span className="font-mono text-[var(--muted)]">
-                    ~{meta.avgCitationsPerResponse}
-                  </span>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-[var(--muted)]">Target mention rate</span>
+                    <span className="font-mono text-[var(--ink)]">
+                      {formatPercent(stats.targetMentionRate)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[var(--muted)]">Avg brands/response</span>
+                    <span className="font-mono text-[var(--ink)]">
+                      {stats.avgBrandsMentioned.toFixed(1)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[var(--muted)]">Typical citations</span>
+                    <span className="font-mono text-[var(--muted)]">
+                      ~{meta.avgCitationsPerResponse}
+                    </span>
+                  </div>
                 </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
         </div>
       </section>
 
       <section className="paper-card overflow-hidden rounded-[1.75rem]">
         <div className="border-b border-[color:var(--line)] px-5 py-4">
           <h2 className="text-3xl text-[var(--ink)]">Sample responses</h2>
+          <p className="mt-1 text-sm text-[var(--muted)]">
+            A quick read on how the answers are phrased across the first few questions.
+          </p>
         </div>
-        <div className="space-y-3 p-4">
-          {config.queries.slice(0, 5).map((query) => {
+        <div className="space-y-4 p-4">
+          {config.queries.slice(0, 3).map((query) => {
             const firstResults = config.models.map((model) =>
               queryResults.find(
                 (result) =>
@@ -263,41 +337,43 @@ export default function SimulateResultsPage() {
             );
 
             return (
-              <div key={query} className="overflow-hidden rounded-2xl border border-[color:var(--line)]">
+              <div key={query} className="overflow-hidden rounded-[1.5rem] border border-[color:var(--line)]">
                 <div className="border-b border-[color:var(--line)] bg-[rgba(255,255,255,0.24)] px-4 py-3">
-                  <p className="font-mono text-sm font-semibold text-[var(--ink)]">"{query}"</p>
+                  <p className="font-mono text-sm font-semibold text-[var(--ink)]">{query}</p>
                 </div>
-                <div className="divide-y divide-[color:var(--line)]">
+                <div className="space-y-3 p-4">
                   {firstResults.map((result) => {
                     if (!result) return null;
                     const meta = MODEL_META[result.model];
 
                     return (
-                      <div key={result.model} className="px-4 py-3">
+                      <div key={result.model} className="surface-inset rounded-[1.2rem] px-4 py-4">
                         <div className="mb-2 flex items-center gap-2">
                           <div className="h-2 w-2 rounded-full" style={{ backgroundColor: meta.color }} />
-                          <span className="text-xs font-medium text-[var(--muted)]">{meta.label}</span>
+                          <span className="text-xs font-medium text-[var(--muted)]">
+                            {meta.provider}
+                          </span>
                           <span className="text-xs text-[var(--muted)]">
                             {result.totalBrandsMentioned} brands mentioned
                           </span>
                         </div>
-                        <p className="text-sm leading-relaxed text-[var(--muted)]">
+                        <p className="text-sm leading-relaxed text-[var(--ink)]">
                           {result.responseSnippet}
                         </p>
-                        <div className="mt-2 flex flex-wrap gap-1.5">
+                        <div className="mt-3 flex flex-wrap gap-1.5">
                           {result.mentions
                             .filter((mention) => mention.mentioned)
                             .sort((a, b) => (a.position ?? 99) - (b.position ?? 99))
                             .map((mention) => (
                               <span
                                 key={mention.brand}
-                                className={`rounded-full border px-2 py-0.5 text-xs ${
+                                className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs ${
                                   mention.brand === config.targetBrand
-                                    ? "border-[color:var(--line-strong)] bg-[rgba(255,255,255,0.56)] text-[var(--ink)]"
-                                    : "border-[color:var(--line)] bg-[rgba(255,255,255,0.3)] text-[var(--muted)]"
+                                    ? "border-[color:var(--line-strong)] bg-[rgba(255,255,255,0.68)] text-[var(--ink)]"
+                                    : "border-[color:var(--line)] bg-[rgba(255,255,255,0.38)] text-[var(--muted)]"
                                 }`}
                               >
-                                <SentimentDot sentiment={mention.sentiment} /> #{mention.position}{" "}
+                                <SentimentDot sentiment={mention.sentiment} />#{mention.position}{" "}
                                 {mention.brand}
                               </span>
                             ))}
@@ -313,9 +389,8 @@ export default function SimulateResultsPage() {
       </section>
 
       <div className="surface-inset rounded-[1.75rem] p-5 text-sm leading-relaxed text-[var(--ink)]">
-        <strong>Preview mode:</strong> this forecast is best used for comparing scenario design,
-        prompt coverage, and model spread. Live collection and calibrated confidence still come
-        next.
+        <strong>Preview mode:</strong> this is best used to compare scenario design and model
+        spread. Live collection and calibrated confidence still come next.
       </div>
     </div>
   );

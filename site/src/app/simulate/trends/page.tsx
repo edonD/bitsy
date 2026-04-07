@@ -55,37 +55,75 @@ export default function SimulateTrendsPage() {
 
   const currentBrand = currentResult?.config.targetBrand;
   const brandHistory = currentBrand ? (byBrand[currentBrand] ?? []) : [];
+  const uniqueBrands = Object.keys(byBrand).length;
+  const latestResult = history[0];
+  const currentTarget = currentResult?.brandStats.find((brand) => brand.isTarget);
+  const bestBrandRun = brandHistory.reduce<number>(
+    (best, result) =>
+      Math.max(best, result.brandStats.find((brand) => brand.isTarget)?.mentionRate ?? 0),
+    0
+  );
 
   return (
     <div className="space-y-8">
       <section className="paper-panel rounded-[2.2rem] p-6">
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="muted-label text-xs">Runs</p>
             <h2 className="mt-3 text-4xl text-[var(--ink)]">Saved test history</h2>
-            <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
-              Load old runs, compare changes, and track how your test setup evolved.
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[var(--muted)]">
+              Reopen older runs, compare changes, and keep track of how your scenario evolves.
             </p>
           </div>
           <button
             onClick={clearHistory}
             className="btn-secondary rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em]"
           >
-            Clear
+            Clear history
           </button>
+        </div>
+
+        <div className="mt-6 grid gap-3 md:grid-cols-4">
+          <div className="metric-card">
+            <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">Total runs</p>
+            <p className="mt-2 text-3xl text-[var(--ink)]">{history.length}</p>
+          </div>
+          <div className="metric-card">
+            <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+              Brands tested
+            </p>
+            <p className="mt-2 text-3xl text-[var(--ink)]">{uniqueBrands}</p>
+          </div>
+          <div className="metric-card">
+            <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+              Current rate
+            </p>
+            <p className="mt-2 text-3xl text-[var(--ink)]">
+              {currentTarget ? formatPercent(currentTarget.mentionRate) : "-"}
+            </p>
+          </div>
+          <div className="metric-card">
+            <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+              Latest run
+            </p>
+            <p className="mt-2 text-lg text-[var(--ink)]">{formatDate(latestResult.timestamp)}</p>
+          </div>
         </div>
       </section>
 
-      {currentBrand && brandHistory.length > 1 && (
-        <section className="paper-card overflow-hidden rounded-[1.75rem]">
-          <div className="border-b border-[color:var(--line)] px-5 py-4">
-            <h2 className="text-3xl text-[var(--ink)]">Trend: {currentBrand}</h2>
-            <p className="mt-1 text-sm text-[var(--muted)]">
-              Mention rate across {brandHistory.length} saved runs.
-            </p>
+      {currentBrand && brandHistory.length > 0 && (
+        <section className="paper-card rounded-[1.75rem] p-5">
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <p className="muted-label text-xs">Current brand</p>
+              <h2 className="mt-2 text-3xl text-[var(--ink)]">History for {currentBrand}</h2>
+            </div>
+            <span className="font-mono text-xs text-[var(--muted)]">
+              Best saved rate {formatPercent(bestBrandRun)}
+            </span>
           </div>
 
-          <div className="space-y-4 p-5">
+          <div className="mt-5 space-y-3">
             {brandHistory
               .slice()
               .reverse()
@@ -98,26 +136,24 @@ export default function SimulateTrendsPage() {
                   <button
                     key={result.id}
                     onClick={() => loadFromHistory(result.id)}
-                    className={`flex w-full items-center gap-3 rounded-2xl border p-3 text-left ${
+                    className={`flex w-full items-center gap-3 rounded-[1.3rem] border p-4 text-left ${
                       isActive
-                        ? "border-[color:var(--line-strong)] bg-[rgba(255,255,255,0.7)]"
-                        : "border-[color:var(--line)] bg-[rgba(255,255,255,0.32)] hover:bg-[rgba(255,255,255,0.48)]"
+                        ? "border-[color:var(--line-strong)] bg-[rgba(255,255,255,0.72)]"
+                        : "border-[color:var(--line)] bg-[rgba(255,255,255,0.36)] hover:bg-[rgba(255,255,255,0.5)]"
                     }`}
                   >
-                    <span className="w-6 text-center font-mono text-xs text-[var(--muted)]">
+                    <span className="w-8 text-center font-mono text-xs text-[var(--muted)]">
                       #{index + 1}
                     </span>
                     <div className="flex-1">
-                      <div className="mb-1 flex items-center gap-2">
-                        <span className="text-xs text-[var(--muted)]">
-                          {formatDate(result.timestamp)}
-                        </span>
-                        <span className="text-xs text-[var(--muted)]">
+                      <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
+                        <span>{formatDate(result.timestamp)}</span>
+                        <span>
                           {result.config.queries.length} queries x {result.config.models.length} models x{" "}
                           {result.config.samplesPerQuery} samples
                         </span>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-3">
                         <div className="h-3 flex-1 overflow-hidden rounded-full bg-stone-200">
                           <div
                             className="h-full rounded-full bg-stone-900"
@@ -138,64 +174,81 @@ export default function SimulateTrendsPage() {
                 );
               })}
           </div>
+        </section>
+      )}
 
-          <div className="px-5 pb-5">
-            <h3 className="mb-3 text-2xl text-[var(--ink)]">Per-model trend</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-[color:var(--line)] text-left">
-                    <th className="px-3 py-2 font-medium text-[var(--muted)]">Run</th>
-                    <th className="px-3 py-2 font-medium text-[var(--muted)]">Date</th>
-                    {brandHistory[0].config.models.map((model) => (
-                      <th key={model} className="px-3 py-2 text-center font-medium text-[var(--muted)]">
-                        <span
-                          className="mr-1 inline-block h-2 w-2 rounded-full"
-                          style={{ backgroundColor: MODEL_META[model].color }}
-                        />
-                        {MODEL_META[model].provider}
-                      </th>
-                    ))}
-                    <th className="px-3 py-2 text-center font-medium text-[var(--muted)]">Overall</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[color:var(--line)]">
-                  {brandHistory
-                    .slice()
-                    .reverse()
-                    .map((result, index) => {
-                      const target = result.brandStats.find((brand) => brand.isTarget);
-                      const isActive = result.id === currentResult?.id;
+      {currentBrand && brandHistory.length > 1 && (
+        <section className="paper-card overflow-hidden rounded-[1.75rem]">
+          <div className="border-b border-[color:var(--line)] px-5 py-4">
+            <h2 className="text-3xl text-[var(--ink)]">Per-model history</h2>
+            <p className="mt-1 text-sm text-[var(--muted)]">
+              How each selected tool changed across saved runs for {currentBrand}.
+            </p>
+          </div>
+          <div className="overflow-x-auto p-5 pt-4">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-[color:var(--line)] text-left">
+                  <th className="px-3 py-2 font-medium text-[var(--muted)]">Run</th>
+                  <th className="px-3 py-2 font-medium text-[var(--muted)]">Date</th>
+                  {brandHistory[0].config.models.map((model) => (
+                    <th
+                      key={model}
+                      className="px-3 py-2 text-center font-medium text-[var(--muted)]"
+                    >
+                      <span
+                        className="mr-1 inline-block h-2 w-2 rounded-full"
+                        style={{ backgroundColor: MODEL_META[model].color }}
+                      />
+                      {MODEL_META[model].provider}
+                    </th>
+                  ))}
+                  <th className="px-3 py-2 text-center font-medium text-[var(--muted)]">Overall</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[color:var(--line)]">
+                {brandHistory
+                  .slice()
+                  .reverse()
+                  .map((result, index) => {
+                    const target = result.brandStats.find((brand) => brand.isTarget);
+                    const isActive = result.id === currentResult?.id;
 
-                      return (
-                        <tr
-                          key={result.id}
-                          className={isActive ? "bg-[rgba(255,255,255,0.34)]" : "hover:bg-[rgba(255,255,255,0.22)]"}
-                        >
-                          <td className="px-3 py-2 font-mono text-xs text-[var(--muted)]">
-                            #{index + 1}
-                          </td>
-                          <td className="px-3 py-2 text-xs text-[var(--muted)]">
-                            {formatDate(result.timestamp)}
-                          </td>
-                          {result.config.models.map((model) => {
-                            const rate = target?.modelBreakdown[model]?.mentionRate ?? 0;
+                    return (
+                      <tr
+                        key={result.id}
+                        className={
+                          isActive
+                            ? "bg-[rgba(255,255,255,0.34)]"
+                            : "hover:bg-[rgba(255,255,255,0.22)]"
+                        }
+                      >
+                        <td className="px-3 py-2 font-mono text-xs text-[var(--muted)]">
+                          #{index + 1}
+                        </td>
+                        <td className="px-3 py-2 text-xs text-[var(--muted)]">
+                          {formatDate(result.timestamp)}
+                        </td>
+                        {result.config.models.map((model) => {
+                          const rate = target?.modelBreakdown[model]?.mentionRate ?? 0;
 
-                            return (
-                              <td key={model} className="px-3 py-2 text-center font-mono text-xs text-[var(--ink)]">
-                                {formatPercent(rate)}
-                              </td>
-                            );
-                          })}
-                          <td className="px-3 py-2 text-center font-mono text-xs font-semibold text-[var(--ink)]">
-                            {formatPercent(target?.mentionRate ?? 0)}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                </tbody>
-              </table>
-            </div>
+                          return (
+                            <td
+                              key={model}
+                              className="px-3 py-2 text-center font-mono text-xs text-[var(--ink)]"
+                            >
+                              {formatPercent(rate)}
+                            </td>
+                          );
+                        })}
+                        <td className="px-3 py-2 text-center font-mono text-xs font-semibold text-[var(--ink)]">
+                          {formatPercent(target?.mentionRate ?? 0)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+              </tbody>
+            </table>
           </div>
         </section>
       )}
@@ -225,7 +278,11 @@ export default function SimulateTrendsPage() {
                 return (
                   <tr
                     key={result.id}
-                    className={isActive ? "bg-[rgba(255,255,255,0.34)]" : "hover:bg-[rgba(255,255,255,0.22)]"}
+                    className={
+                      isActive
+                        ? "bg-[rgba(255,255,255,0.34)]"
+                        : "hover:bg-[rgba(255,255,255,0.22)]"
+                    }
                   >
                     <td className="px-4 py-3 text-xs text-[var(--muted)]">
                       {formatDate(result.timestamp)}

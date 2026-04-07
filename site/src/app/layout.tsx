@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Cormorant_Garamond, Manrope } from "next/font/google";
 import "./globals.css";
 import { Navigation } from "@/components/Navigation";
@@ -16,9 +17,9 @@ const displayFont = Cormorant_Garamond({
 });
 
 export const metadata: Metadata = {
-  title: "Bitsy | AI Search Scenario Lab",
+  title: "Bitsy | Test AI Search Before You Publish",
   description:
-    "Bitsy lets you test how AI tools might talk about your product before you publish.",
+    "Bitsy helps teams test how AI tools talk about their product before they publish.",
 };
 
 export default function RootLayout({
@@ -34,27 +35,36 @@ export default function RootLayout({
       <body className="flex min-h-full flex-col bg-[var(--paper)] font-[family:var(--font-body)] text-[var(--ink)] antialiased">
         <Providers>
           <Navigation />
-          <main className="flex-1">{children}</main>
-          <footer className="border-t border-[color:var(--line)] py-8">
-            <div className="mx-auto grid max-w-6xl gap-8 px-6 md:grid-cols-[1.2fr,0.8fr]">
+          <main>{children}</main>
+          <footer className="border-t border-[color:var(--line)] bg-[rgba(248,244,237,0.96)] py-8">
+            <div className="mx-auto flex max-w-6xl flex-col gap-5 px-6 md:flex-row md:items-center md:justify-between">
               <div>
-                <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--ink)]">
-                  Bitsy
-                </p>
-                <p className="mt-3 max-w-sm text-sm leading-relaxed text-[var(--muted)]">
-                  A simple way to test how AI tools might mention your product before launch.
+                <p className="text-lg font-semibold tracking-[-0.03em] text-[var(--ink)]">Bitsy</p>
+                <p className="mt-2 max-w-md text-sm leading-relaxed text-[var(--muted)]">
+                  Test AI search before you publish. See where you show up, where competitors win,
+                  and what to fix next.
                 </p>
               </div>
 
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
-                  Focus
-                </p>
-                <div className="mt-3 space-y-2 text-sm text-[var(--muted)]">
-                  <p>Set up a test</p>
-                  <p>Compare AI answers</p>
-                  <p>The core engine comes next</p>
-                </div>
+              <div className="flex flex-wrap items-center gap-5 text-sm text-[var(--muted)]">
+                <Link href="/#product" className="hover:text-[var(--ink)]">
+                  Product
+                </Link>
+                <Link href="/#how-it-works" className="hover:text-[var(--ink)]">
+                  How it works
+                </Link>
+                <Link href="/#sample-report" className="hover:text-[var(--ink)]">
+                  Report
+                </Link>
+                <Link href="/#built-for" className="hover:text-[var(--ink)]">
+                  Teams
+                </Link>
+                <Link href="/#faq" className="hover:text-[var(--ink)]">
+                  FAQ
+                </Link>
+                <Link href="/#pricing" className="hover:text-[var(--ink)]">
+                  Pricing
+                </Link>
               </div>
             </div>
           </footer>

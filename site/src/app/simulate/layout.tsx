@@ -16,40 +16,36 @@ export default function SimulateLayout({ children }: { children: React.ReactNode
 
   return (
     <SimulationProvider>
-      <div className="border-b border-[color:var(--line)] py-10">
+      <div className="border-b border-[color:var(--line)] py-8 md:py-10">
         <div className="mx-auto max-w-6xl px-6">
           <Link href="/" className="ink-link mb-4 inline-block text-sm">
-            Back to Bitsy
+            Back to home
           </Link>
-          <span className="surface-chip mb-3 inline-flex px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-[var(--muted)]">
-            Scenario lab
-          </span>
-          <h1 className="max-w-3xl text-4xl leading-tight text-[var(--ink)] md:text-5xl">
-            Test your product against real buyer questions.
-          </h1>
-          <p className="mt-3 max-w-2xl text-lg leading-relaxed text-[var(--muted)]">
-            Add your product, a few competitors, and the questions buyers ask. Bitsy then shows
-            how different AI tools might respond.
-          </p>
-          <div className="mt-5 flex flex-wrap gap-2 text-xs text-[var(--muted)]">
-            <span className="surface-chip px-3 py-1.5">
-              Before you publish
-            </span>
-            <span className="surface-chip px-3 py-1.5">
-              Compare AI tools
-            </span>
-            <span className="surface-chip px-3 py-1.5">
-              Saved local runs
-            </span>
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr),280px] lg:items-end">
+            <div>
+              <span className="surface-chip mb-3 inline-flex px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-[var(--muted)]">
+                Scenario lab
+              </span>
+              <h1 className="max-w-3xl text-4xl leading-tight text-[var(--ink)] md:text-5xl">
+                Run a quick AI visibility test.
+              </h1>
+              <p className="mt-3 max-w-2xl text-lg leading-relaxed text-[var(--muted)]">
+                Add one product, a few competitors, and the buyer questions that matter. Bitsy
+                shows where your brand appears and which tools are most favorable.
+              </p>
+            </div>
+
+            <div className="paper-card rounded-[1.5rem] p-4 text-sm leading-relaxed text-[var(--muted)]">
+              <p className="muted-label text-xs">What this includes</p>
+              <div className="mt-3 space-y-2">
+                <p>Multi-model comparison across four AI tools.</p>
+                <p>Repeated local runs for steadier preview results.</p>
+                <p>Saved browser history so scenarios are easy to revisit.</p>
+              </div>
+            </div>
           </div>
 
-          <div className="surface-inset mt-6 rounded-[1.5rem] px-4 py-4 text-sm leading-relaxed text-[var(--muted)]">
-            <strong className="text-[var(--ink)]">What this test answers:</strong> for these
-            questions, how often are AI tools likely to mention your product and where does it
-            appear relative to competitors?
-          </div>
-
-          <nav className="mt-8 flex flex-wrap gap-2">
+          <nav className="mt-8 flex flex-wrap gap-2 rounded-full border border-[color:var(--line)] bg-[rgba(255,255,255,0.34)] p-1">
             {tabs.map((tab) => {
               const isActive = tab.exact
                 ? pathname === tab.href
@@ -62,7 +58,7 @@ export default function SimulateLayout({ children }: { children: React.ReactNode
                   className={`rounded-full px-4 py-2 text-sm ${
                     isActive
                       ? "bg-[rgba(34,30,26,0.92)] text-[var(--paper-soft)]"
-                      : "border border-[color:var(--line)] bg-[rgba(255,255,255,0.42)] text-[var(--muted)] hover:text-[var(--ink)]"
+                      : "text-[var(--muted)] hover:bg-[rgba(255,255,255,0.58)] hover:text-[var(--ink)]"
                   }`}
                 >
                   {tab.label}

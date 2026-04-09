@@ -1,0 +1,40 @@
+{
+  "model_type": "XGBRegressor",
+  "n_features": 14,
+  "feature_names": [
+    "avg_position",
+    "top1_rate",
+    "top3_rate",
+    "position_std",
+    "positive_rate",
+    "negative_rate",
+    "net_sentiment",
+    "competitor_avg_rate",
+    "vs_best_competitor",
+    "brands_ahead",
+    "share_of_mentions",
+    "model_agreement",
+    "model_spread",
+    "query_coverage"
+  ],
+  "training_rows": 6,
+  "in_sample_rmse": 0.2916435084508096,
+  "in_sample_r2": 0.9950385455699549,
+  "feature_importance": {
+    "avg_position": 1.0,
+    "top1_rate": 0.0,
+    "top3_rate": 0.0,
+    "position_std": 0.0,
+    "positive_rate": 0.0,
+    "negative_rate": 0.0,
+    "net_sentiment": 0.0,
+    "competitor_avg_rate": 0.0,
+    "vs_best_competitor": 0.0,
+    "brands_ahead": 0.0,
+    "share_of_mentions": 0.0,
+    "model_agreement": 0.0,
+    "model_spread": 0.0,
+    "query_coverage": 0.0
+  },
+  "note": "Trained on 6 brands from 1 collection. In production: 6 brands x 30 days = 180 rows with walk-forward validation."
+}

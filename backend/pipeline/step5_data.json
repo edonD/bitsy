@@ -1,0 +1,1484 @@
+{
+  "collected_at": "2026-04-10T00:18:08.679681",
+  "config": {
+    "target": "Zalando",
+    "competitors": [
+      "ASOS",
+      "H&M",
+      "About You",
+      "Shein",
+      "Zara"
+    ],
+    "queries": [
+      "What is the best online fashion store in Europe?",
+      "Where should I buy affordable designer clothes online?",
+      "Best sustainable fashion marketplace in Europe?"
+    ],
+    "models": [
+      "chatgpt",
+      "claude",
+      "gemini"
+    ],
+    "samples_per_query": 3
+  },
+  "observations": [
+    {
+      "query": "What is the best online fashion store in Europe?",
+      "model": "chatgpt",
+      "sample": 0,
+      "brand": "Zalando",
+      "mentioned": true,
+      "position": 1,
+      "sentiment": "positive"
+    },
+    {
+      "query": "What is the best online fashion store in Europe?",
+      "model": "chatgpt",
+      "sample": 0,
+      "brand": "ASOS",
+      "mentioned": true,
+      "position": 2,
+      "sentiment": "positive"
+    },
+    {
+      "query": "What is the best online fashion store in Europe?",
+      "model": "chatgpt",
+      "sample": 0,
+      "brand": "H&M",
+      "mentioned": true,
+      "position": 3,
+      "sentiment": "neutral"
+    },
+    {
+      "query": "What is the best online fashion store in Europe?",
+      "model": "chatgpt",
+      "sample": 0,
+      "brand": "About You",
+      "mentioned": true,
+      "position": 4,
+      "sentiment": "positive"
+    },
+    {
+      "query": "What is the best online fashion store in Europe?",
+      "model": "chatgpt",
+      "sample": 0,
+      "brand": "Shein",
+      "mentioned": true,
+      "position": 5,
+      "sentiment": "neutral"
+    },
+    {
+      "query": "What is the best online fashion store in Europe?",
+      "model": "chatgpt",
+      "sample": 0,
+      "brand": "Zara",
+      "mentioned": true,
+      "position": 6,
+      "sentiment": "positive"
+    },
+    {
+      "query": "What is the best online fashion store in Europe?",
+      "model": "chatgpt",
+      "sample": 1,
+      "brand": "Zalando",
+      "mentioned": true,
+      "position": 1,
+      "sentiment": "positive"
+    },
+    {
+      "query": "What is the best online fashion store in Europe?",
+      "model": "chatgpt",
+      "sample": 1,
+      "brand": "ASOS",
+      "mentioned": true,
+      "position": 2,
+      "sentiment": "positive"
+    },
+    {
+      "query": "What is the best online fashion store in Europe?",
+      "model": "chatgpt",
+      "sample": 1,
+      "brand": "H&M",
+      "mentioned": true,
+      "position": 3,
+      "sentiment": "neutral"
+    },
+    {
+      "query": "What is the best online fashion store in Europe?",
+      "model": "chatgpt",
+      "sample": 1,
+      "brand": "About You",
+      "mentioned": true,
+      "position": 4,
+      "sentiment": "positive"
+    },
+    {
+      "query": "What is the best online fashion store in Europe?",
+      "model": "chatgpt",
+      "sample": 1,
+      "brand": "Shein",
+      "mentioned": true,
+      "position": 5,
+      "sentiment": "neutral"
+    },
+    {
+      "query": "What is the best online fashion store in Europe?",
+      "model": "chatgpt",
+      "sample": 1,
+      "brand": "Zara",
+      "mentioned": true,
+      "position": 6,
+      "sentiment": "positive"
+    },
+    {
+      "query": "What is the best online fashion store in Europe?",
+      "model": "chatgpt",
+      "sample": 2,
+      "brand": "Zalando",
+      "mentioned": true,
+      "position": 1,
+      "sentiment": "positive"
+    },
+    {
+      "query": "What is the best online fashion store in Europe?",
+      "model": "chatgpt",
+      "sample": 2,
+      "brand": "ASOS",
+      "mentioned": true,
+      "position": 2,
+      "sentiment": "positive"
+    },
+    {
+      "query": "What is the best online fashion store in Europe?",
+      "model": "chatgpt",
+      "sample": 2,
+      "brand": "H&M",
+      "mentioned": true,
+      "position": 3,
+      "sentiment": "neutral"
+    },
+    {
+      "query": "What is the best online fashion store in Europe?",
+      "model": "chatgpt",
+      "sample": 2,
+      "brand": "About You",
+      "mentioned": true,
+      "position": 4,
+      "sentiment": "positive"
+    },
+    {
+      "query": "What is the best online fashion store in Europe?",
+      "model": "chatgpt",
+      "sample": 2,
+      "brand": "Shein",
+      "mentioned": true,
+      "position": 5,
+      "sentiment": "neutral"
+    },
+    {
+      "query": "What is the best online fashion store in Europe?",
+      "model": "chatgpt",
+      "sample": 2,
+      "brand": "Zara",
+      "mentioned": true,
+      "position": 6,
+      "sentiment": "positive"
+    },
+    {
+      "query": "What is the best online fashion store in Europe?",
+      "model": "claude",
+      "sample": 0,
+      "brand": "Zalando",
+      "mentioned": true,
+      "position": 1,
+      "sentiment": "positive"
+    },
+    {
+      "query": "What is the best online fashion store in Europe?",
+      "model": "claude",
+      "sample": 0,
+      "brand": "ASOS",
+      "mentioned": true,
+      "position": 2,
+      "sentiment": "positive"
+    },
+    {
+      "query": "What is the best online fashion store in Europe?",
+      "model": "claude",
+      "sample": 0,
+      "brand": "H&M",
+      "mentioned": true,
+      "position": 4,
+      "sentiment": "neutral"
+    },
+    {
+      "query": "What is the best online fashion store in Europe?",
+      "model": "claude",
+      "sample": 0,
+      "brand": "About You",
+      "mentioned": true,
+      "position": 3,
+      "sentiment": "positive"
+    },
+    {
+      "query": "What is the best online fashion store in Europe?",
+      "model": "claude",
+      "sample": 0,
+      "brand": "Shein",
+      "mentioned": true,
+      "position": 6,
+      "sentiment": "negative"
+    },
+    {
+      "query": "What is the best online fashion store in Europe?",
+      "model": "claude",
+      "sample": 0,
+      "brand": "Zara",
+      "mentioned": true,
+      "position": 5,
+      "sentiment": "neutral"
+    },
+    {
+      "query": "What is the best online fashion store in Europe?",
+      "model": "claude",
+      "sample": 1,
+      "brand": "Zalando",
+      "mentioned": true,
+      "position": 1,
+      "sentiment": "positive"
+    },
+    {
+      "query": "What is the best online fashion store in Europe?",
+      "model": "claude",
+      "sample": 1,
+      "brand": "ASOS",
+      "mentioned": true,
+      "position": 2,
+      "sentiment": "positive"
+    },
+    {
+      "query": "What is the best online fashion store in Europe?",
+      "model": "claude",
+      "sample": 1,
+      "brand": "H&M",
+      "mentioned": true,
+      "position": 3,
+      "sentiment": "positive"
+    },
+    {
+      "query": "What is the best online fashion store in Europe?",
+      "model": "claude",
+      "sample": 1,
+      "brand": "About You",
+      "mentioned": true,
+      "position": 4,
+      "sentiment": "positive"
+    },
+    {
+      "query": "What is the best online fashion store in Europe?",
+      "model": "claude",
+      "sample": 1,
+      "brand": "Shein",
+      "mentioned": true,
+      "position": 6,
+      "sentiment": "negative"
+    },
+    {
+      "query": "What is the best online fashion store in Europe?",
+      "model": "claude",
+      "sample": 1,
+      "brand": "Zara",
+      "mentioned": true,
+      "position": 5,
+      "sentiment": "neutral"
+    },
+    {
+      "query": "What is the best online fashion store in Europe?",
+      "model": "claude",
+      "sample": 2,
+      "brand": "Zalando",
+      "mentioned": true,
+      "position": 1,
+      "sentiment": "positive"
+    },
+    {
+      "query": "What is the best online fashion store in Europe?",
+      "model": "claude",
+      "sample": 2,
+      "brand": "ASOS",
+      "mentioned": true,
+      "position": 2,
+      "sentiment": "positive"
+    },
+    {
+      "query": "What is the best online fashion store in Europe?",
+      "model": "claude",
+      "sample": 2,
+      "brand": "H&M",
+      "mentioned": true,
+      "position": 4,
+      "sentiment": "neutral"
+    },
+    {
+      "query": "What is the best online fashion store in Europe?",
+      "model": "claude",
+      "sample": 2,
+      "brand": "About You",
+      "mentioned": true,
+      "position": 3,
+      "sentiment": "positive"
+    },
+    {
+      "query": "What is the best online fashion store in Europe?",
+      "model": "claude",
+      "sample": 2,
+      "brand": "Shein",
+      "mentioned": true,
+      "position": 6,
+      "sentiment": "negative"
+    },
+    {
+      "query": "What is the best online fashion store in Europe?",
+      "model": "claude",
+      "sample": 2,
+      "brand": "Zara",
+      "mentioned": true,
+      "position": 5,
+      "sentiment": "neutral"
+    },
+    {
+      "query": "What is the best online fashion store in Europe?",
+      "model": "gemini",
+      "sample": 0,
+      "brand": "Zalando",
+      "mentioned": true,
+      "position": 1,
+      "sentiment": "positive"
+    },
+    {
+      "query": "What is the best online fashion store in Europe?",
+      "model": "gemini",
+      "sample": 0,
+      "brand": "ASOS",
+      "mentioned": true,
+      "position": 2,
+      "sentiment": "positive"
+    },
+    {
+      "query": "What is the best online fashion store in Europe?",
+      "model": "gemini",
+      "sample": 0,
+      "brand": "H&M",
+      "mentioned": true,
+      "position": 5,
+      "sentiment": "positive"
+    },
+    {
+      "query": "What is the best online fashion store in Europe?",
+      "model": "gemini",
+      "sample": 0,
+      "brand": "About You",
+      "mentioned": true,
+      "position": 3,
+      "sentiment": "positive"
+    },
+    {
+      "query": "What is the best online fashion store in Europe?",
+      "model": "gemini",
+      "sample": 0,
+      "brand": "Shein",
+      "mentioned": true,
+      "position": 6,
+      "sentiment": "neutral"
+    },
+    {
+      "query": "What is the best online fashion store in Europe?",
+      "model": "gemini",
+      "sample": 0,
+      "brand": "Zara",
+      "mentioned": true,
+      "position": 4,
+      "sentiment": "positive"
+    },
+    {
+      "query": "What is the best online fashion store in Europe?",
+      "model": "gemini",
+      "sample": 1,
+      "brand": "Zalando",
+      "mentioned": true,
+      "position": 1,
+      "sentiment": "positive"
+    },
+    {
+      "query": "What is the best online fashion store in Europe?",
+      "model": "gemini",
+      "sample": 1,
+      "brand": "ASOS",
+      "mentioned": true,
+      "position": 2,
+      "sentiment": "positive"
+    },
+    {
+      "query": "What is the best online fashion store in Europe?",
+      "model": "gemini",
+      "sample": 1,
+      "brand": "H&M",
+      "mentioned": true,
+      "position": 5,
+      "sentiment": "neutral"
+    },
+    {
+      "query": "What is the best online fashion store in Europe?",
+      "model": "gemini",
+      "sample": 1,
+      "brand": "About You",
+      "mentioned": true,
+      "position": 3,
+      "sentiment": "positive"
+    },
+    {
+      "query": "What is the best online fashion store in Europe?",
+      "model": "gemini",
+      "sample": 1,
+      "brand": "Shein",
+      "mentioned": true,
+      "position": 6,
+      "sentiment": "negative"
+    },
+    {
+      "query": "What is the best online fashion store in Europe?",
+      "model": "gemini",
+      "sample": 1,
+      "brand": "Zara",
+      "mentioned": true,
+      "position": 4,
+      "sentiment": "neutral"
+    },
+    {
+      "query": "What is the best online fashion store in Europe?",
+      "model": "gemini",
+      "sample": 2,
+      "brand": "Zalando",
+      "mentioned": true,
+      "position": 1,
+      "sentiment": "positive"
+    },
+    {
+      "query": "What is the best online fashion store in Europe?",
+      "model": "gemini",
+      "sample": 2,
+      "brand": "ASOS",
+      "mentioned": true,
+      "position": 2,
+      "sentiment": "positive"
+    },
+    {
+      "query": "What is the best online fashion store in Europe?",
+      "model": "gemini",
+      "sample": 2,
+      "brand": "H&M",
+      "mentioned": true,
+      "position": 5,
+      "sentiment": "neutral"
+    },
+    {
+      "query": "What is the best online fashion store in Europe?",
+      "model": "gemini",
+      "sample": 2,
+      "brand": "About You",
+      "mentioned": true,
+      "position": 3,
+      "sentiment": "positive"
+    },
+    {
+      "query": "What is the best online fashion store in Europe?",
+      "model": "gemini",
+      "sample": 2,
+      "brand": "Shein",
+      "mentioned": true,
+      "position": 6,
+      "sentiment": "negative"
+    },
+    {
+      "query": "What is the best online fashion store in Europe?",
+      "model": "gemini",
+      "sample": 2,
+      "brand": "Zara",
+      "mentioned": true,
+      "position": 4,
+      "sentiment": "neutral"
+    },
+    {
+      "query": "Where should I buy affordable designer clothes online?",
+      "model": "chatgpt",
+      "sample": 0,
+      "brand": "Zalando",
+      "mentioned": true,
+      "position": 1,
+      "sentiment": "positive"
+    },
+    {
+      "query": "Where should I buy affordable designer clothes online?",
+      "model": "chatgpt",
+      "sample": 0,
+      "brand": "ASOS",
+      "mentioned": true,
+      "position": 2,
+      "sentiment": "positive"
+    },
+    {
+      "query": "Where should I buy affordable designer clothes online?",
+      "model": "chatgpt",
+      "sample": 0,
+      "brand": "H&M",
+      "mentioned": true,
+      "position": 3,
+      "sentiment": "positive"
+    },
+    {
+      "query": "Where should I buy affordable designer clothes online?",
+      "model": "chatgpt",
+      "sample": 0,
+      "brand": "About You",
+      "mentioned": true,
+      "position": 4,
+      "sentiment": "positive"
+    },
+    {
+      "query": "Where should I buy affordable designer clothes online?",
+      "model": "chatgpt",
+      "sample": 0,
+      "brand": "Shein",
+      "mentioned": true,
+      "position": 5,
+      "sentiment": "neutral"
+    },
+    {
+      "query": "Where should I buy affordable designer clothes online?",
+      "model": "chatgpt",
+      "sample": 0,
+      "brand": "Zara",
+      "mentioned": true,
+      "position": 6,
+      "sentiment": "neutral"
+    },
+    {
+      "query": "Where should I buy affordable designer clothes online?",
+      "model": "chatgpt",
+      "sample": 1,
+      "brand": "Zalando",
+      "mentioned": true,
+      "position": 1,
+      "sentiment": "positive"
+    },
+    {
+      "query": "Where should I buy affordable designer clothes online?",
+      "model": "chatgpt",
+      "sample": 1,
+      "brand": "ASOS",
+      "mentioned": true,
+      "position": 2,
+      "sentiment": "positive"
+    },
+    {
+      "query": "Where should I buy affordable designer clothes online?",
+      "model": "chatgpt",
+      "sample": 1,
+      "brand": "H&M",
+      "mentioned": true,
+      "position": 3,
+      "sentiment": "positive"
+    },
+    {
+      "query": "Where should I buy affordable designer clothes online?",
+      "model": "chatgpt",
+      "sample": 1,
+      "brand": "About You",
+      "mentioned": true,
+      "position": 4,
+      "sentiment": "positive"
+    },
+    {
+      "query": "Where should I buy affordable designer clothes online?",
+      "model": "chatgpt",
+      "sample": 1,
+      "brand": "Shein",
+      "mentioned": true,
+      "position": 5,
+      "sentiment": "neutral"
+    },
+    {
+      "query": "Where should I buy affordable designer clothes online?",
+      "model": "chatgpt",
+      "sample": 1,
+      "brand": "Zara",
+      "mentioned": true,
+      "position": 6,
+      "sentiment": "neutral"
+    },
+    {
+      "query": "Where should I buy affordable designer clothes online?",
+      "model": "chatgpt",
+      "sample": 2,
+      "brand": "Zalando",
+      "mentioned": true,
+      "position": 1,
+      "sentiment": "positive"
+    },
+    {
+      "query": "Where should I buy affordable designer clothes online?",
+      "model": "chatgpt",
+      "sample": 2,
+      "brand": "ASOS",
+      "mentioned": true,
+      "position": 2,
+      "sentiment": "positive"
+    },
+    {
+      "query": "Where should I buy affordable designer clothes online?",
+      "model": "chatgpt",
+      "sample": 2,
+      "brand": "H&M",
+      "mentioned": true,
+      "position": 3,
+      "sentiment": "positive"
+    },
+    {
+      "query": "Where should I buy affordable designer clothes online?",
+      "model": "chatgpt",
+      "sample": 2,
+      "brand": "About You",
+      "mentioned": true,
+      "position": 4,
+      "sentiment": "positive"
+    },
+    {
+      "query": "Where should I buy affordable designer clothes online?",
+      "model": "chatgpt",
+      "sample": 2,
+      "brand": "Shein",
+      "mentioned": true,
+      "position": 5,
+      "sentiment": "neutral"
+    },
+    {
+      "query": "Where should I buy affordable designer clothes online?",
+      "model": "chatgpt",
+      "sample": 2,
+      "brand": "Zara",
+      "mentioned": true,
+      "position": 6,
+      "sentiment": "neutral"
+    },
+    {
+      "query": "Where should I buy affordable designer clothes online?",
+      "model": "claude",
+      "sample": 0,
+      "brand": "Zalando",
+      "mentioned": true,
+      "position": 2,
+      "sentiment": "positive"
+    },
+    {
+      "query": "Where should I buy affordable designer clothes online?",
+      "model": "claude",
+      "sample": 0,
+      "brand": "ASOS",
+      "mentioned": true,
+      "position": 1,
+      "sentiment": "positive"
+    },
+    {
+      "query": "Where should I buy affordable designer clothes online?",
+      "model": "claude",
+      "sample": 0,
+      "brand": "H&M",
+      "mentioned": true,
+      "position": 4,
+      "sentiment": "positive"
+    },
+    {
+      "query": "Where should I buy affordable designer clothes online?",
+      "model": "claude",
+      "sample": 0,
+      "brand": "About You",
+      "mentioned": true,
+      "position": 5,
+      "sentiment": "positive"
+    },
+    {
+      "query": "Where should I buy affordable designer clothes online?",
+      "model": "claude",
+      "sample": 0,
+      "brand": "Shein",
+      "mentioned": true,
+      "position": 6,
+      "sentiment": "neutral"
+    },
+    {
+      "query": "Where should I buy affordable designer clothes online?",
+      "model": "claude",
+      "sample": 0,
+      "brand": "Zara",
+      "mentioned": true,
+      "position": 3,
+      "sentiment": "positive"
+    },
+    {
+      "query": "Where should I buy affordable designer clothes online?",
+      "model": "claude",
+      "sample": 1,
+      "brand": "Zalando",
+      "mentioned": true,
+      "position": 2,
+      "sentiment": "positive"
+    },
+    {
+      "query": "Where should I buy affordable designer clothes online?",
+      "model": "claude",
+      "sample": 1,
+      "brand": "ASOS",
+      "mentioned": true,
+      "position": 1,
+      "sentiment": "positive"
+    },
+    {
+      "query": "Where should I buy affordable designer clothes online?",
+      "model": "claude",
+      "sample": 1,
+      "brand": "H&M",
+      "mentioned": true,
+      "position": 4,
+      "sentiment": "positive"
+    },
+    {
+      "query": "Where should I buy affordable designer clothes online?",
+      "model": "claude",
+      "sample": 1,
+      "brand": "About You",
+      "mentioned": true,
+      "position": 5,
+      "sentiment": "positive"
+    },
+    {
+      "query": "Where should I buy affordable designer clothes online?",
+      "model": "claude",
+      "sample": 1,
+      "brand": "Shein",
+      "mentioned": true,
+      "position": 6,
+      "sentiment": "neutral"
+    },
+    {
+      "query": "Where should I buy affordable designer clothes online?",
+      "model": "claude",
+      "sample": 1,
+      "brand": "Zara",
+      "mentioned": true,
+      "position": 3,
+      "sentiment": "positive"
+    },
+    {
+      "query": "Where should I buy affordable designer clothes online?",
+      "model": "claude",
+      "sample": 2,
+      "brand": "Zalando",
+      "mentioned": true,
+      "position": 2,
+      "sentiment": "positive"
+    },
+    {
+      "query": "Where should I buy affordable designer clothes online?",
+      "model": "claude",
+      "sample": 2,
+      "brand": "ASOS",
+      "mentioned": true,
+      "position": 1,
+      "sentiment": "positive"
+    },
+    {
+      "query": "Where should I buy affordable designer clothes online?",
+      "model": "claude",
+      "sample": 2,
+      "brand": "H&M",
+      "mentioned": true,
+      "position": 4,
+      "sentiment": "positive"
+    },
+    {
+      "query": "Where should I buy affordable designer clothes online?",
+      "model": "claude",
+      "sample": 2,
+      "brand": "About You",
+      "mentioned": true,
+      "position": 5,
+      "sentiment": "positive"
+    },
+    {
+      "query": "Where should I buy affordable designer clothes online?",
+      "model": "claude",
+      "sample": 2,
+      "brand": "Shein",
+      "mentioned": true,
+      "position": 6,
+      "sentiment": "neutral"
+    },
+    {
+      "query": "Where should I buy affordable designer clothes online?",
+      "model": "claude",
+      "sample": 2,
+      "brand": "Zara",
+      "mentioned": true,
+      "position": 3,
+      "sentiment": "positive"
+    },
+    {
+      "query": "Where should I buy affordable designer clothes online?",
+      "model": "gemini",
+      "sample": 0,
+      "brand": "Zalando",
+      "mentioned": true,
+      "position": 1,
+      "sentiment": "positive"
+    },
+    {
+      "query": "Where should I buy affordable designer clothes online?",
+      "model": "gemini",
+      "sample": 0,
+      "brand": "ASOS",
+      "mentioned": true,
+      "position": 2,
+      "sentiment": "positive"
+    },
+    {
+      "query": "Where should I buy affordable designer clothes online?",
+      "model": "gemini",
+      "sample": 0,
+      "brand": "H&M",
+      "mentioned": true,
+      "position": 10,
+      "sentiment": "neutral"
+    },
+    {
+      "query": "Where should I buy affordable designer clothes online?",
+      "model": "gemini",
+      "sample": 0,
+      "brand": "About You",
+      "mentioned": true,
+      "position": 3,
+      "sentiment": "positive"
+    },
+    {
+      "query": "Where should I buy affordable designer clothes online?",
+      "model": "gemini",
+      "sample": 0,
+      "brand": "Shein",
+      "mentioned": true,
+      "position": 12,
+      "sentiment": "negative"
+    },
+    {
+      "query": "Where should I buy affordable designer clothes online?",
+      "model": "gemini",
+      "sample": 0,
+      "brand": "Zara",
+      "mentioned": true,
+      "position": 11,
+      "sentiment": "neutral"
+    },
+    {
+      "query": "Where should I buy affordable designer clothes online?",
+      "model": "gemini",
+      "sample": 1,
+      "brand": "Zalando",
+      "mentioned": true,
+      "position": 1,
+      "sentiment": "positive"
+    },
+    {
+      "query": "Where should I buy affordable designer clothes online?",
+      "model": "gemini",
+      "sample": 1,
+      "brand": "ASOS",
+      "mentioned": true,
+      "position": 2,
+      "sentiment": "positive"
+    },
+    {
+      "query": "Where should I buy affordable designer clothes online?",
+      "model": "gemini",
+      "sample": 1,
+      "brand": "H&M",
+      "mentioned": true,
+      "position": 10,
+      "sentiment": "neutral"
+    },
+    {
+      "query": "Where should I buy affordable designer clothes online?",
+      "model": "gemini",
+      "sample": 1,
+      "brand": "About You",
+      "mentioned": true,
+      "position": 3,
+      "sentiment": "positive"
+    },
+    {
+      "query": "Where should I buy affordable designer clothes online?",
+      "model": "gemini",
+      "sample": 1,
+      "brand": "Shein",
+      "mentioned": true,
+      "position": 12,
+      "sentiment": "negative"
+    },
+    {
+      "query": "Where should I buy affordable designer clothes online?",
+      "model": "gemini",
+      "sample": 1,
+      "brand": "Zara",
+      "mentioned": true,
+      "position": 11,
+      "sentiment": "neutral"
+    },
+    {
+      "query": "Where should I buy affordable designer clothes online?",
+      "model": "gemini",
+      "sample": 2,
+      "brand": "Zalando",
+      "mentioned": true,
+      "position": 1,
+      "sentiment": "positive"
+    },
+    {
+      "query": "Where should I buy affordable designer clothes online?",
+      "model": "gemini",
+      "sample": 2,
+      "brand": "ASOS",
+      "mentioned": true,
+      "position": 2,
+      "sentiment": "positive"
+    },
+    {
+      "query": "Where should I buy affordable designer clothes online?",
+      "model": "gemini",
+      "sample": 2,
+      "brand": "H&M",
+      "mentioned": true,
+      "position": 10,
+      "sentiment": "neutral"
+    },
+    {
+      "query": "Where should I buy affordable designer clothes online?",
+      "model": "gemini",
+      "sample": 2,
+      "brand": "About You",
+      "mentioned": true,
+      "position": 3,
+      "sentiment": "positive"
+    },
+    {
+      "query": "Where should I buy affordable designer clothes online?",
+      "model": "gemini",
+      "sample": 2,
+      "brand": "Shein",
+      "mentioned": true,
+      "position": 12,
+      "sentiment": "negative"
+    },
+    {
+      "query": "Where should I buy affordable designer clothes online?",
+      "model": "gemini",
+      "sample": 2,
+      "brand": "Zara",
+      "mentioned": true,
+      "position": 11,
+      "sentiment": "neutral"
+    },
+    {
+      "query": "Best sustainable fashion marketplace in Europe?",
+      "model": "chatgpt",
+      "sample": 0,
+      "brand": "Zalando",
+      "mentioned": true,
+      "position": 1,
+      "sentiment": "positive"
+    },
+    {
+      "query": "Best sustainable fashion marketplace in Europe?",
+      "model": "chatgpt",
+      "sample": 0,
+      "brand": "ASOS",
+      "mentioned": true,
+      "position": 2,
+      "sentiment": "neutral"
+    },
+    {
+      "query": "Best sustainable fashion marketplace in Europe?",
+      "model": "chatgpt",
+      "sample": 0,
+      "brand": "H&M",
+      "mentioned": true,
+      "position": 3,
+      "sentiment": "neutral"
+    },
+    {
+      "query": "Best sustainable fashion marketplace in Europe?",
+      "model": "chatgpt",
+      "sample": 0,
+      "brand": "About You",
+      "mentioned": true,
+      "position": 4,
+      "sentiment": "neutral"
+    },
+    {
+      "query": "Best sustainable fashion marketplace in Europe?",
+      "model": "chatgpt",
+      "sample": 0,
+      "brand": "Shein",
+      "mentioned": true,
+      "position": 5,
+      "sentiment": "negative"
+    },
+    {
+      "query": "Best sustainable fashion marketplace in Europe?",
+      "model": "chatgpt",
+      "sample": 0,
+      "brand": "Zara",
+      "mentioned": true,
+      "position": 6,
+      "sentiment": "neutral"
+    },
+    {
+      "query": "Best sustainable fashion marketplace in Europe?",
+      "model": "chatgpt",
+      "sample": 1,
+      "brand": "Zalando",
+      "mentioned": true,
+      "position": 1,
+      "sentiment": "positive"
+    },
+    {
+      "query": "Best sustainable fashion marketplace in Europe?",
+      "model": "chatgpt",
+      "sample": 1,
+      "brand": "ASOS",
+      "mentioned": true,
+      "position": 2,
+      "sentiment": "neutral"
+    },
+    {
+      "query": "Best sustainable fashion marketplace in Europe?",
+      "model": "chatgpt",
+      "sample": 1,
+      "brand": "H&M",
+      "mentioned": true,
+      "position": 3,
+      "sentiment": "neutral"
+    },
+    {
+      "query": "Best sustainable fashion marketplace in Europe?",
+      "model": "chatgpt",
+      "sample": 1,
+      "brand": "About You",
+      "mentioned": true,
+      "position": 4,
+      "sentiment": "positive"
+    },
+    {
+      "query": "Best sustainable fashion marketplace in Europe?",
+      "model": "chatgpt",
+      "sample": 1,
+      "brand": "Shein",
+      "mentioned": true,
+      "position": 5,
+      "sentiment": "negative"
+    },
+    {
+      "query": "Best sustainable fashion marketplace in Europe?",
+      "model": "chatgpt",
+      "sample": 1,
+      "brand": "Zara",
+      "mentioned": true,
+      "position": 6,
+      "sentiment": "neutral"
+    },
+    {
+      "query": "Best sustainable fashion marketplace in Europe?",
+      "model": "chatgpt",
+      "sample": 2,
+      "brand": "Zalando",
+      "mentioned": true,
+      "position": 1,
+      "sentiment": "positive"
+    },
+    {
+      "query": "Best sustainable fashion marketplace in Europe?",
+      "model": "chatgpt",
+      "sample": 2,
+      "brand": "ASOS",
+      "mentioned": true,
+      "position": 2,
+      "sentiment": "neutral"
+    },
+    {
+      "query": "Best sustainable fashion marketplace in Europe?",
+      "model": "chatgpt",
+      "sample": 2,
+      "brand": "H&M",
+      "mentioned": true,
+      "position": 3,
+      "sentiment": "neutral"
+    },
+    {
+      "query": "Best sustainable fashion marketplace in Europe?",
+      "model": "chatgpt",
+      "sample": 2,
+      "brand": "About You",
+      "mentioned": true,
+      "position": 4,
+      "sentiment": "positive"
+    },
+    {
+      "query": "Best sustainable fashion marketplace in Europe?",
+      "model": "chatgpt",
+      "sample": 2,
+      "brand": "Shein",
+      "mentioned": true,
+      "position": 5,
+      "sentiment": "negative"
+    },
+    {
+      "query": "Best sustainable fashion marketplace in Europe?",
+      "model": "chatgpt",
+      "sample": 2,
+      "brand": "Zara",
+      "mentioned": true,
+      "position": 6,
+      "sentiment": "neutral"
+    },
+    {
+      "query": "Best sustainable fashion marketplace in Europe?",
+      "model": "claude",
+      "sample": 0,
+      "brand": "Zalando",
+      "mentioned": true,
+      "position": 1,
+      "sentiment": "positive"
+    },
+    {
+      "query": "Best sustainable fashion marketplace in Europe?",
+      "model": "claude",
+      "sample": 0,
+      "brand": "ASOS",
+      "mentioned": true,
+      "position": 3,
+      "sentiment": "neutral"
+    },
+    {
+      "query": "Best sustainable fashion marketplace in Europe?",
+      "model": "claude",
+      "sample": 0,
+      "brand": "H&M",
+      "mentioned": true,
+      "position": 4,
+      "sentiment": "negative"
+    },
+    {
+      "query": "Best sustainable fashion marketplace in Europe?",
+      "model": "claude",
+      "sample": 0,
+      "brand": "About You",
+      "mentioned": true,
+      "position": 2,
+      "sentiment": "neutral"
+    },
+    {
+      "query": "Best sustainable fashion marketplace in Europe?",
+      "model": "claude",
+      "sample": 0,
+      "brand": "Shein",
+      "mentioned": true,
+      "position": 6,
+      "sentiment": "negative"
+    },
+    {
+      "query": "Best sustainable fashion marketplace in Europe?",
+      "model": "claude",
+      "sample": 0,
+      "brand": "Zara",
+      "mentioned": true,
+      "position": 5,
+      "sentiment": "negative"
+    },
+    {
+      "query": "Best sustainable fashion marketplace in Europe?",
+      "model": "claude",
+      "sample": 1,
+      "brand": "Zalando",
+      "mentioned": true,
+      "position": 1,
+      "sentiment": "positive"
+    },
+    {
+      "query": "Best sustainable fashion marketplace in Europe?",
+      "model": "claude",
+      "sample": 1,
+      "brand": "ASOS",
+      "mentioned": true,
+      "position": 2,
+      "sentiment": "neutral"
+    },
+    {
+      "query": "Best sustainable fashion marketplace in Europe?",
+      "model": "claude",
+      "sample": 1,
+      "brand": "H&M",
+      "mentioned": true,
+      "position": 4,
+      "sentiment": "negative"
+    },
+    {
+      "query": "Best sustainable fashion marketplace in Europe?",
+      "model": "claude",
+      "sample": 1,
+      "brand": "About You",
+      "mentioned": true,
+      "position": 3,
+      "sentiment": "neutral"
+    },
+    {
+      "query": "Best sustainable fashion marketplace in Europe?",
+      "model": "claude",
+      "sample": 1,
+      "brand": "Shein",
+      "mentioned": true,
+      "position": 6,
+      "sentiment": "negative"
+    },
+    {
+      "query": "Best sustainable fashion marketplace in Europe?",
+      "model": "claude",
+      "sample": 1,
+      "brand": "Zara",
+      "mentioned": true,
+      "position": 5,
+      "sentiment": "negative"
+    },
+    {
+      "query": "Best sustainable fashion marketplace in Europe?",
+      "model": "claude",
+      "sample": 2,
+      "brand": "Zalando",
+      "mentioned": true,
+      "position": 1,
+      "sentiment": "positive"
+    },
+    {
+      "query": "Best sustainable fashion marketplace in Europe?",
+      "model": "claude",
+      "sample": 2,
+      "brand": "ASOS",
+      "mentioned": true,
+      "position": 2,
+      "sentiment": "neutral"
+    },
+    {
+      "query": "Best sustainable fashion marketplace in Europe?",
+      "model": "claude",
+      "sample": 2,
+      "brand": "H&M",
+      "mentioned": true,
+      "position": 4,
+      "sentiment": "negative"
+    },
+    {
+      "query": "Best sustainable fashion marketplace in Europe?",
+      "model": "claude",
+      "sample": 2,
+      "brand": "About You",
+      "mentioned": true,
+      "position": 3,
+      "sentiment": "neutral"
+    },
+    {
+      "query": "Best sustainable fashion marketplace in Europe?",
+      "model": "claude",
+      "sample": 2,
+      "brand": "Shein",
+      "mentioned": true,
+      "position": 6,
+      "sentiment": "negative"
+    },
+    {
+      "query": "Best sustainable fashion marketplace in Europe?",
+      "model": "claude",
+      "sample": 2,
+      "brand": "Zara",
+      "mentioned": true,
+      "position": 5,
+      "sentiment": "negative"
+    },
+    {
+      "query": "Best sustainable fashion marketplace in Europe?",
+      "model": "gemini",
+      "sample": 0,
+      "brand": "Zalando",
+      "mentioned": true,
+      "position": 1,
+      "sentiment": "positive"
+    },
+    {
+      "query": "Best sustainable fashion marketplace in Europe?",
+      "model": "gemini",
+      "sample": 0,
+      "brand": "ASOS",
+      "mentioned": false,
+      "position": null,
+      "sentiment": null
+    },
+    {
+      "query": "Best sustainable fashion marketplace in Europe?",
+      "model": "gemini",
+      "sample": 0,
+      "brand": "H&M",
+      "mentioned": false,
+      "position": null,
+      "sentiment": null
+    },
+    {
+      "query": "Best sustainable fashion marketplace in Europe?",
+      "model": "gemini",
+      "sample": 0,
+      "brand": "About You",
+      "mentioned": false,
+      "position": null,
+      "sentiment": null
+    },
+    {
+      "query": "Best sustainable fashion marketplace in Europe?",
+      "model": "gemini",
+      "sample": 0,
+      "brand": "Shein",
+      "mentioned": false,
+      "position": null,
+      "sentiment": null
+    },
+    {
+      "query": "Best sustainable fashion marketplace in Europe?",
+      "model": "gemini",
+      "sample": 0,
+      "brand": "Zara",
+      "mentioned": false,
+      "position": null,
+      "sentiment": null
+    },
+    {
+      "query": "Best sustainable fashion marketplace in Europe?",
+      "model": "gemini",
+      "sample": 1,
+      "brand": "Zalando",
+      "mentioned": true,
+      "position": 1,
+      "sentiment": "positive"
+    },
+    {
+      "query": "Best sustainable fashion marketplace in Europe?",
+      "model": "gemini",
+      "sample": 1,
+      "brand": "ASOS",
+      "mentioned": false,
+      "position": null,
+      "sentiment": null
+    },
+    {
+      "query": "Best sustainable fashion marketplace in Europe?",
+      "model": "gemini",
+      "sample": 1,
+      "brand": "H&M",
+      "mentioned": false,
+      "position": null,
+      "sentiment": null
+    },
+    {
+      "query": "Best sustainable fashion marketplace in Europe?",
+      "model": "gemini",
+      "sample": 1,
+      "brand": "About You",
+      "mentioned": false,
+      "position": null,
+      "sentiment": null
+    },
+    {
+      "query": "Best sustainable fashion marketplace in Europe?",
+      "model": "gemini",
+      "sample": 1,
+      "brand": "Shein",
+      "mentioned": false,
+      "position": null,
+      "sentiment": null
+    },
+    {
+      "query": "Best sustainable fashion marketplace in Europe?",
+      "model": "gemini",
+      "sample": 1,
+      "brand": "Zara",
+      "mentioned": false,
+      "position": null,
+      "sentiment": null
+    },
+    {
+      "query": "Best sustainable fashion marketplace in Europe?",
+      "model": "gemini",
+      "sample": 2,
+      "brand": "Zalando",
+      "mentioned": true,
+      "position": 1,
+      "sentiment": "positive"
+    },
+    {
+      "query": "Best sustainable fashion marketplace in Europe?",
+      "model": "gemini",
+      "sample": 2,
+      "brand": "ASOS",
+      "mentioned": false,
+      "position": null,
+      "sentiment": null
+    },
+    {
+      "query": "Best sustainable fashion marketplace in Europe?",
+      "model": "gemini",
+      "sample": 2,
+      "brand": "H&M",
+      "mentioned": false,
+      "position": null,
+      "sentiment": null
+    },
+    {
+      "query": "Best sustainable fashion marketplace in Europe?",
+      "model": "gemini",
+      "sample": 2,
+      "brand": "About You",
+      "mentioned": false,
+      "position": null,
+      "sentiment": null
+    },
+    {
+      "query": "Best sustainable fashion marketplace in Europe?",
+      "model": "gemini",
+      "sample": 2,
+      "brand": "Shein",
+      "mentioned": false,
+      "position": null,
+      "sentiment": null
+    },
+    {
+      "query": "Best sustainable fashion marketplace in Europe?",
+      "model": "gemini",
+      "sample": 2,
+      "brand": "Zara",
+      "mentioned": false,
+      "position": null,
+      "sentiment": null
+    }
+  ]
+}

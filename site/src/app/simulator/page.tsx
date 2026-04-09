@@ -1,179 +1,140 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
-  prepareBrands,
-  scoreVisibility,
-  sampleResponses,
-  extractMentions,
-  buildQueryResults,
-  computeBrandStats,
-  computeModelStats,
-  engineerFeatures,
-  encodeScenario,
-  predictScenario,
-  explainPrediction,
-  sensitivityAnalysis,
-  type SimulationConfig,
-  type BrandStats,
-  type FeatureVector,
-  type Prediction,
-  type Explanation,
-  type SensitivityResult,
-  type ModelId,
-  MODEL_META,
-} from "@/lib/simulation";
+  getStatus,
+  runCollection,
+  runWhatIf,
+  type BrandResult,
+  type CollectResponse,
+  type WhatIfResponse,
+  type StatusResponse,
+} from "@/lib/api";
 
-// ── Presets ────────────────────────────────────────────────────────────────
+// ── Brand config (what the user fills in) ──────────────────────────────────
 
-interface DemoPreset {
-  label: string;
-  icon: string;
+interface BrandConfig {
   targetBrand: string;
+  website: string;
   competitors: string[];
   queries: string[];
 }
 
-const PRESETS: DemoPreset[] = [
+// Quick-fill templates so users don't start from scratch
+const TEMPLATES: { label: string; config: BrandConfig }[] = [
   {
-    label: "Fashion & E-commerce",
-    icon: "F",
-    targetBrand: "Zalando",
-    competitors: ["ASOS", "H&M", "About You", "Shein", "Zara"],
-    queries: [
-      "Best online fashion store in Europe",
-      "Where to buy affordable designer clothes online",
-      "Best sustainable fashion marketplace",
-      "Top alternatives to Amazon for clothing",
-      "Best place to buy sneakers online",
-    ],
+    label: "Fashion",
+    config: {
+      targetBrand: "Zalando",
+      website: "https://zalando.com",
+      competitors: ["ASOS", "H&M", "About You", "Shein", "Zara"],
+      queries: [
+        "Best online fashion store in Europe",
+        "Where to buy affordable designer clothes online",
+        "Best sustainable fashion marketplace",
+      ],
+    },
   },
   {
-    label: "CRM Software",
-    icon: "C",
-    targetBrand: "HubSpot",
-    competitors: ["Salesforce", "Pipedrive", "Zoho CRM", "Monday.com"],
-    queries: [
-      "What is the best CRM for small businesses?",
-      "Top CRM software for sales teams",
-      "Best free CRM tools in 2026",
-      "CRM comparison: which should I choose?",
-    ],
+    label: "CRM",
+    config: {
+      targetBrand: "HubSpot",
+      website: "https://hubspot.com",
+      competitors: ["Salesforce", "Pipedrive", "Zoho CRM", "Monday.com"],
+      queries: [
+        "Best CRM for small businesses",
+        "Top CRM software for sales teams",
+        "Best free CRM tools",
+      ],
+    },
   },
   {
-    label: "Cloud Hosting",
-    icon: "H",
-    targetBrand: "Vercel",
-    competitors: ["Netlify", "AWS", "Cloudflare Pages", "Railway"],
-    queries: [
-      "Best hosting for Next.js applications",
-      "Which web hosting is fastest?",
-      "Best cloud hosting for developers",
-      "Hosting platform comparison for startups",
-    ],
+    label: "Hosting",
+    config: {
+      targetBrand: "Vercel",
+      website: "https://vercel.com",
+      competitors: ["Netlify", "AWS", "Cloudflare Pages", "Railway"],
+      queries: [
+        "Best hosting for Next.js",
+        "Which web hosting is fastest",
+        "Best cloud hosting for developers",
+      ],
+    },
   },
 ];
 
-// ── GEO strategy toggles ──────────────────────────────────────────────────
+// ── GEO strategy toggles (mapped to real feature names) ────────────────────
 
 interface GeoStrategy {
   id: string;
   label: string;
   description: string;
   evidence: string;
-  featureChanges: Partial<FeatureVector>;
+  featureChanges: Record<string, number>;
 }
 
 const GEO_STRATEGIES: GeoStrategy[] = [
   {
-    id: "statistics",
-    label: "Add statistics & data points",
-    description: "Include concrete numbers, percentages, and data-backed claims in your content.",
-    evidence: "+37% visibility (GEO paper, KDD 2024)",
-    featureChanges: { statistics_density: 0.85 },
+    id: "sentiment",
+    label: "Improve brand sentiment",
+    description: "Get more positive reviews, fix negative mentions, earn favorable analyst coverage.",
+    evidence: "positive_rate is #1 feature by importance (40.8%)",
+    featureChanges: { positive_rate: 95, negative_rate: 2, net_sentiment: 90 },
   },
   {
-    id: "quotations",
-    label: "Add expert quotations",
-    description: "Cite industry experts, analysts, or credible reviews with direct quotes.",
-    evidence: "+41% visibility (GEO paper, KDD 2024)",
-    featureChanges: { quotation_count: 6 },
+    id: "position",
+    label: "Improve ranking position",
+    description: "Get cited earlier in AI responses. Position #1-2 gets 3.5x more clicks than position #5+.",
+    evidence: "Profound: rank #1 cited 3.5x more than top-20",
+    featureChanges: { avg_position: 1.5, top1_rate: 75, top3_rate: 95, position_std: 0.3 },
   },
   {
-    id: "citations",
-    label: "Cite credible sources",
-    description: "Reference authoritative sources inline. Up to +115% for lower-ranked sites.",
-    evidence: "+30% visibility (GEO paper, KDD 2024)",
-    featureChanges: { citation_count: 8 },
+    id: "coverage",
+    label: "Cover more query types",
+    description: "Appear in informational, comparison, and transactional queries — not just one type.",
+    evidence: "1/3 of citations from fan-out queries (Profound)",
+    featureChanges: { query_coverage: 100 },
   },
   {
-    id: "freshness",
-    label: "Refresh content (update to this week)",
-    description: "Update your page content, timestamps, and data. 76.4% of top-cited pages were updated within 30 days.",
-    evidence: "+300% AI traffic in case studies (Seer Interactive)",
-    featureChanges: { source_freshness_months: 0.25 },
+    id: "models",
+    label: "Get all AI models to agree",
+    description: "Optimize for ChatGPT, Claude, AND Gemini — not just one. 62% of brands disagree across platforms.",
+    evidence: "CMU LLM Whisperer: 62% cross-model disagreement",
+    featureChanges: { model_agreement: 100, model_spread: 0 },
   },
   {
-    id: "fluency",
-    label: "Improve fluency & readability",
-    description: "Rewrite for clarity: short sentences, active voice, logical flow. Avoid jargon walls.",
-    evidence: "+28% visibility (GEO paper, KDD 2024)",
-    featureChanges: { fluency_score: 0.92 },
-  },
-  {
-    id: "thirdparty",
-    label: "Get third-party mentions",
-    description: "Earn mentions in roundups, reviews, and comparison articles. Third-party is 6.5x more effective than owned content.",
-    evidence: "85% of AI citations from third-party sources (Profound)",
-    featureChanges: { third_party_mention_count: 12 },
-  },
-  {
-    id: "length",
-    label: "Expand content to 8K+ characters",
-    description: "Longer, comprehensive pages get cited more. Sweet spot is 5-10K characters.",
-    evidence: "10.18 citations for 20K+ chars vs 2.39 for <500 (Profound, 680M citations)",
-    featureChanges: { content_length_chars: 8500 },
+    id: "compete",
+    label: "Close the competitor gap",
+    description: "When competitors' rates rise, yours falls. Proactively outpace them.",
+    evidence: "Substitution effect: absent brands get replaced (Research 2.1)",
+    featureChanges: { vs_best_competitor: 1.3, brands_ahead: 0 },
   },
 ];
 
 // ── Phases ──────────────────────────────────────────────────────────────────
 
-type Phase = "pick" | "baseline" | "simulate";
+type Phase = "pick" | "collecting" | "baseline" | "simulate";
 
-// ── Helpers ─────────────────────────────────────────────────────────────────
-
-function pct(n: number) {
-  return `${(n * 100).toFixed(1)}%`;
-}
-
-function signed(n: number) {
-  const s = n.toFixed(1);
-  return n >= 0 ? `+${s}` : s;
-}
-
-const MODEL_ORDER: ModelId[] = ["chatgpt", "claude", "gemini", "perplexity"];
+function pct(n: number) { return `${n.toFixed(1)}%`; }
+function signed(n: number) { return n >= 0 ? `+${n.toFixed(1)}` : n.toFixed(1); }
 
 // ── Bar component ───────────────────────────────────────────────────────────
 
-function Bar({ value, max, color, label, sub }: {
-  value: number;
-  max: number;
-  color: string;
-  label: string;
-  sub?: string;
+function Bar({ value, max, color, label }: {
+  value: number; max: number; color: string; label: string;
 }) {
   const width = max > 0 ? Math.max(2, (value / max) * 100) : 2;
   return (
     <div className="flex items-center gap-3">
-      <span className="w-24 shrink-0 text-right text-sm text-[var(--muted)]">{label}</span>
+      <span className="w-28 shrink-0 text-right text-sm text-[var(--muted)]">{label}</span>
       <div className="relative flex-1 h-7 rounded-lg bg-[rgba(255,255,255,0.5)] overflow-hidden">
         <div
           className="absolute inset-y-0 left-0 rounded-lg transition-all duration-500"
           style={{ width: `${width}%`, backgroundColor: color, opacity: 0.75 }}
         />
         <span className="relative z-10 flex items-center h-full px-3 text-xs font-semibold text-[var(--ink)]">
-          {sub ?? pct(value)}
+          {pct(value)}
         </span>
       </div>
     </div>
@@ -186,69 +147,117 @@ function Bar({ value, max, color, label, sub }: {
 
 export default function SimulatorPage() {
   const [phase, setPhase] = useState<Phase>("pick");
-  const [preset, setPreset] = useState<DemoPreset | null>(null);
+  const [brandConfig, setBrandConfig] = useState<BrandConfig>({
+    targetBrand: "",
+    website: "",
+    competitors: [],
+    queries: [],
+  });
+  const [collectResult, setCollectResult] = useState<CollectResponse | null>(null);
+  const [whatIfResult, setWhatIfResult] = useState<WhatIfResponse | null>(null);
   const [activeStrategies, setActiveStrategies] = useState<Set<string>>(new Set());
+  const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState("");
+  const [backendStatus, setBackendStatus] = useState<StatusResponse | null>(null);
 
-  // ── Run baseline (stages 1-8) ────────────────────────────────────────────
+  // Form inputs
+  const [compInput, setCompInput] = useState("");
+  const [queryInput, setQueryInput] = useState("");
 
-  const baseline = useMemo(() => {
-    if (!preset) return null;
+  useEffect(() => {
+    getStatus()
+      .then(setBackendStatus)
+      .catch(() => setBackendStatus(null));
+  }, []);
 
-    const config: SimulationConfig = {
-      targetBrand: preset.targetBrand,
-      competitors: preset.competitors,
-      queries: preset.queries,
-      models: [...MODEL_ORDER],
-      samplesPerQuery: 5,
-    };
+  // ── Run collection ───────────────────────────────────────────────────────
 
-    const brands = prepareBrands(config);
-    const scores = scoreVisibility(brands, config.models);
-    const samples = sampleResponses(scores, config);
-    const allNames = brands.map((b) => b.name);
-    const mentionsPerSample = samples.map((s) => extractMentions(s, allNames));
-    const queryResults = buildQueryResults(samples, mentionsPerSample);
-    const brandStats = computeBrandStats(queryResults, config);
-    const modelStats = computeModelStats(queryResults, config);
-    const features = engineerFeatures(brandStats, modelStats, config);
+  async function startCollection() {
+    if (!brandConfig.targetBrand || brandConfig.competitors.length === 0 || brandConfig.queries.length === 0) return;
 
-    return { config, brandStats, modelStats, features };
-  }, [preset]);
+    setActiveStrategies(new Set());
+    setWhatIfResult(null);
+    setError(null);
+    setPhase("collecting");
+    setProgress("Calling ChatGPT, Claude, and Gemini...");
 
-  // ── Run what-if (stages 9-12) ────────────────────────────────────────────
+    try {
+      const result = await runCollection({
+        target: brandConfig.targetBrand,
+        competitors: brandConfig.competitors,
+        queries: brandConfig.queries,
+        samples_per_query: 2,
+      });
+      setCollectResult(result);
+      setPhase("baseline");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Collection failed");
+      setPhase("pick");
+    }
+  }
 
-  const whatIf = useMemo(() => {
-    if (!baseline || activeStrategies.size === 0) return null;
+  async function useExistingData() {
+    if (!backendStatus?.brands.length) return;
 
-    let merged: Partial<FeatureVector> = {};
-    for (const id of activeStrategies) {
+    // Figure out target from existing data
+    const existingTarget = backendStatus.target ?? backendStatus.brands[0];
+    setBrandConfig({
+      targetBrand: existingTarget,
+      website: "",
+      competitors: backendStatus.brands.filter((b) => b !== existingTarget),
+      queries: [],
+    });
+
+    try {
+      const res = await fetch("http://localhost:8000/api/simulations/features");
+      const data = await res.json();
+      const brands: BrandResult[] = data.features.map((f: Record<string, number | string>) => ({
+        brand: f.brand,
+        mention_rate: f.mention_rate,
+        avg_position: f.avg_position,
+        top1_rate: f.top1_rate,
+        top3_rate: f.top3_rate,
+        positive_rate: f.positive_rate,
+        negative_rate: f.negative_rate,
+        net_sentiment: f.net_sentiment,
+        is_target: f.brand === existingTarget,
+      }));
+      brands.sort((a, b) => b.mention_rate - a.mention_rate);
+
+      setCollectResult({
+        total_observations: backendStatus.observation_count,
+        total_calls: 0,
+        brands,
+        model_metrics: { rmse: 0, r2: backendStatus.model_r2 ?? 0, importance: {} },
+        training_samples_total: backendStatus.training_sample_count,
+        duration_seconds: 0,
+      });
+      setPhase("baseline");
+    } catch {
+      setError("Failed to load existing data");
+    }
+  }
+
+  // ── Run what-if ──────────────────────────────────────────────────────────
+
+  async function runWhatIfForStrategies(strategies: Set<string>) {
+    if (!brandConfig.targetBrand || strategies.size === 0) {
+      setWhatIfResult(null);
+      return;
+    }
+
+    let merged: Record<string, number> = {};
+    for (const id of strategies) {
       const strat = GEO_STRATEGIES.find((s) => s.id === id);
       if (strat) merged = { ...merged, ...strat.featureChanges };
     }
 
-    const scenario = encodeScenario(baseline.features, merged);
-    const prediction = predictScenario(baseline.features, scenario);
-    const explanation = explainPrediction(baseline.features, scenario, prediction);
-
-    // sensitivity for top 3 changed features
-    const changedFeatures = explanation.contributions
-      .slice(0, 3)
-      .map((c) => c.feature as keyof FeatureVector);
-    const sensitivity = sensitivityAnalysis(baseline.features, changedFeatures);
-
-    return { prediction, explanation, sensitivity, scenario };
-  }, [baseline, activeStrategies]);
-
-  // ── Handlers ─────────────────────────────────────────────────────────────
-
-  function pickPreset(p: DemoPreset) {
-    setPreset(p);
-    setActiveStrategies(new Set());
-    setPhase("baseline");
-  }
-
-  function goSimulate() {
-    setPhase("simulate");
+    try {
+      const result = await runWhatIf({ brand: brandConfig.targetBrand, changes: merged });
+      setWhatIfResult(result);
+    } catch (e) {
+      console.error("What-if error:", e);
+    }
   }
 
   function toggleStrategy(id: string) {
@@ -256,20 +265,49 @@ export default function SimulatorPage() {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
+      runWhatIfForStrategies(next);
       return next;
     });
   }
 
-  function reset() {
-    setPhase("pick");
-    setPreset(null);
-    setActiveStrategies(new Set());
+  function applyTemplate(config: BrandConfig) {
+    setBrandConfig(config);
   }
 
-  // ── Target brand stats helper ────────────────────────────────────────────
+  function addCompetitor() {
+    const name = compInput.trim();
+    if (name && !brandConfig.competitors.includes(name) && name !== brandConfig.targetBrand) {
+      setBrandConfig({ ...brandConfig, competitors: [...brandConfig.competitors, name] });
+      setCompInput("");
+    }
+  }
 
-  const target: BrandStats | undefined = baseline?.brandStats.find((b) => b.isTarget);
-  const maxRate = baseline ? Math.max(...baseline.brandStats.map((b) => b.mentionRate)) : 1;
+  function addQuery() {
+    const q = queryInput.trim();
+    if (q && !brandConfig.queries.includes(q)) {
+      setBrandConfig({ ...brandConfig, queries: [...brandConfig.queries, q] });
+      setQueryInput("");
+    }
+  }
+
+  function reset() {
+    setPhase("pick");
+    setBrandConfig({ targetBrand: "", website: "", competitors: [], queries: [] });
+    setCollectResult(null);
+    setWhatIfResult(null);
+    setActiveStrategies(new Set());
+    setError(null);
+    setCompInput("");
+    setQueryInput("");
+  }
+
+  // ── Derived ──────────────────────────────────────────────────────────────
+
+  const target = collectResult?.brands.find((b) => b.is_target);
+  const maxRate = collectResult ? Math.max(...collectResult.brands.map((b) => b.mention_rate)) : 100;
+  const canRun = brandConfig.targetBrand.trim().length > 0
+    && brandConfig.competitors.length > 0
+    && brandConfig.queries.length > 0;
 
   // ════════════════════════════════════════════════════════════════════════
   // Render
@@ -283,8 +321,7 @@ export default function SimulatorPage() {
           <Link href="/" className="ink-link text-sm">Back to home</Link>
           <h1 className="mt-2 text-4xl text-[var(--ink)] md:text-5xl">Simulator</h1>
           <p className="mt-2 max-w-xl text-sm leading-relaxed text-[var(--muted)]">
-            See your AI visibility baseline, then simulate content changes and
-            see predicted impact — instantly.
+            Check how AI search engines see your brand. Simulate changes, see what improves your visibility.
           </p>
         </div>
         {phase !== "pick" && (
@@ -294,20 +331,28 @@ export default function SimulatorPage() {
         )}
       </div>
 
-      {/* ── Phase pills ─────────────────────────────────────────────────── */}
+      {/* Error banner */}
+      {error && (
+        <div className="mb-6 rounded-2xl border border-rose-200 bg-rose-50 px-5 py-3 text-sm text-rose-800">
+          {error}
+          <span className="ml-2 text-xs text-rose-500">
+            Is the backend running? <code>cd backend && python -m uvicorn api.app:app --port 8000</code>
+          </span>
+        </div>
+      )}
+
+      {/* Phase pills */}
       <div className="flex gap-2 mb-8">
         {(["pick", "baseline", "simulate"] as Phase[]).map((p, i) => {
-          const labels = ["1 — Choose brand", "2 — Current visibility", "3 — Simulate changes"];
-          const isActive = p === phase;
+          const labels = ["1 — Your brand", "2 — Current visibility", "3 — Simulate changes"];
+          const isActive = p === phase || (p === "pick" && phase === "collecting");
           const isPast =
-            (p === "pick" && phase !== "pick") ||
+            (p === "pick" && (phase === "baseline" || phase === "simulate")) ||
             (p === "baseline" && phase === "simulate");
           return (
             <button
               key={p}
-              onClick={() => {
-                if (isPast) setPhase(p);
-              }}
+              onClick={() => { if (isPast) setPhase(p); }}
               className={`rounded-full px-4 py-1.5 text-xs font-semibold transition-all ${
                 isActive
                   ? "bg-[var(--ink)] text-[var(--paper)]"
@@ -323,168 +368,313 @@ export default function SimulatorPage() {
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════════ */}
-      {/* PHASE 1: Pick brand                                               */}
+      {/* PHASE: Pick brand                                                 */}
       {/* ═══════════════════════════════════════════════════════════════════ */}
       {phase === "pick" && (
-        <div className="grid gap-4 md:grid-cols-3">
-          {PRESETS.map((p) => (
-            <button
-              key={p.label}
-              onClick={() => pickPreset(p)}
-              className="paper-panel rounded-[2rem] p-6 text-left hover:-translate-y-1 hover:border-[color:var(--line-strong)] group"
-            >
-              <div className="flex items-center gap-3 mb-4">
-                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--ink)] text-lg font-bold text-[var(--paper)]">
-                  {p.icon}
-                </span>
-                <span className="text-lg font-semibold text-[var(--ink)]">{p.label}</span>
+        <div className="grid gap-6 lg:grid-cols-[1fr,340px]">
+          {/* Left: brand entry form */}
+          <div className="space-y-5">
+            {/* Existing data banner */}
+            {backendStatus?.has_data && (
+              <div className="paper-panel rounded-[2rem] p-5 flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-semibold text-[var(--ink)]">
+                    Previous run: {backendStatus.brands.join(", ")} ({backendStatus.training_sample_count} samples)
+                  </p>
+                  <p className="text-xs text-[var(--muted)]">Model R2 = {backendStatus.model_r2?.toFixed(4)}</p>
+                </div>
+                <button onClick={useExistingData} className="btn-secondary rounded-2xl px-4 py-2 text-sm font-semibold shrink-0">
+                  Load this
+                </button>
               </div>
-              <p className="text-sm text-[var(--muted)] leading-relaxed mb-3">
-                <span className="font-semibold text-[var(--ink)]">{p.targetBrand}</span>
-                {" vs "}
-                {p.competitors.join(", ")}
+            )}
+
+            {/* Brand name + website */}
+            <div className="paper-panel rounded-[2rem] p-6">
+              <p className="muted-label text-xs mb-1">Your brand</p>
+              <h2 className="text-2xl text-[var(--ink)] mb-2">Who are you?</h2>
+              <p className="text-sm text-[var(--muted)] mb-5">
+                We&apos;ll ask ChatGPT, Claude, and Gemini about your brand and see how they respond.
               </p>
-              <p className="text-xs text-[var(--muted)]">
-                {p.queries.length} buyer questions &middot; 4 AI models &middot; 5 samples each
-              </p>
-              <span className="mt-4 inline-block text-xs font-semibold text-[var(--muted)] group-hover:text-[var(--ink)] transition-colors">
-                Run baseline &rarr;
-              </span>
-            </button>
-          ))}
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="text-xs font-semibold text-[var(--muted)] uppercase tracking-wider">Brand name</label>
+                  <input
+                    type="text"
+                    value={brandConfig.targetBrand}
+                    onChange={(e) => setBrandConfig({ ...brandConfig, targetBrand: e.target.value })}
+                    placeholder="e.g. Zalando"
+                    className="field-input mt-2"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-[var(--muted)] uppercase tracking-wider">Website</label>
+                  <input
+                    type="url"
+                    value={brandConfig.website}
+                    onChange={(e) => setBrandConfig({ ...brandConfig, website: e.target.value })}
+                    placeholder="https://yoursite.com"
+                    className="field-input mt-2"
+                  />
+                </div>
+              </div>
+
+              {/* Quick fill templates */}
+              <div className="mt-4 flex flex-wrap gap-2">
+                <span className="text-xs text-[var(--muted)] self-center mr-1">Quick fill:</span>
+                {TEMPLATES.map((t) => (
+                  <button
+                    key={t.label}
+                    onClick={() => applyTemplate(t.config)}
+                    className="surface-chip px-3 py-1 text-xs font-medium text-[var(--muted)] hover:text-[var(--ink)] hover:border-[color:var(--line-strong)]"
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Competitors */}
+            <div className="paper-panel rounded-[2rem] p-6">
+              <div className="flex items-end justify-between gap-4 mb-4">
+                <div>
+                  <p className="muted-label text-xs mb-1">Competitors</p>
+                  <p className="text-sm text-[var(--muted)]">Who do you compete with for AI recommendations?</p>
+                </div>
+                <span className="font-mono text-xs text-[var(--muted)]">{brandConfig.competitors.length} added</span>
+              </div>
+
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={compInput}
+                  onChange={(e) => setCompInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && addCompetitor()}
+                  placeholder="Add a competitor"
+                  className="field-input flex-1"
+                />
+                <button onClick={addCompetitor} className="btn-secondary rounded-2xl px-4 py-3 text-sm font-semibold">
+                  Add
+                </button>
+              </div>
+
+              {brandConfig.competitors.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {brandConfig.competitors.map((c) => (
+                    <span key={c} className="surface-chip inline-flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--ink)]">
+                      {c}
+                      <button
+                        onClick={() => setBrandConfig({ ...brandConfig, competitors: brandConfig.competitors.filter((x) => x !== c) })}
+                        className="text-[var(--muted)] hover:text-rose-600"
+                      >&times;</button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Buyer questions */}
+            <div className="paper-panel rounded-[2rem] p-6">
+              <div className="flex items-end justify-between gap-4 mb-4">
+                <div>
+                  <p className="muted-label text-xs mb-1">Buyer questions</p>
+                  <p className="text-sm text-[var(--muted)]">What do your customers ask AI when they&apos;re shopping?</p>
+                </div>
+                <span className="font-mono text-xs text-[var(--muted)]">{brandConfig.queries.length} added</span>
+              </div>
+
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={queryInput}
+                  onChange={(e) => setQueryInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && addQuery()}
+                  placeholder='e.g. "Best online store for sneakers"'
+                  className="field-input flex-1"
+                />
+                <button onClick={addQuery} className="btn-secondary rounded-2xl px-4 py-3 text-sm font-semibold">
+                  Add
+                </button>
+              </div>
+
+              {brandConfig.queries.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  {brandConfig.queries.map((q) => (
+                    <div key={q} className="surface-inset flex items-center gap-3 rounded-2xl px-4 py-3 text-sm text-[var(--ink)]">
+                      <span className="flex-1">{q}</span>
+                      <button
+                        onClick={() => setBrandConfig({ ...brandConfig, queries: brandConfig.queries.filter((x) => x !== q) })}
+                        className="text-[var(--muted)] hover:text-rose-600"
+                      >&times;</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Right: summary + run button */}
+          <div className="space-y-4 lg:sticky lg:top-24 lg:self-start">
+            <div className="paper-panel rounded-[2rem] p-6">
+              <p className="muted-label text-xs mb-4">Summary</p>
+
+              <div className="space-y-3">
+                <div className="metric-card">
+                  <p className="text-xs uppercase tracking-[0.16em] text-[var(--muted)]">Brand</p>
+                  <p className="mt-1 text-xl text-[var(--ink)]">{brandConfig.targetBrand || "—"}</p>
+                  {brandConfig.website && (
+                    <p className="mt-1 text-xs text-[var(--muted)] truncate">{brandConfig.website}</p>
+                  )}
+                </div>
+                <div className="metric-card">
+                  <p className="text-xs uppercase tracking-[0.16em] text-[var(--muted)]">Competitors</p>
+                  <p className="mt-1 text-2xl text-[var(--ink)]">{brandConfig.competitors.length}</p>
+                </div>
+                <div className="metric-card">
+                  <p className="text-xs uppercase tracking-[0.16em] text-[var(--muted)]">Questions</p>
+                  <p className="mt-1 text-2xl text-[var(--ink)]">{brandConfig.queries.length}</p>
+                </div>
+                <div className="metric-card">
+                  <p className="text-xs uppercase tracking-[0.16em] text-[var(--muted)]">API calls</p>
+                  <p className="mt-1 text-2xl text-[var(--ink)]">{brandConfig.queries.length * 3 * 2}</p>
+                  <p className="mt-1 text-xs text-[var(--muted)]">
+                    {brandConfig.queries.length} questions &times; 3 models &times; 2 samples
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={startCollection}
+                disabled={!canRun}
+                className={`mt-6 w-full rounded-2xl px-4 py-3.5 text-sm font-semibold ${
+                  canRun
+                    ? "btn-primary"
+                    : "cursor-not-allowed bg-[rgba(26,23,20,0.12)] text-[var(--muted)]"
+                }`}
+              >
+                Check my visibility
+              </button>
+
+              {!canRun && (
+                <p className="mt-3 text-center text-xs text-[var(--muted)]">
+                  {!brandConfig.targetBrand.trim()
+                    ? "Enter your brand name"
+                    : brandConfig.competitors.length === 0
+                      ? "Add at least one competitor"
+                      : "Add at least one buyer question"}
+                </p>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
       {/* ═══════════════════════════════════════════════════════════════════ */}
-      {/* PHASE 2: Baseline visibility                                      */}
+      {/* PHASE: Collecting (loading state)                                 */}
       {/* ═══════════════════════════════════════════════════════════════════ */}
-      {phase === "baseline" && baseline && target && (
+      {phase === "collecting" && (
+        <div className="paper-panel rounded-[2rem] p-12 text-center">
+          <div className="text-4xl mb-4 animate-pulse">...</div>
+          <p className="text-lg font-semibold text-[var(--ink)]">
+            Checking AI visibility for {brandConfig.targetBrand}
+          </p>
+          <p className="mt-2 text-sm text-[var(--muted)]">
+            Asking {brandConfig.queries.length} questions to ChatGPT, Claude, and Gemini ({brandConfig.queries.length * 6} API calls)
+          </p>
+          {brandConfig.website && (
+            <p className="mt-1 text-xs text-[var(--muted)]">{brandConfig.website}</p>
+          )}
+          <p className="mt-4 text-xs text-[var(--muted)]">{progress}</p>
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════════════════ */}
+      {/* PHASE: Baseline visibility (REAL DATA)                            */}
+      {/* ═══════════════════════════════════════════════════════════════════ */}
+      {phase === "baseline" && collectResult && target && (
         <div className="space-y-6">
+          {/* Source banner */}
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-3 text-sm text-emerald-800">
+            Real data: {collectResult.total_observations} observations from {collectResult.total_calls || "previous"} API calls
+            {collectResult.duration_seconds > 0 && ` in ${collectResult.duration_seconds}s`}
+          </div>
+
           {/* Hero metrics */}
           <div className="grid gap-4 sm:grid-cols-4">
             <div className="metric-card">
-              <p className="text-xs uppercase tracking-[0.16em] text-[var(--muted)]">Overall mention rate</p>
-              <p className="mt-2 text-4xl text-[var(--ink)]">{pct(target.mentionRate)}</p>
+              <p className="text-xs uppercase tracking-[0.16em] text-[var(--muted)]">Mention rate</p>
+              <p className="mt-2 text-4xl text-[var(--ink)]">{pct(target.mention_rate)}</p>
             </div>
             <div className="metric-card">
               <p className="text-xs uppercase tracking-[0.16em] text-[var(--muted)]">Avg position</p>
               <p className="mt-2 text-4xl text-[var(--ink)]">
-                {target.avgPosition ? `#${target.avgPosition.toFixed(1)}` : "—"}
+                {target.avg_position ? `#${target.avg_position.toFixed(1)}` : "—"}
               </p>
             </div>
             <div className="metric-card">
               <p className="text-xs uppercase tracking-[0.16em] text-[var(--muted)]">Positive sentiment</p>
-              <p className="mt-2 text-4xl text-[var(--ink)]">
-                {target.sentimentBreakdown.positive + target.sentimentBreakdown.neutral + target.sentimentBreakdown.negative > 0
-                  ? `${Math.round((target.sentimentBreakdown.positive / (target.sentimentBreakdown.positive + target.sentimentBreakdown.neutral + target.sentimentBreakdown.negative)) * 100)}%`
-                  : "—"}
-              </p>
+              <p className="mt-2 text-4xl text-[var(--ink)]">{pct(target.positive_rate)}</p>
             </div>
             <div className="metric-card">
-              <p className="text-xs uppercase tracking-[0.16em] text-[var(--muted)]">Rank</p>
-              <p className="mt-2 text-4xl text-[var(--ink)]">
-                #{baseline.brandStats.findIndex((b) => b.isTarget) + 1}
-                <span className="text-lg text-[var(--muted)]"> of {baseline.brandStats.length}</span>
+              <p className="text-xs uppercase tracking-[0.16em] text-[var(--muted)]">Net sentiment</p>
+              <p className={`mt-2 text-4xl ${target.net_sentiment >= 0 ? "text-emerald-700" : "text-rose-700"}`}>
+                {signed(target.net_sentiment)}
               </p>
             </div>
           </div>
 
-          {/* Brand comparison bars */}
+          {/* Brand comparison */}
           <div className="paper-panel rounded-[2rem] p-6">
             <p className="muted-label text-xs mb-1">Competitive landscape</p>
             <h2 className="text-2xl text-[var(--ink)] mb-6">
               Who gets mentioned when buyers ask?
             </h2>
             <div className="space-y-2.5">
-              {baseline.brandStats.map((b) => (
+              {collectResult.brands.map((b) => (
                 <Bar
                   key={b.brand}
-                  value={b.mentionRate}
+                  value={b.mention_rate}
                   max={maxRate}
-                  color={b.isTarget ? "var(--ink)" : "rgba(114,105,92,0.35)"}
+                  color={b.is_target ? "var(--ink)" : "rgba(114,105,92,0.35)"}
                   label={b.brand}
                 />
               ))}
             </div>
           </div>
 
-          {/* Per-model breakdown */}
+          {/* Sentiment comparison */}
           <div className="paper-panel rounded-[2rem] p-6">
-            <p className="muted-label text-xs mb-1">Per-model visibility</p>
-            <h2 className="text-2xl text-[var(--ink)] mb-6">
-              How each AI model treats {preset?.targetBrand}
-            </h2>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {MODEL_ORDER.map((modelId) => {
-                const meta = MODEL_META[modelId];
-                const modelData = target.modelBreakdown[modelId];
-                if (!modelData) return null;
-                return (
-                  <div key={modelId} className="paper-card rounded-[1.4rem] p-4">
-                    <div className="flex items-center gap-2 mb-3">
-                      <div className="h-3 w-3 rounded-full" style={{ backgroundColor: meta.color }} />
-                      <span className="text-sm font-semibold text-[var(--ink)]">{meta.provider}</span>
-                    </div>
-                    <div className="text-3xl text-[var(--ink)] mb-1">{pct(modelData.mentionRate)}</div>
-                    <div className="text-xs text-[var(--muted)]">
-                      mention rate
-                    </div>
-                    <div className="mt-2 text-sm text-[var(--muted)]">
-                      {modelData.avgPosition
-                        ? `Avg position #${modelData.avgPosition.toFixed(1)}`
-                        : "Not mentioned"}
-                    </div>
-                    <div className="mt-3 h-2 rounded-full bg-[rgba(255,255,255,0.5)] overflow-hidden">
-                      <div
-                        className="h-full rounded-full transition-all duration-500"
-                        style={{
-                          width: `${modelData.mentionRate * 100}%`,
-                          backgroundColor: meta.color,
-                          opacity: 0.7,
-                        }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Feature snapshot */}
-          <div className="paper-panel rounded-[2rem] p-6">
-            <p className="muted-label text-xs mb-1">Current content signals</p>
-            <h2 className="text-2xl text-[var(--ink)] mb-2">
-              What the surrogate model sees
-            </h2>
-            <p className="text-sm text-[var(--muted)] mb-6 max-w-2xl">
-              These are the features the simulator uses to predict mention rates.
-              In production, they come from daily API observations and content analysis.
-            </p>
+            <p className="muted-label text-xs mb-1">Sentiment analysis</p>
+            <h2 className="text-2xl text-[var(--ink)] mb-6">How AI models feel about each brand</h2>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {([
-                ["Source freshness", `${baseline.features.source_freshness_months.toFixed(1)} months`, "Time since last content update"],
-                ["Authority sources", `${baseline.features.high_authority_source_count}`, "High-authority sites citing you"],
-                ["Statistics density", `${(baseline.features.statistics_density * 100).toFixed(0)}%`, "Proportion of data-backed claims"],
-                ["Quotations", `${baseline.features.quotation_count}`, "Expert quotes in content"],
-                ["Third-party mentions", `${baseline.features.third_party_mention_count}`, "Roundups, reviews, comparisons"],
-                ["Content length", `${(baseline.features.content_length_chars / 1000).toFixed(1)}K chars`, "Total content length"],
-                ["Fluency score", `${(baseline.features.fluency_score * 100).toFixed(0)}%`, "Readability assessment"],
-                ["Parametric vs RAG", `${(baseline.features.parametric_pct * 100).toFixed(0)}/${(baseline.features.rag_pct * 100).toFixed(0)}`, "Knowledge source split"],
-                ["Competitor pressure", baseline.features.competitor_gaining ? "Rising" : "Stable", "Are competitors gaining?"],
-              ] as [string, string, string][]).map(([label, value, hint]) => (
-                <div key={label} className="paper-card rounded-[1.2rem] px-4 py-3">
-                  <div className="text-lg font-semibold text-[var(--ink)]">{value}</div>
-                  <div className="text-sm text-[var(--ink)]">{label}</div>
-                  <div className="text-xs text-[var(--muted)]">{hint}</div>
+              {collectResult.brands.map((b) => (
+                <div key={b.brand} className="paper-card rounded-[1.4rem] p-4">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className={`text-sm font-semibold ${b.is_target ? "text-[var(--ink)]" : "text-[var(--muted)]"}`}>
+                      {b.brand}
+                    </span>
+                    <span className={`text-xs font-bold ${b.net_sentiment >= 50 ? "text-emerald-700" : b.net_sentiment >= 0 ? "text-amber-700" : "text-rose-700"}`}>
+                      {signed(b.net_sentiment)}
+                    </span>
+                  </div>
+                  <div className="flex gap-1 h-3 rounded-full overflow-hidden">
+                    <div className="bg-emerald-400 rounded-l-full" style={{ width: `${b.positive_rate}%`, opacity: 0.7 }} />
+                    <div className="bg-gray-300" style={{ width: `${100 - b.positive_rate - b.negative_rate}%`, opacity: 0.5 }} />
+                    <div className="bg-rose-400 rounded-r-full" style={{ width: `${b.negative_rate}%`, opacity: 0.7 }} />
+                  </div>
+                  <div className="flex justify-between mt-1 text-[10px] text-[var(--muted)]">
+                    <span>+{b.positive_rate.toFixed(0)}%</span>
+                    <span>-{b.negative_rate.toFixed(0)}%</span>
+                  </div>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* CTA */}
           <div className="flex justify-center pt-2">
             <button
-              onClick={goSimulate}
+              onClick={() => setPhase("simulate")}
               className="btn-primary rounded-2xl px-8 py-4 text-base font-semibold"
             >
               Now simulate changes &rarr;
@@ -494,20 +684,20 @@ export default function SimulatorPage() {
       )}
 
       {/* ═══════════════════════════════════════════════════════════════════ */}
-      {/* PHASE 3: Simulate changes                                         */}
+      {/* PHASE: Simulate changes (REAL XGBoost)                            */}
       {/* ═══════════════════════════════════════════════════════════════════ */}
-      {phase === "simulate" && baseline && target && (
+      {phase === "simulate" && collectResult && target && (
         <div className="grid gap-6 lg:grid-cols-[1fr,380px]">
           {/* Left: strategy toggles */}
           <div className="space-y-4">
             <div className="paper-panel rounded-[2rem] p-6">
               <p className="muted-label text-xs mb-1">What-if scenarios</p>
               <h2 className="text-2xl text-[var(--ink)] mb-2">
-                What changes could {preset?.targetBrand} make?
+                What changes could {brandConfig.targetBrand} make?
               </h2>
               <p className="text-sm text-[var(--muted)] mb-6">
-                Toggle strategies on/off. Each one changes specific content features.
-                The prediction updates instantly.
+                Each toggle sends real feature changes to the XGBoost surrogate model.
+                Predictions update live.
               </p>
 
               <div className="space-y-3">
@@ -537,6 +727,9 @@ export default function SimulatorPage() {
                           <div className="mt-1.5 inline-block rounded-full bg-[rgba(255,255,255,0.7)] border border-[color:var(--line)] px-2 py-0.5 text-[10px] font-semibold text-[var(--muted)]">
                             {strat.evidence}
                           </div>
+                          <div className="mt-1 text-[10px] text-[var(--muted)] font-mono">
+                            {Object.entries(strat.featureChanges).map(([k, v]) => `${k}=${v}`).join(", ")}
+                          </div>
                         </div>
                       </div>
                     </button>
@@ -546,167 +739,100 @@ export default function SimulatorPage() {
             </div>
           </div>
 
-          {/* Right: live prediction */}
+          {/* Right: live prediction from real XGBoost */}
           <div className="space-y-4 lg:sticky lg:top-24 lg:self-start">
-            {/* Prediction card */}
             <div className="paper-panel rounded-[2rem] p-6">
-              <p className="muted-label text-xs mb-4">Predicted impact</p>
+              <p className="muted-label text-xs mb-4">XGBoost prediction</p>
 
-              {!whatIf ? (
+              {!whatIfResult ? (
                 <div className="text-center py-8">
                   <p className="text-3xl text-[var(--muted)] opacity-40">?</p>
                   <p className="mt-3 text-sm text-[var(--muted)]">
-                    Toggle a strategy to see the prediction
+                    Toggle a strategy to query the surrogate model
                   </p>
                 </div>
               ) : (
                 <>
-                  {/* Lift */}
                   <div className="text-center mb-6">
                     <div className={`text-5xl font-semibold ${
-                      whatIf.prediction.lift >= 0 ? "text-emerald-700" : "text-rose-700"
+                      whatIfResult.lift >= 0 ? "text-emerald-700" : "text-rose-700"
                     }`}>
-                      {signed(whatIf.prediction.liftPct)}%
+                      {signed(whatIfResult.lift_pct)}%
                     </div>
-                    <div className="mt-1 text-sm text-[var(--muted)]">predicted lift in mention rate</div>
+                    <div className="mt-1 text-sm text-[var(--muted)]">predicted lift</div>
                   </div>
 
-                  {/* Before / after */}
                   <div className="grid grid-cols-2 gap-3 mb-4">
                     <div className="metric-card text-center">
                       <p className="text-xs uppercase tracking-[0.16em] text-[var(--muted)]">Now</p>
-                      <p className="mt-1 text-2xl text-[var(--ink)]">
-                        {whatIf.prediction.baseMentionRate.toFixed(1)}%
-                      </p>
+                      <p className="mt-1 text-2xl text-[var(--ink)]">{whatIfResult.base_prediction.toFixed(1)}%</p>
                     </div>
                     <div className="metric-card text-center">
                       <p className="text-xs uppercase tracking-[0.16em] text-[var(--muted)]">After</p>
-                      <p className={`mt-1 text-2xl ${
-                        whatIf.prediction.lift >= 0 ? "text-emerald-700" : "text-rose-700"
-                      }`}>
-                        {whatIf.prediction.scenarioMentionRate.toFixed(1)}%
+                      <p className={`mt-1 text-2xl ${whatIfResult.lift >= 0 ? "text-emerald-700" : "text-rose-700"}`}>
+                        {whatIfResult.scenario_prediction.toFixed(1)}%
                       </p>
                     </div>
                   </div>
 
-                  {/* Confidence interval */}
+                  {/* CI */}
                   <div className="paper-card rounded-[1.2rem] px-4 py-3 mb-4">
                     <div className="flex justify-between text-xs text-[var(--muted)]">
-                      <span>{whatIf.prediction.confidenceLower.toFixed(1)}%</span>
-                      <span className="font-semibold">95% confidence interval</span>
-                      <span>{whatIf.prediction.confidenceUpper.toFixed(1)}%</span>
+                      <span>{whatIfResult.ci_lower.toFixed(1)}%</span>
+                      <span className="font-semibold">95% confidence</span>
+                      <span>{whatIfResult.ci_upper.toFixed(1)}%</span>
                     </div>
                     <div className="mt-2 relative h-3 rounded-full bg-[rgba(255,255,255,0.5)] overflow-hidden">
-                      {/* CI range */}
                       <div
                         className="absolute inset-y-0 rounded-full bg-emerald-200"
                         style={{
-                          left: `${whatIf.prediction.confidenceLower}%`,
-                          width: `${Math.max(1, whatIf.prediction.confidenceUpper - whatIf.prediction.confidenceLower)}%`,
+                          left: `${whatIfResult.ci_lower}%`,
+                          width: `${Math.max(1, whatIfResult.ci_upper - whatIfResult.ci_lower)}%`,
                         }}
                       />
-                      {/* Point estimate */}
                       <div
                         className="absolute top-0 bottom-0 w-1 rounded-full bg-emerald-700"
-                        style={{ left: `${whatIf.prediction.scenarioMentionRate}%` }}
+                        style={{ left: `${Math.min(99, whatIfResult.scenario_prediction)}%` }}
                       />
                     </div>
                   </div>
 
-                  {/* Confidence badge */}
                   <div className="text-center mb-2">
                     <span className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${
-                      whatIf.prediction.confidence === "high"
-                        ? "bg-emerald-100 text-emerald-800"
-                        : whatIf.prediction.confidence === "medium"
-                          ? "bg-amber-100 text-amber-800"
-                          : "bg-gray-100 text-gray-600"
+                      whatIfResult.confidence === "high" ? "bg-emerald-100 text-emerald-800"
+                        : whatIfResult.confidence === "medium" ? "bg-amber-100 text-amber-800"
+                        : "bg-gray-100 text-gray-600"
                     }`}>
-                      {whatIf.prediction.confidence} confidence
+                      {whatIfResult.confidence} confidence
                     </span>
                   </div>
                 </>
               )}
             </div>
 
-            {/* Explanation card (SHAP) */}
-            {whatIf && whatIf.explanation.contributions.length > 0 && (
+            {/* Contributions */}
+            {whatIfResult && whatIfResult.contributions.length > 0 && (
               <div className="paper-panel rounded-[2rem] p-6">
-                <p className="muted-label text-xs mb-4">Why this prediction</p>
+                <p className="muted-label text-xs mb-4">Feature contributions</p>
                 <div className="space-y-2.5">
-                  {whatIf.explanation.contributions.map((c) => {
-                    const isPositive = c.contribution >= 0;
-                    const maxContrib = Math.max(
-                      ...whatIf.explanation.contributions.map((x) => Math.abs(x.contribution))
-                    );
-                    const barWidth = maxContrib > 0 ? (Math.abs(c.contribution) / maxContrib) * 100 : 0;
-
+                  {whatIfResult.contributions.map((c) => {
+                    const maxC = Math.max(...whatIfResult.contributions.map((x) => Math.abs(x.contribution)));
+                    const barW = maxC > 0 ? (Math.abs(c.contribution) / maxC) * 100 : 0;
                     return (
                       <div key={c.feature}>
                         <div className="flex justify-between text-xs mb-1">
-                          <span className="text-[var(--ink)] font-medium">
-                            {c.feature.replace(/_/g, " ")}
-                          </span>
-                          <span className={isPositive ? "text-emerald-700" : "text-rose-700"}>
+                          <span className="text-[var(--ink)] font-medium">{c.feature.replace(/_/g, " ")}</span>
+                          <span className={c.contribution >= 0 ? "text-emerald-700" : "text-rose-700"}>
                             {signed(c.contribution)} ({c.pct.toFixed(0)}%)
                           </span>
                         </div>
                         <div className="h-2 rounded-full bg-[rgba(255,255,255,0.5)] overflow-hidden">
                           <div
                             className={`h-full rounded-full transition-all duration-300 ${
-                              isPositive ? "bg-emerald-400" : "bg-rose-400"
+                              c.contribution >= 0 ? "bg-emerald-400" : "bg-rose-400"
                             }`}
-                            style={{ width: `${Math.max(2, barWidth)}%`, opacity: 0.7 }}
+                            style={{ width: `${Math.max(2, barW)}%`, opacity: 0.7 }}
                           />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Sensitivity card */}
-            {whatIf && whatIf.sensitivity && (
-              <div className="paper-panel rounded-[2rem] p-6">
-                <p className="muted-label text-xs mb-1">Diminishing returns</p>
-                <p className="text-sm text-[var(--muted)] mb-4">
-                  How much more of each change still helps?
-                </p>
-                <div className="space-y-4">
-                  {Object.entries(whatIf.sensitivity).map(([feat, points]) => {
-                    const minP = Math.min(...points.map((p) => p.predictedRate));
-                    const maxP = Math.max(...points.map((p) => p.predictedRate));
-                    const range = maxP - minP || 1;
-
-                    return (
-                      <div key={feat}>
-                        <div className="text-xs font-medium text-[var(--ink)] mb-2">
-                          {feat.replace(/_/g, " ")}
-                        </div>
-                        <div className="flex items-end gap-px h-10">
-                          {points.map((p, i) => {
-                            const height = ((p.predictedRate - minP) / range) * 100;
-                            const isCurrent = p.multiplier === 1.0;
-                            return (
-                              <div
-                                key={i}
-                                className="flex-1 rounded-t transition-all"
-                                style={{
-                                  height: `${Math.max(4, height)}%`,
-                                  backgroundColor: isCurrent
-                                    ? "var(--ink)"
-                                    : "rgba(114,105,92,0.25)",
-                                }}
-                                title={`${p.multiplier}x → ${p.predictedRate.toFixed(1)}%`}
-                              />
-                            );
-                          })}
-                        </div>
-                        <div className="flex justify-between text-[10px] text-[var(--muted)] mt-1">
-                          <span>0.25x</span>
-                          <span>1x (now)</span>
-                          <span>2x</span>
                         </div>
                       </div>
                     );
@@ -718,7 +844,7 @@ export default function SimulatorPage() {
         </div>
       )}
 
-      {/* Footer link to spec */}
+      {/* Footer */}
       <div className="mt-16 border-t border-[color:var(--line)] pt-8 text-center">
         <Link href="/simulator/spec" className="ink-link text-sm">
           Read the technical specification &rarr;

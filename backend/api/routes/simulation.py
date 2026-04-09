@@ -1,141 +1,502 @@
 """
-Simulation endpoints (the core what-if engine)
+Simulation routes — wired to pipeline engine + Convex persistence.
+
+POST /api/simulations/collect      — collect from LLMs, persist to Convex, train model
+POST /api/simulations/whatif       — XGBoost what-if prediction
+POST /api/simulations/train        — retrain on ALL accumulated Convex data
+GET  /api/simulations/status       — check data + model state
+GET  /api/simulations/features     — current brand feature vectors
+GET  /api/simulations/importance   — feature importance from trained model
+GET  /api/simulations/recommendations — actionable GEO recommendations
 """
 
+import time
+from datetime import date
+from typing import Optional
+
 from fastapi import APIRouter, HTTPException
-from api.models import SimulationRequest, SimulationResponse, SensitivityRequest, SensitivityResponse
-from simulation.simulator import ScenarioSimulator
-from models.surrogate import SurrogateModel
-from data.mock_data import MockDataGenerator
+from pydantic import BaseModel, Field
+
+from pipeline.engine import collect, extract_all, SurrogateModel, FEATURE_NAMES
+from pipeline import convex_client as cx
 
 router = APIRouter()
 
-# Global simulator (initialized once at startup)
-_simulator = None
-_mock_data_gen = MockDataGenerator()
+# ── In-memory model (trained on Convex data, served from RAM) ───────────────
 
+_store: dict = {
+    "features": [],
+    "model": None,
+    "config": None,
+}
 
-def get_simulator() -> ScenarioSimulator:
-    """Get or create global simulator"""
-    global _simulator
+# ── Request / Response models ───────────────────────────────────────────────
 
-    if _simulator is None:
-        # Train on mock data
-        feature_names = _mock_data_gen.get_feature_names()
-        surrogate = SurrogateModel(feature_names)
+class CollectRequest(BaseModel):
+    target: str
+    competitors: list[str]
+    queries: list[str]
+    models: list[str] = Field(default=["chatgpt", "claude", "gemini"])
+    samples_per_query: int = Field(default=2, ge=1, le=5)
 
-        X, y = _mock_data_gen.generate_training_data(num_brands=5, days_per_brand=90)
-        surrogate.train(X, y, verbose=True)
+class BrandResult(BaseModel):
+    brand: str
+    mention_rate: float
+    avg_position: Optional[float]
+    top1_rate: float
+    top3_rate: float
+    positive_rate: float
+    negative_rate: float
+    net_sentiment: float
+    is_target: bool
 
-        _simulator = ScenarioSimulator(surrogate)
+class CollectResponse(BaseModel):
+    total_observations: int
+    total_calls: int
+    brands: list[BrandResult]
+    model_metrics: dict
+    training_samples_total: int
+    duration_seconds: float
 
-    return _simulator
+class WhatIfRequest(BaseModel):
+    brand: str
+    changes: dict[str, float]
 
+class ContributionItem(BaseModel):
+    feature: str
+    contribution: float
+    pct: float
 
-@router.post("/simulate", response_model=SimulationResponse)
-async def simulate_scenario(request: SimulationRequest):
-    """
-    Run a what-if simulation for a brand.
+class WhatIfResponse(BaseModel):
+    brand: str
+    base_prediction: float
+    scenario_prediction: float
+    lift: float
+    lift_pct: float
+    ci_lower: float
+    ci_upper: float
+    confidence: str
+    contributions: list[ContributionItem]
 
-    Example request:
-    {
-        "brand_id": "zapier-123",
-        "scenario_name": "Publish implementation guide",
-        "scenario_features": {
-            "avg_source_freshness_months": 0.1,
-            "high_authority_source_count": 4
-        }
-    }
-    """
+class StatusResponse(BaseModel):
+    has_data: bool
+    observation_count: int
+    training_sample_count: int
+    model_trained: bool
+    model_r2: Optional[float]
+    target: Optional[str]
+    brands: list[str]
+    feature_names: list[str]
 
+class RecommendationItem(BaseModel):
+    action: str
+    feature: str
+    current_value: float
+    target_value: float
+    predicted_lift: float
+    effort: str
+    tactics: list[str]
+
+# ── Feature-to-action mapping ──────────────────────────────────────────────
+
+FEATURE_ACTIONS = {
+    "positive_rate": {
+        "action": "Improve brand sentiment",
+        "target": 90,
+        "effort": "medium",
+        "tactics": [
+            "Earn positive analyst coverage and reviews",
+            "Publish customer success stories and case studies",
+            "Address negative mentions proactively",
+        ],
+    },
+    "avg_position": {
+        "action": "Get cited earlier in AI responses",
+        "target": 1.5,
+        "effort": "high",
+        "tactics": [
+            "Add statistics and data points to key pages (GEO: +37%)",
+            "Include expert quotations (GEO: +41%)",
+            "Get listed on authoritative comparison sites",
+        ],
+    },
+    "top1_rate": {
+        "action": "Become the #1 recommendation",
+        "target": 80,
+        "effort": "high",
+        "tactics": [
+            "Dominate 'best of' lists in your category",
+            "Build the definitive comparison page",
+            "Earn top position on review aggregators",
+        ],
+    },
+    "top3_rate": {
+        "action": "Stay in the top-3 consistently",
+        "target": 95,
+        "effort": "medium",
+        "tactics": [
+            "Cover all major buyer question types",
+            "Ensure content freshness (update within 30 days)",
+            "Add structured data for easy extraction",
+        ],
+    },
+    "net_sentiment": {
+        "action": "Fix negative brand perception",
+        "target": 80,
+        "effort": "medium",
+        "tactics": [
+            "Respond to negative reviews publicly",
+            "Publish transparency reports",
+            "Address common criticism in your content",
+        ],
+    },
+    "model_agreement": {
+        "action": "Get all AI models to agree",
+        "target": 100,
+        "effort": "medium",
+        "tactics": [
+            "Ensure brand appears across diverse source types",
+            "Get third-party mentions (6.5x more effective than owned)",
+            "Build presence on sources each model favors",
+        ],
+    },
+    "query_coverage": {
+        "action": "Cover more buyer query types",
+        "target": 100,
+        "effort": "low",
+        "tactics": [
+            "Create FAQ pages for common questions",
+            "Build comparison and alternative pages",
+            "Target long-tail conversational queries",
+        ],
+    },
+    "share_of_mentions": {
+        "action": "Increase share of voice",
+        "target": 25,
+        "effort": "high",
+        "tactics": [
+            "Outpace competitors on content freshness",
+            "Earn more third-party citations",
+            "Expand into adjacent query categories",
+        ],
+    },
+    "model_spread": {
+        "action": "Reduce cross-model variance",
+        "target": 5,
+        "effort": "medium",
+        "tactics": [
+            "Diversify source types (blogs, reviews, directories)",
+            "Ensure consistent brand messaging across channels",
+            "Monitor which model is weakest and target its sources",
+        ],
+    },
+    "negative_rate": {
+        "action": "Eliminate negative mentions",
+        "target": 2,
+        "effort": "medium",
+        "tactics": [
+            "Audit what's causing negative AI sentiment",
+            "Fix product issues mentioned in reviews",
+            "Counter negative narratives with data",
+        ],
+    },
+}
+
+# ── Startup: load from Convex ──────────────────────────────────────────────
+
+def _load_from_convex():
+    """Load accumulated training data from Convex and train model."""
     try:
-        simulator = get_simulator()
+        samples = cx.get_all_training_samples()
+        if not samples:
+            print("  Convex: no training samples yet")
+            return
 
-        # Get baseline features for this brand
-        # In production, load from database
-        # For now, use mock baseline
-        base_features = _mock_data_gen.get_baseline_features()
+        # Clean Convex metadata fields
+        clean = []
+        for s in samples:
+            row = {k: s[k] for k in ["brand", "mention_rate"] + FEATURE_NAMES if k in s}
+            clean.append(row)
 
-        # Run simulation
-        result = simulator.simulate(
-            base_features=base_features,
-            scenario_features=request.scenario_features,
-            scenario_name=request.scenario_name,
-        )
+        model = SurrogateModel()
+        metrics = model.train(clean)
+        _store["model"] = model
+        _store["features"] = clean
 
-        # Run edge case scenarios (disabled for now due to serialization issues)
-        edge_cases = []
-        # edge_cases = simulator.edge_case_scenarios(
-        #     base_features=base_features,
-        #     scenario_name=request.scenario_name,
-        # )
-
-        # Ensure all values are properly serialized
-        return SimulationResponse(
-            brand_id=str(request.brand_id),
-            base_case_prediction=float(result["base_case_prediction"]),
-            scenario_prediction=float(result["scenario_prediction"]),
-            predicted_lift=float(result["predicted_lift"]),
-            lift_percentage=float(result["lift_percentage"]),
-            confidence_lower=float(result["confidence_lower"]),
-            confidence_upper=float(result["confidence_upper"]),
-            confidence_level=str(result["confidence_level"]),
-            shap_contributions=result["shap_contributions"],
-            sensitivity_analysis={"edge_cases": edge_cases} if edge_cases else None,
-        )
-
+        brands = list({s["brand"] for s in clean})
+        print(f"  Convex: loaded {len(clean)} training samples, {len(brands)} brands, R2={metrics['r2']:.4f}")
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        print(f"  Convex load failed: {e}")
 
 
-@router.post("/sensitivity")
-async def sensitivity_analysis(request: SensitivityRequest):
+print("Loading from Convex...")
+_load_from_convex()
+
+# ── Endpoints ──────────────────────────────────────────────────────────────
+
+@router.post("/collect", response_model=CollectResponse)
+async def run_collection(req: CollectRequest):
     """
-    Run sensitivity analysis on a scenario.
-
-    Shows how predictions change if we vary key features.
+    Run real LLM API calls → persist to Convex → train model on ALL accumulated data.
     """
+    start = time.time()
+    today = date.today().isoformat()
 
-    try:
-        simulator = get_simulator()
+    cx.add_log("collect", f"Starting collection for {req.target}", "pending")
 
-        results = simulator.sensitivity_analysis(
-            base_features=request.base_scenario,
-            sensitive_features=request.sensitive_features,
-            perturbations=request.perturbations,
-        )
+    # 1. Collect from real LLM APIs
+    observations = collect(
+        target=req.target,
+        competitors=req.competitors,
+        queries=req.queries,
+        models=req.models,
+        samples_per_query=req.samples_per_query,
+        on_progress=lambda done, total, m, q: print(f"  [{done}/{total}] {m} | {q[:50]}"),
+    )
 
-        # Format response
-        sensitivity_list = [
-            {
-                "feature": feature,
-                "perturbations": data["perturbations"],
-                "predictions": data["predictions"],
-            }
-            for feature, data in results.items()
-        ]
+    # 2. Write raw observations to Convex
+    mention_records = []
+    for obs in observations:
+        mention_records.append({
+            "date": today,
+            "brand": obs["brand"],
+            "model": obs["model"],
+            "query": obs["query"],
+            "sample": obs["sample"],
+            "mentioned": obs["mentioned"],
+            "position": obs.get("position"),
+            "sentiment": obs.get("sentiment"),
+        })
 
-        return {
-            "brand_id": request.brand_id,
-            "sensitivity_results": sensitivity_list,
-        }
+    # Batch in groups of 50
+    for i in range(0, len(mention_records), 50):
+        batch = mention_records[i:i + 50]
+        cx.store_mentions(batch)
 
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    cx.add_log("collect", f"Stored {len(mention_records)} mention records", "success")
 
+    # 3. Extract features for all brands
+    all_brands = [req.target] + req.competitors
+    rows = extract_all(observations, all_brands, req.models, req.queries)
 
-@router.get("/{brand_id}/simulation-status")
-async def get_simulation_status(brand_id: str):
-    """Get status of simulation engine for a brand"""
+    # 4. Write brand signals to Convex
+    signal_records = []
+    training_records = []
+    for r in rows:
+        signal = {"date": today, **{k: r[k] for k in ["brand", "mention_rate"] + FEATURE_NAMES}}
+        signal_records.append(signal)
+        training_records.append(signal)
 
-    simulator = get_simulator()
+    cx.store_signals(signal_records)
+    cx.store_training_samples(training_records)
 
-    return {
-        "brand_id": brand_id,
-        "model_trained": simulator.model.model is not None,
-        "model_r2": simulator.model.validation_r2,
-        "model_rmse": simulator.model.validation_rmse,
-        "uncertainty": simulator.uncertainty,
-        "feature_importance": simulator.model.feature_importance,
-        "ready_for_simulation": simulator.model.model is not None,
+    cx.add_log("features", f"Stored signals + training samples for {len(rows)} brands", "success")
+
+    # 5. Train model on ALL accumulated Convex data (not just today)
+    all_samples = cx.get_all_training_samples()
+    clean_samples = []
+    for s in all_samples:
+        row = {k: s[k] for k in ["brand", "mention_rate"] + FEATURE_NAMES if k in s}
+        clean_samples.append(row)
+
+    model = SurrogateModel()
+    metrics = model.train(clean_samples)
+
+    _store["model"] = model
+    _store["features"] = rows  # current day's features for what-if
+    _store["config"] = {
+        "target": req.target,
+        "competitors": req.competitors,
+        "queries": req.queries,
+        "models": req.models,
     }
+
+    # 6. Store training run metadata in Convex
+    run_count = len(cx.get_all_training_samples())  # already fetched
+    cx.store_training_run({
+        "date": today,
+        "r2_score": metrics["r2"],
+        "rmse": metrics["rmse"],
+        "mae": metrics.get("mae", 0),
+        "num_samples": len(clean_samples),
+        "feature_importance": metrics["importance"],
+        "model_version": 1,
+        "status": "success",
+    })
+
+    cx.add_log("train", f"Model trained on {len(clean_samples)} samples, R2={metrics['r2']:.4f}", "success")
+
+    # Build response
+    brands_out = []
+    for r in rows:
+        brands_out.append(BrandResult(
+            brand=r["brand"],
+            mention_rate=r["mention_rate"],
+            avg_position=r["avg_position"],
+            top1_rate=r["top1_rate"],
+            top3_rate=r["top3_rate"],
+            positive_rate=r["positive_rate"],
+            negative_rate=r["negative_rate"],
+            net_sentiment=r["net_sentiment"],
+            is_target=(r["brand"] == req.target),
+        ))
+    brands_out.sort(key=lambda b: b.mention_rate, reverse=True)
+
+    return CollectResponse(
+        total_observations=len(observations),
+        total_calls=len(req.queries) * len(req.models) * req.samples_per_query,
+        brands=brands_out,
+        model_metrics=metrics,
+        training_samples_total=len(clean_samples),
+        duration_seconds=round(time.time() - start, 1),
+    )
+
+
+@router.post("/train")
+async def retrain_model():
+    """Retrain XGBoost on ALL accumulated Convex data."""
+    samples = cx.get_all_training_samples()
+    if not samples:
+        raise HTTPException(status_code=400, detail="No training data in Convex.")
+
+    clean = [{k: s[k] for k in ["brand", "mention_rate"] + FEATURE_NAMES if k in s} for s in samples]
+
+    model = SurrogateModel()
+    metrics = model.train(clean)
+    _store["model"] = model
+    _store["features"] = clean
+
+    today = date.today().isoformat()
+    cx.store_training_run({
+        "date": today,
+        "r2_score": metrics["r2"],
+        "rmse": metrics["rmse"],
+        "mae": metrics.get("mae", 0),
+        "num_samples": len(clean),
+        "feature_importance": metrics["importance"],
+        "model_version": 1,
+        "status": "success",
+    })
+
+    return {"status": "trained", "samples": len(clean), "metrics": metrics}
+
+
+@router.post("/whatif", response_model=WhatIfResponse)
+async def run_whatif(req: WhatIfRequest):
+    """Run what-if prediction using the trained XGBoost surrogate."""
+    if not _store["model"]:
+        raise HTTPException(status_code=400, detail="No model trained. Run /collect first.")
+
+    brand_feats = None
+    for r in _store["features"]:
+        if r.get("brand") == req.brand:
+            brand_feats = r
+            break
+
+    if not brand_feats:
+        raise HTTPException(status_code=404, detail=f"Brand '{req.brand}' not found.")
+
+    result = _store["model"].whatif(brand_feats, req.changes)
+
+    return WhatIfResponse(
+        brand=req.brand,
+        base_prediction=result["base_prediction"],
+        scenario_prediction=result["scenario_prediction"],
+        lift=result["lift"],
+        lift_pct=result["lift_pct"],
+        ci_lower=result["ci_lower"],
+        ci_upper=result["ci_upper"],
+        confidence=result["confidence"],
+        contributions=[
+            ContributionItem(feature=c["feature"], contribution=round(c["contribution"], 2), pct=round(c["pct"], 1))
+            for c in result["contributions"]
+        ],
+    )
+
+
+@router.get("/status", response_model=StatusResponse)
+async def get_status():
+    """Check data + model state."""
+    try:
+        samples = cx.get_all_training_samples()
+    except Exception:
+        samples = []
+
+    brands = list({s["brand"] for s in samples}) if samples else []
+    target = _store["config"]["target"] if _store.get("config") else None
+
+    return StatusResponse(
+        has_data=len(samples) > 0,
+        observation_count=0,
+        training_sample_count=len(samples),
+        model_trained=_store["model"] is not None,
+        model_r2=_store["model"].r2 if _store["model"] else None,
+        target=target,
+        brands=brands,
+        feature_names=FEATURE_NAMES,
+    )
+
+
+@router.get("/features")
+async def get_features():
+    """Get current brand feature vectors."""
+    if not _store["features"]:
+        raise HTTPException(status_code=400, detail="No data. Run /collect first.")
+    return {"features": _store["features"]}
+
+
+@router.get("/importance")
+async def get_importance():
+    """Get feature importance from trained model."""
+    if not _store["model"]:
+        raise HTTPException(status_code=400, detail="No model. Run /collect first.")
+    return {"importance": _store["model"].importance, "r2": _store["model"].r2}
+
+
+@router.get("/recommendations")
+async def get_recommendations(brand: str):
+    """Get ranked GEO recommendations for a brand."""
+    if not _store["model"]:
+        raise HTTPException(status_code=400, detail="No model trained.")
+
+    brand_feats = None
+    for r in _store["features"]:
+        if r.get("brand") == brand:
+            brand_feats = r
+            break
+
+    if not brand_feats:
+        raise HTTPException(status_code=404, detail=f"Brand '{brand}' not found.")
+
+    recommendations = []
+    for feat, info in FEATURE_ACTIONS.items():
+        if feat not in brand_feats:
+            continue
+
+        current = brand_feats[feat]
+        target_val = info["target"]
+
+        # Only recommend if there's room to improve
+        improves_up = feat not in ("avg_position", "negative_rate", "model_spread", "brands_ahead")
+        if improves_up and current >= target_val:
+            continue
+        if not improves_up and current <= target_val:
+            continue
+
+        # Predict lift from this change alone
+        result = _store["model"].whatif(brand_feats, {feat: target_val})
+
+        recommendations.append(RecommendationItem(
+            action=info["action"],
+            feature=feat,
+            current_value=round(current, 1),
+            target_value=target_val,
+            predicted_lift=result["lift"],
+            effort=info["effort"],
+            tactics=info["tactics"],
+        ))
+
+    # Sort by predicted lift (biggest first)
+    recommendations.sort(key=lambda r: abs(r.predicted_lift), reverse=True)
+
+    return {"brand": brand, "recommendations": recommendations}

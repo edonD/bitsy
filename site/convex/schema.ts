@@ -2,77 +2,92 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
 export default defineSchema({
-  // Mention records from LLM API calls
+  // Raw LLM API observations (one row per brand per query per model per sample)
   mention_records: defineTable({
-    date: v.string(), // YYYY-MM-DD
+    date: v.string(),
     brand: v.string(),
-    model: v.string(), // claude, gpt-4, gemini, llama
-    query_id: v.string(), // query_001, query_002, etc
-    mentioned: v.boolean(), // Was brand mentioned in this LLM response?
-    mention_rate: v.number(), // Daily mention rate (0-100)
+    model: v.string(),
+    query: v.string(),
+    sample: v.number(),
+    mentioned: v.boolean(),
+    position: v.optional(v.number()),
+    sentiment: v.optional(v.string()),
     createdAt: v.number(),
   })
     .index("by_date", ["date"])
     .index("by_brand", ["brand"])
     .index("by_date_brand", ["date", "brand"]),
 
-  // Brand signals collected daily
+  // Aggregated brand features per day (one row per brand per day)
+  // These 14 features match engine.py FEATURE_NAMES exactly
   brand_signals: defineTable({
-    date: v.string(), // YYYY-MM-DD
+    date: v.string(),
     brand: v.string(),
-    freshness_days: v.number(), // Days since last mention
-    authority_count: v.number(), // Gartner, G2, Capterra, Wikipedia, Forbes, TechCrunch
-    domain_authority: v.number(), // Moz DA score (0-100)
-    num_queries: v.number(), // How many different queries mentioned brand
-    market_share: v.number(), // 0-1 (brand mentions / total competitor mentions)
-    content_age_days: v.number(), // Average age of blog posts
-    competitor_rank: v.number(), // Rank vs competitors
-    schema_markup_score: v.number(), // 0-1 (schema.org implementation)
+    mention_rate: v.number(),
+    avg_position: v.number(),
+    top1_rate: v.number(),
+    top3_rate: v.number(),
+    position_std: v.number(),
+    positive_rate: v.number(),
+    negative_rate: v.number(),
+    net_sentiment: v.number(),
+    competitor_avg_rate: v.number(),
+    vs_best_competitor: v.number(),
+    brands_ahead: v.number(),
+    share_of_mentions: v.number(),
+    model_agreement: v.number(),
+    model_spread: v.number(),
+    query_coverage: v.number(),
     createdAt: v.number(),
   })
     .index("by_date", ["date"])
     .index("by_brand", ["brand"])
     .index("by_date_brand", ["date", "brand"]),
 
-  // Training data (assembled from mentions + signals)
+  // Training data rows (same features as brand_signals, accumulated over days)
   training_samples: defineTable({
     date: v.string(),
     brand: v.string(),
-    mention_rate: v.number(), // Target variable
-    // Features
-    freshness_days: v.number(),
-    authority_count: v.number(),
-    domain_authority: v.number(),
-    num_queries: v.number(),
-    market_share: v.number(),
-    content_age_days: v.number(),
-    competitor_rank: v.number(),
-    schema_markup_score: v.number(),
+    mention_rate: v.number(),
+    avg_position: v.number(),
+    top1_rate: v.number(),
+    top3_rate: v.number(),
+    position_std: v.number(),
+    positive_rate: v.number(),
+    negative_rate: v.number(),
+    net_sentiment: v.number(),
+    competitor_avg_rate: v.number(),
+    vs_best_competitor: v.number(),
+    brands_ahead: v.number(),
+    share_of_mentions: v.number(),
+    model_agreement: v.number(),
+    model_spread: v.number(),
+    query_coverage: v.number(),
     createdAt: v.number(),
   })
     .index("by_date", ["date"])
     .index("by_brand", ["brand"]),
 
-  // Model training runs
+  // Model training run metadata
   training_runs: defineTable({
-    date: v.string(), // YYYY-MM-DD
+    date: v.string(),
     r2_score: v.number(),
     rmse: v.number(),
     mae: v.number(),
     num_samples: v.number(),
-    feature_importance: v.any(), // JSON object with feature importance
+    feature_importance: v.any(),
     model_version: v.number(),
-    status: v.string(), // "pending", "success", "failed"
+    status: v.string(),
     createdAt: v.number(),
   }).index("by_date", ["date"]),
 
-  // Pipeline logs (for transparency)
+  // Pipeline logs
   pipeline_logs: defineTable({
     timestamp: v.string(),
-    step: v.string(), // "1A", "1B", "1C", etc
+    step: v.string(),
     message: v.string(),
-    status: v.string(), // "pending", "success", "error"
-    data: v.any(), // JSON data for this log
+    status: v.string(),
+    data: v.any(),
     createdAt: v.number(),
   })
     .index("by_step", ["step"])

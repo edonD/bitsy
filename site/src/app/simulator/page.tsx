@@ -306,51 +306,144 @@ export default function SimulatorPage() {
       )}
 
       {/* Visibility results */}
-      {tab === "visibility" && !isSetup && collectResult && !collecting && target && (
+      {tab === "visibility" && !isSetup && collectResult && !collecting && target && (() => {
+        const totalCalls = collectResult.total_observations / collectResult.brands.length;
+        const targetMentioned = Math.round(target.mention_rate / 100 * totalCalls);
+        const rateLevel = target.mention_rate >= 80 ? "strong" : target.mention_rate >= 50 ? "moderate" : target.mention_rate >= 20 ? "low" : "very low";
+        const rateColor = target.mention_rate >= 80 ? "text-emerald-700" : target.mention_rate >= 50 ? "text-amber-700" : "text-rose-700";
+
+        return (
         <div className="space-y-6">
           <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-3 text-sm text-emerald-800">
-            Real data: {collectResult.total_observations} observations
+            Real data from {collectResult.total_calls || collectResult.total_observations} API calls to ChatGPT, Claude, and Gemini
             {collectResult.duration_seconds > 0 && ` in ${collectResult.duration_seconds}s`}
-            {collectResult.training_samples_total > 0 && ` | ${collectResult.training_samples_total} accumulated samples`}
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-4">
-            <div className="metric-card"><p className="text-xs uppercase tracking-[0.16em] text-[var(--muted)]">Mention rate</p><p className="mt-2 text-4xl text-[var(--ink)]">{pct(target.mention_rate)}</p></div>
-            <div className="metric-card"><p className="text-xs uppercase tracking-[0.16em] text-[var(--muted)]">Avg position</p><p className="mt-2 text-4xl text-[var(--ink)]">{target.avg_position ? `#${target.avg_position.toFixed(1)}` : "—"}</p></div>
-            <div className="metric-card"><p className="text-xs uppercase tracking-[0.16em] text-[var(--muted)]">Positive sentiment</p><p className="mt-2 text-4xl text-[var(--ink)]">{pct(target.positive_rate)}</p></div>
-            <div className="metric-card"><p className="text-xs uppercase tracking-[0.16em] text-[var(--muted)]">Net sentiment</p><p className={`mt-2 text-4xl ${target.net_sentiment >= 0 ? "text-emerald-700" : "text-rose-700"}`}>{signed(target.net_sentiment)}</p></div>
+          {/* Hero: mention rate with context */}
+          <div className="paper-panel rounded-[2rem] p-6">
+            <div className="grid gap-6 md:grid-cols-[1fr,auto]">
+              <div>
+                <p className="muted-label text-xs mb-1">Your AI visibility</p>
+                <p className={`text-6xl font-semibold ${rateColor}`}>{pct(target.mention_rate)}</p>
+                <p className="mt-3 text-sm leading-relaxed text-[var(--muted)]">
+                  {brand.name} was mentioned in <strong className="text-[var(--ink)]">{targetMentioned} out of {totalCalls}</strong> AI
+                  responses. That&apos;s <strong className={rateColor}>{rateLevel}</strong> visibility.
+                  {target.mention_rate < 50 && " Most AI models don't know your brand yet — this is your starting point."}
+                  {target.mention_rate >= 80 && " AI models consistently recommend you."}
+                  {target.avg_position && target.avg_position <= 2 && " When mentioned, you're in the top 2."}
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-3 self-start">
+                <div className="metric-card text-center min-w-[100px]">
+                  <p className="text-xs uppercase tracking-[0.16em] text-[var(--muted)]">Position</p>
+                  <p className="mt-1 text-3xl text-[var(--ink)]">{target.avg_position ? `#${target.avg_position.toFixed(1)}` : "—"}</p>
+                  <p className="text-[10px] text-[var(--muted)]">when mentioned</p>
+                </div>
+                <div className="metric-card text-center min-w-[100px]">
+                  <p className="text-xs uppercase tracking-[0.16em] text-[var(--muted)]">Sentiment</p>
+                  <p className={`mt-1 text-3xl ${target.net_sentiment > 0 ? "text-emerald-700" : target.net_sentiment < 0 ? "text-rose-700" : "text-[var(--muted)]"}`}>
+                    {target.net_sentiment > 0 ? "+" : ""}{target.net_sentiment.toFixed(0)}
+                  </p>
+                  <p className="text-[10px] text-[var(--muted)]">net score</p>
+                </div>
+              </div>
+            </div>
           </div>
 
+          {/* Competitive table */}
           <div className="paper-panel rounded-[2rem] p-6">
             <p className="muted-label text-xs mb-1">Competitive landscape</p>
-            <h2 className="text-2xl text-[var(--ink)] mb-6">Who gets mentioned when buyers ask?</h2>
-            <div className="space-y-2.5">
-              {collectResult.brands.map((b) => <Bar key={b.brand} value={b.mention_rate} max={maxRate} color={b.is_target ? "var(--ink)" : "rgba(114,105,92,0.35)"} label={b.brand} />)}
+            <h2 className="text-2xl text-[var(--ink)] mb-2">Who gets recommended when buyers ask?</h2>
+            <p className="text-sm text-[var(--muted)] mb-6">
+              We asked your buyer questions to 3 AI models, 2 times each. Here&apos;s who they recommended.
+            </p>
+
+            <div className="paper-card rounded-[1.4rem] overflow-hidden">
+              <table className="w-full border-collapse text-sm">
+                <thead>
+                  <tr className="bg-[rgba(255,255,255,0.42)]">
+                    <th className="border-b border-[color:var(--line)] px-4 py-3 text-left font-semibold text-[var(--ink)]">Brand</th>
+                    <th className="border-b border-[color:var(--line)] px-4 py-3 text-right font-semibold text-[var(--ink)]">Mentioned</th>
+                    <th className="border-b border-[color:var(--line)] px-4 py-3 text-left font-semibold text-[var(--ink)]">Visibility</th>
+                    <th className="border-b border-[color:var(--line)] px-4 py-3 text-right font-semibold text-[var(--ink)]">Position</th>
+                    <th className="border-b border-[color:var(--line)] px-4 py-3 text-right font-semibold text-[var(--ink)]">Sentiment</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[color:var(--line)]">
+                  {collectResult.brands.map((b) => {
+                    const bMentioned = Math.round(b.mention_rate / 100 * totalCalls);
+                    const barW = maxRate > 0 ? (b.mention_rate / maxRate) * 100 : 0;
+                    return (
+                      <tr key={b.brand} className={`hover:bg-[rgba(255,255,255,0.28)] ${b.is_target ? "bg-[rgba(255,255,255,0.3)]" : ""}`}>
+                        <td className="px-4 py-3">
+                          <span className={`font-semibold ${b.is_target ? "text-[var(--ink)]" : "text-[var(--muted)]"}`}>{b.brand}</span>
+                          {b.is_target && <span className="ml-2 text-[10px] font-semibold uppercase tracking-wider text-[var(--muted)]">you</span>}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <span className="text-[var(--ink)] font-semibold">{pct(b.mention_rate)}</span>
+                          <span className="text-[var(--muted)] text-xs ml-1">({bMentioned}/{totalCalls})</span>
+                        </td>
+                        <td className="px-4 py-3 w-40">
+                          <div className="h-4 rounded-full bg-[rgba(255,255,255,0.5)] overflow-hidden">
+                            <div
+                              className="h-full rounded-full transition-all duration-500"
+                              style={{
+                                width: `${Math.max(3, barW)}%`,
+                                backgroundColor: b.is_target ? "var(--ink)" : "rgba(114,105,92,0.3)",
+                              }}
+                            />
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-right text-[var(--muted)]">
+                          {b.avg_position ? `#${b.avg_position.toFixed(1)}` : "—"}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${
+                            b.net_sentiment >= 50 ? "bg-emerald-50 text-emerald-700"
+                            : b.net_sentiment > 0 ? "bg-emerald-50 text-emerald-600"
+                            : b.net_sentiment === 0 ? "bg-gray-50 text-[var(--muted)]"
+                            : "bg-rose-50 text-rose-700"
+                          }`}>
+                            {b.net_sentiment > 0 ? "+" : ""}{b.net_sentiment.toFixed(0)}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           </div>
 
-          <div className="paper-panel rounded-[2rem] p-6">
-            <p className="muted-label text-xs mb-1">Sentiment</p>
-            <h2 className="text-2xl text-[var(--ink)] mb-6">How AI models feel about each brand</h2>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {collectResult.brands.map((b) => (
-                <div key={b.brand} className="paper-card rounded-[1.4rem] p-4">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className={`text-sm font-semibold ${b.is_target ? "text-[var(--ink)]" : "text-[var(--muted)]"}`}>{b.brand}</span>
-                    <span className={`text-xs font-bold ${b.net_sentiment >= 50 ? "text-emerald-700" : b.net_sentiment >= 0 ? "text-amber-700" : "text-rose-700"}`}>{signed(b.net_sentiment)}</span>
-                  </div>
-                  <div className="flex gap-0.5 h-3 rounded-full overflow-hidden">
-                    <div className="bg-emerald-400 rounded-l-full" style={{ width: `${Math.max(1, b.positive_rate)}%`, opacity: 0.7 }} />
-                    <div className="bg-gray-300" style={{ width: `${Math.max(1, 100 - b.positive_rate - b.negative_rate)}%`, opacity: 0.5 }} />
-                    <div className="bg-rose-400 rounded-r-full" style={{ width: `${Math.max(1, b.negative_rate)}%`, opacity: 0.7 }} />
-                  </div>
-                  <div className="flex justify-between mt-1 text-[10px] text-[var(--muted)]"><span>+{b.positive_rate.toFixed(0)}%</span><span>-{b.negative_rate.toFixed(0)}%</span></div>
-                </div>
-              ))}
+          {/* Top-1 rate insight */}
+          {target.top1_rate > 0 && (
+            <div className="paper-panel rounded-[2rem] p-6">
+              <p className="muted-label text-xs mb-1">First-choice rate</p>
+              <h2 className="text-2xl text-[var(--ink)] mb-4">
+                {brand.name} is the #1 recommendation {pct(target.top1_rate)} of the time
+              </h2>
+              <p className="text-sm text-[var(--muted)]">
+                When AI models mention {brand.name}, it&apos;s the first brand listed {pct(target.top1_rate)} of the time
+                and in the top 3 in {pct(target.top3_rate)} of responses.
+                Research shows position #1 gets cited 3.5x more than lower positions.
+              </p>
             </div>
-          </div>
+          )}
+
+          {/* Low visibility warning */}
+          {target.mention_rate < 50 && (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-800">
+              <p className="font-semibold mb-1">Low AI visibility detected</p>
+              <p className="leading-relaxed">
+                {brand.name} appears in less than half of AI responses. This could mean the AI models
+                don&apos;t have enough information about your brand yet, or competitors dominate these queries.
+                Go to the <strong>Simulate</strong> tab to test whether new content could improve this.
+              </p>
+            </div>
+          )}
         </div>
-      )}
+        );
+      })()}
 
       {/* ═══════════════════════════════════════════════════════════════ */}
       {/* SIMULATE TAB                                                   */}

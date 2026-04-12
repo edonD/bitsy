@@ -22,34 +22,6 @@ from sklearn.metrics import mean_squared_error, r2_score
 
 # ── LLM callers ─────────────────────────────────────────────────────────────
 
-def _make_prompt(query: str, brands: list[str]) -> str:
-    return f"""Answer this question: "{query}"
-
-Return a JSON block:
-
-```json
-{{
-  "brands_mentioned": [
-    {{"brand": "Name", "position": 1, "sentiment": "positive|neutral|negative"}}
-  ]
-}}
-```
-
-Check each: {', '.join(brands)}"""
-
-
-def _parse_json(text: str) -> dict | None:
-    start = text.find("```json")
-    if start != -1:
-        end = text.find("```", start + 7)
-        return json.loads(text[start + 7:end].strip())
-    start = text.find("{")
-    end = text.rfind("}") + 1
-    if start != -1 and end > start:
-        return json.loads(text[start:end])
-    return None
-
-
 def _call_openai(prompt: str) -> str:
     from openai import OpenAI
     c = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -87,9 +59,85 @@ CALLERS = {
 }
 
 
+def _parse_json(text: str) -> dict | None:
+    start = text.find("```json")
+    if start != -1:
+        end = text.find("```", start + 7)
+        return json.loads(text[start + 7:end].strip())
+    start = text.find("{")
+    end = text.rfind("}") + 1
+    if start != -1 and end > start:
+        return json.loads(text[start:end])
+    return None
+
+
+# ── Query fan-out ───────────────────────────────────────────────────────────
+
+def fan_out_queries(base_queries: list[str], model_caller=None) -> list[str]:
+    """
+    Generate paraphrased variations of buyer queries for broader coverage.
+    Uses the LLM itself to paraphrase, or falls back to simple templates.
+    """
+    if not model_caller:
+        model_caller = CALLERS.get("chatgpt")
+
+    if not model_caller:
+        return base_queries
+
+    all_queries = list(base_queries)
+
+    try:
+        prompt = f"""Generate 2 paraphrased versions of each question below.
+Return ONLY a JSON array of strings, no explanation.
+
+Questions:
+{json.dumps(base_queries)}
+
+Return format:
+```json
+["paraphrase 1", "paraphrase 2", ...]
+```"""
+        raw = model_caller(prompt)
+        data = _parse_json(raw)
+        if data and isinstance(data, list):
+            for q in data:
+                if isinstance(q, str) and q.strip() and q not in all_queries:
+                    all_queries.append(q.strip())
+    except Exception:
+        pass
+
+    return all_queries
+
+
+# ── Two-pass collection ─────────────────────────────────────────────────────
+#
+# Pass 1 (ORGANIC): Ask the buyer question naturally. No brand names in the
+#         prompt. See what the LLM recommends on its own.
+#
+# Pass 2 (EXTRACT): Parse the organic response for tracked brands using
+#         case-insensitive matching. Record position, sentiment, and whether
+#         each tracked brand appeared organically.
+#
+# This eliminates the prompt bias where telling the LLM "check these brands"
+# causes it to mention them even if it doesn't know them.
 # ═══════════════════════════════════════════════════════════════════════════
-# collect() — call LLM APIs, return raw observations
-# ═══════════════════════════════════════════════════════════════════════════
+
+ORGANIC_PROMPT = """Answer this question as a knowledgeable advisor. Recommend specific products, companies, or brands by name. Be concrete — don't say "there are many options", actually name them.
+
+Question: {query}
+
+After your answer, return a JSON block listing every company/brand/product you mentioned:
+
+```json
+{{
+  "brands_mentioned": [
+    {{"brand": "ExactName", "position": 1, "sentiment": "positive|neutral|negative"}}
+  ]
+}}
+```
+
+Position 1 = first mentioned/most recommended. Include ALL brands you named."""
+
 
 def collect(
     target: str,
@@ -97,26 +145,41 @@ def collect(
     queries: list[str],
     models: list[str] = ["chatgpt", "claude", "gemini"],
     samples_per_query: int = 2,
+    fan_out: bool = True,
     on_progress=None,
 ) -> tuple[list[dict], list[dict]]:
     """
-    Run real API calls and return (observations, api_logs).
+    Two-pass organic collection.
 
-    observations: [{query, model, sample, brand, mentioned, position, sentiment}]
-    api_logs:     [{query, model, sample, prompt_sent, raw_response, parsed, status, error}]
+    1. Ask buyer questions WITHOUT brand names → get organic recommendations
+    2. Check if tracked brands appear in the organic response
+
+    Returns (observations, api_logs).
     """
     brands = [target] + competitors
+
+    # Fan out queries for broader coverage
+    if fan_out and len(queries) < 6:
+        all_queries = fan_out_queries(queries)
+        if on_progress:
+            on_progress(0, 0, "system", f"Fan-out: {len(queries)} → {len(all_queries)} queries")
+    else:
+        all_queries = list(queries)
+
     observations = []
     api_logs = []
-    total = len(queries) * len(models) * samples_per_query
+    total = len(all_queries) * len(models) * samples_per_query
     done = 0
 
-    for query in queries:
-        prompt = _make_prompt(query, brands)
+    for query in all_queries:
+        # ORGANIC prompt — no brand names
+        prompt = ORGANIC_PROMPT.format(query=query)
+
         for model_name in models:
             caller = CALLERS.get(model_name)
             if not caller:
                 continue
+
             for sample_idx in range(samples_per_query):
                 done += 1
                 if on_progress:
@@ -140,33 +203,64 @@ def collect(
                     log_entry["parsed"] = data
                     log_entry["status"] = "success" if data else "parse_error"
 
-                    if data:
-                        mentioned_map = {
-                            m["brand"]: m
-                            for m in data.get("brands_mentioned", [])
-                        }
-                        for brand in brands:
-                            if brand in mentioned_map:
-                                m = mentioned_map[brand]
-                                observations.append({
-                                    "query": query,
-                                    "model": model_name,
-                                    "sample": sample_idx,
-                                    "brand": brand,
-                                    "mentioned": True,
-                                    "position": m.get("position"),
-                                    "sentiment": m.get("sentiment", "neutral"),
-                                })
-                            else:
-                                observations.append({
-                                    "query": query,
-                                    "model": model_name,
-                                    "sample": sample_idx,
-                                    "brand": brand,
-                                    "mentioned": False,
-                                    "position": None,
-                                    "sentiment": None,
-                                })
+                    # --- Pass 2: check for tracked brands ---
+                    # First check the structured JSON output
+                    mentioned_in_json = {}
+                    if data and "brands_mentioned" in data:
+                        for m in data["brands_mentioned"]:
+                            name = m.get("brand", "")
+                            mentioned_in_json[name.lower()] = m
+
+                    # Then also do case-insensitive string matching on raw text
+                    raw_lower = (raw or "").lower()
+
+                    for brand in brands:
+                        brand_lower = brand.lower()
+
+                        # Check JSON first, then raw text fallback
+                        found_in_json = brand_lower in mentioned_in_json
+                        found_in_text = brand_lower in raw_lower
+
+                        if found_in_json:
+                            m = mentioned_in_json[brand_lower]
+                            observations.append({
+                                "query": query,
+                                "model": model_name,
+                                "sample": sample_idx,
+                                "brand": brand,
+                                "mentioned": True,
+                                "organic": True,
+                                "position": m.get("position"),
+                                "sentiment": m.get("sentiment", "neutral"),
+                            })
+                        elif found_in_text:
+                            # Brand found in raw text but not in structured JSON
+                            # Estimate position from text offset
+                            pos = raw_lower.index(brand_lower)
+                            total_len = len(raw_lower) or 1
+                            estimated_position = max(1, round((pos / total_len) * 10))
+                            observations.append({
+                                "query": query,
+                                "model": model_name,
+                                "sample": sample_idx,
+                                "brand": brand,
+                                "mentioned": True,
+                                "organic": True,
+                                "position": estimated_position,
+                                "sentiment": "neutral",
+                            })
+                        else:
+                            observations.append({
+                                "query": query,
+                                "model": model_name,
+                                "sample": sample_idx,
+                                "brand": brand,
+                                "mentioned": False,
+                                "organic": True,
+                                "position": None,
+                                "sentiment": None,
+                            })
+
                 except Exception as e:
                     log_entry["status"] = "error"
                     log_entry["error"] = str(e)

@@ -5,9 +5,12 @@ import Link from "next/link";
 import {
   getStatus,
   runCollection,
+  analyzeContent,
   type BrandResult,
   type CollectResponse,
   type StatusResponse,
+  type ContentAnalysisResponse,
+  type ContentFeature,
 } from "@/lib/api";
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -84,6 +87,8 @@ export default function SimulatorPage() {
 
   // Simulate tab
   const [draftContent, setDraftContent] = useState("");
+  const [contentAnalysis, setContentAnalysis] = useState<ContentAnalysisResponse | null>(null);
+  const [analyzingContent, setAnalyzingContent] = useState(false);
   const [simulating, setSimulating] = useState(false);
   const [simBaseline, setSimBaseline] = useState<CollectResponse | null>(null);
   const [simWithContent, setSimWithContent] = useState<CollectResponse | null>(null);
@@ -118,6 +123,14 @@ export default function SimulatorPage() {
     if (!canRun) return;
     setCollecting(true);
     setError(null);
+
+    // Analyze website content in parallel with LLM collection
+    if (brand.website) {
+      analyzeContent({ url: brand.website })
+        .then(setContentAnalysis)
+        .catch(() => null);
+    }
+
     try {
       const result = await runCollection({ target: brand.name, competitors: brand.competitors, queries: brand.queries, samples_per_query: 2 });
       setCollectResult(result);
@@ -143,12 +156,64 @@ export default function SimulatorPage() {
     } finally { setSimulating(false); }
   }
 
-  function resetAll() { setIsSetup(true); setCollectResult(null); setError(null); setSimBaseline(null); setSimWithContent(null); setDraftContent(""); }
+  function resetAll() { setIsSetup(true); setCollectResult(null); setError(null); setSimBaseline(null); setSimWithContent(null); setDraftContent(""); setContentAnalysis(null); }
+
+  async function analyzeDraft() {
+    if (!draftContent.trim()) return;
+    setAnalyzingContent(true);
+    try {
+      const result = await analyzeContent({ text: draftContent });
+      setContentAnalysis(result);
+    } catch { /* silent */ }
+    finally { setAnalyzingContent(false); }
+  }
 
   const target = collectResult?.brands.find((b) => b.is_target);
   const maxRate = collectResult ? Math.max(...collectResult.brands.map((b) => b.mention_rate), 1) : 100;
   const runA = compareA !== null ? runs[compareA]?.data : null;
   const runB = compareB !== null ? runs[compareB]?.data : null;
+
+  // ── Content analysis display ────────────────────────────────────────────
+
+  function ContentAnalysisPanel({ data, label }: { data: ContentAnalysisResponse; label?: string }) {
+    const ratingStyles: Record<string, string> = {
+      good: "bg-emerald-50 text-emerald-800 border-emerald-200",
+      needs_work: "bg-amber-50 text-amber-800 border-amber-200",
+      missing: "bg-rose-50 text-rose-700 border-rose-200",
+    };
+    const ratingLabel: Record<string, string> = { good: "Good", needs_work: "Improve", missing: "Missing" };
+
+    return (
+      <div className="paper-panel rounded-[2rem] p-6">
+        <div className="flex items-center justify-between mb-2">
+          <div>
+            <p className="muted-label text-xs mb-1">{label ?? "Content analysis"}</p>
+            <h2 className="text-2xl text-[var(--ink)]">
+              {data.overall_score.toFixed(0)}<span className="text-lg text-[var(--muted)]">/100</span>
+            </h2>
+          </div>
+          {data.url && <p className="text-xs text-[var(--muted)] truncate max-w-[200px]">{data.url}</p>}
+        </div>
+        <p className="text-sm text-[var(--muted)] mb-5">{data.summary}</p>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {data.features.map((f) => (
+            <div key={f.name} className="paper-card rounded-[1.2rem] p-3">
+              <div className="flex items-start justify-between gap-2 mb-1">
+                <p className="text-xs font-semibold text-[var(--ink)] leading-tight">{f.label}</p>
+                <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[9px] font-semibold ${ratingStyles[f.rating]}`}>
+                  {ratingLabel[f.rating]}
+                </span>
+              </div>
+              <p className="text-lg font-semibold text-[var(--ink)]">
+                {f.value === null || f.value === undefined ? "—" : typeof f.value === "boolean" ? (f.value ? "Yes" : "No") : String(f.value)}
+              </p>
+              <p className="text-[10px] text-[var(--muted)] mt-1 leading-relaxed">{f.geo_impact}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   // ════════════════════════════════════════════════════════════════════════
 
@@ -430,6 +495,11 @@ export default function SimulatorPage() {
             </div>
           )}
 
+          {/* Content analysis from website */}
+          {contentAnalysis && contentAnalysis.features.length > 0 && (
+            <ContentAnalysisPanel data={contentAnalysis} label="Your website content" />
+          )}
+
           {/* Low visibility warning */}
           {target.mention_rate < 50 && (
             <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-800">
@@ -480,10 +550,20 @@ export default function SimulatorPage() {
               {draftContent.length > 10000 && " — first 2,000 characters used for context injection"}
             </p>
 
-            <button onClick={runSimulation} disabled={!canRun || !draftContent.trim() || simulating} className={`mt-6 rounded-2xl px-6 py-3.5 text-sm font-semibold ${canRun && draftContent.trim() && !simulating ? "btn-primary" : "cursor-not-allowed bg-[rgba(26,23,20,0.12)] text-[var(--muted)]"}`}>
-              {simulating ? "Running A/B test..." : "Test this content"}
-            </button>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <button onClick={analyzeDraft} disabled={!draftContent.trim() || analyzingContent} className={`rounded-2xl px-6 py-3.5 text-sm font-semibold ${draftContent.trim() && !analyzingContent ? "btn-secondary" : "cursor-not-allowed bg-[rgba(26,23,20,0.12)] text-[var(--muted)]"}`}>
+                {analyzingContent ? "Analyzing..." : "Analyze content"}
+              </button>
+              <button onClick={runSimulation} disabled={!canRun || !draftContent.trim() || simulating} className={`rounded-2xl px-6 py-3.5 text-sm font-semibold ${canRun && draftContent.trim() && !simulating ? "btn-primary" : "cursor-not-allowed bg-[rgba(26,23,20,0.12)] text-[var(--muted)]"}`}>
+                {simulating ? "Running A/B test..." : "Test this content"}
+              </button>
+            </div>
           </div>
+
+          {/* Content analysis of draft */}
+          {contentAnalysis && contentAnalysis.features.length > 0 && !simBaseline && (
+            <ContentAnalysisPanel data={contentAnalysis} label="Draft content analysis" />
+          )}
 
           {simulating && (
             <div className="paper-panel rounded-[2rem] p-10 text-center">

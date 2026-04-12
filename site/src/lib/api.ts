@@ -135,3 +135,35 @@ export async function getRecommendations(brand: string): Promise<{ brand: string
   if (!res.ok) throw new Error(`Recommendations failed: ${res.status}`);
   return res.json();
 }
+
+// ── Content Analysis ──────────────────────────────────────────────────────
+
+export interface ContentFeature {
+  name: string;
+  label: string;
+  value: number | string | boolean | null;
+  geo_impact: string;
+  rating: "good" | "needs_work" | "missing";
+  description: string;
+}
+
+export interface ContentAnalysisResponse {
+  url: string | null;
+  title: string | null;
+  features: ContentFeature[];
+  summary: string;
+  content_length: number;
+  word_count: number;
+  overall_score: number;
+  fetch_error: string | null;
+}
+
+export async function analyzeContent(params: { url?: string; text?: string }): Promise<ContentAnalysisResponse> {
+  const res = await fetch(`${API}/api/simulations/analyze-content`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) throw new Error(`Content analysis failed: ${res.status}`);
+  return res.json();
+}

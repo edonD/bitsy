@@ -25,9 +25,10 @@ export default function SimulatorPage() {
             The Bitsy Simulator: what we need to build and why.
           </h1>
           <p className="mt-4 max-w-2xl text-base leading-relaxed text-[var(--muted)]">
-            A digital twin of AI search behavior. Instead of querying LLMs every time a
-            user wants to test a hypothesis, we train a lightweight surrogate model on real
-            daily observations and let users run instant what-if scenarios against it.
+            A digital twin of AI answer-engine behavior. We collect real brand/query/model
+            samples into Convex, compress them into a 14-field daily state vector, and train
+            an XGBoost surrogate so users can run instant what-if scenarios without re-polling
+            APIs every time.
           </p>
         </div>
       </div>
@@ -90,23 +91,23 @@ export default function SimulatorPage() {
           <Prose>
             <p>
               Instead of calling LLM APIs for every what-if question, we build a
-              <strong> lightweight machine learning model</strong> (XGBoost) that learns the
-              relationship between content features and AI mention behavior. This surrogate
-              model is trained daily on real observations and serves predictions in ~1ms&mdash;roughly
-              3,000x faster than a real API call, at near-zero marginal cost.
+              <strong> lightweight machine learning model</strong> (XGBoost) that learns how
+              13 daily observation features relate to <code>mention_rate</code>. The surrogate
+              is retrained nightly on accumulated Convex rows and serves predictions in
+              ~1ms&mdash;roughly 3,000x faster than a real API call, at near-zero marginal cost.
             </p>
             <p>
               This is the same pattern used in engineering digital twins: collect sensor
               data, train a fast proxy, then simulate scenarios against the proxy instead of
-              the real system. In our case, the &ldquo;sensors&rdquo; are daily LLM API samples
+              the real system. In our case, the &ldquo;sensors&rdquo; are repeated LLM API samples
               and the &ldquo;proxy&rdquo; is an XGBoost model with SHAP-based explanations.
             </p>
           </Prose>
 
           <div className="mt-6 grid gap-4 sm:grid-cols-3">
-            <KeyStat value="$0.30" label="Daily API cost per brand for training data (50 samples across 4 models)" />
+            <KeyStat value="14" label="Daily fields persisted per brand (1 target + 13 predictors)" />
             <KeyStat value="~1ms" label="Prediction time per what-if scenario (vs. seconds for real API)" />
-            <KeyStat value="R2 > 0.85" label="Target surrogate model accuracy (validated with walk-forward)" />
+            <KeyStat value="2+" label="Repeated runs per model/query in the MVP collection loop" />
           </div>
 
           <Quote
@@ -135,11 +136,11 @@ export default function SimulatorPage() {
         </Section>
 
         {/* ── The Architecture ── */}
-        <Section id="architecture" title="Four-layer architecture">
+        <Section id="architecture" title="What the simulator does, step by step">
           <Prose>
             <p>
-              The simulator is structured as four layers, each with a clear responsibility.
-              This follows the standard digital twin pattern adapted for LLM monitoring.
+              The product flow is simple: collect raw LLM observations, compress them into a
+              daily brand state, then let a fast surrogate score hypotheses against that state.
             </p>
           </Prose>
 
@@ -148,14 +149,11 @@ export default function SimulatorPage() {
               <div className="flex items-start gap-4">
                 <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--ink)] text-sm font-bold text-[var(--paper)]">1</span>
                 <div>
-                  <h3 className="text-lg text-[var(--ink)]">Device layer &mdash; Real LLM APIs</h3>
+                  <h3 className="text-lg text-[var(--ink)]">Step 1 &mdash; User inputs the market frame</h3>
                   <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
-                    OpenAI GPT-4o, Anthropic Claude Sonnet, Google Gemini 2.5, and Perplexity
-                    Sonar. These are the &ldquo;real world&rdquo; we observe. We poll them with
-                    temperature=0 for maximum reproducibility and structured output for reliable
-                    parsing. Perplexity uniquely returns a <code>citations</code> array with
-                    source URLs, making it the closest API equivalent to a consumer search
-                    experience.
+                    The user provides four things: brand name, website URL, competitors, and
+                    the buyer questions their customers would actually ask AI. That defines the
+                    sampling universe for the run.
                   </p>
                 </div>
               </div>
@@ -165,14 +163,12 @@ export default function SimulatorPage() {
               <div className="flex items-start gap-4">
                 <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--ink)] text-sm font-bold text-[var(--paper)]">2</span>
                 <div>
-                  <h3 className="text-lg text-[var(--ink)]">Collection layer &mdash; Daily sampling</h3>
+                  <h3 className="text-lg text-[var(--ink)]">Step 2 &mdash; Poll real LLM APIs repeatedly</h3>
                   <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
-                    50 samples per brand per day across 4+ models. Each sample records: which brands
-                    were mentioned, their position in the response, sentiment (positive/neutral/negative),
-                    whether the mention came from parametric knowledge or RAG retrieval, and which
-                    sources were cited. At temperature=0, 3-5 samples per query are sufficient for
-                    90-95% consistency. The statistical foundation: SE = sqrt(p(1-p)/n), with 95%
-                    confidence intervals.
+                    For every buyer question, call ChatGPT (<code>gpt-4o-mini</code>), Claude
+                    (Sonnet), and Gemini (<code>2.5 Flash</code>) at <code>temperature=0</code>.
+                    Run each query 2+ times per model and require structured JSON output so the
+                    response can be parsed into mention, position, and sentiment fields.
                   </p>
                 </div>
               </div>
@@ -182,14 +178,12 @@ export default function SimulatorPage() {
               <div className="flex items-start gap-4">
                 <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--ink)] text-sm font-bold text-[var(--paper)]">3</span>
                 <div>
-                  <h3 className="text-lg text-[var(--ink)]">Proxy layer &mdash; Surrogate model</h3>
+                  <h3 className="text-lg text-[var(--ink)]">Step 3 &mdash; Persist raw observations to Convex</h3>
                   <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
-                    XGBoost model retrained nightly on accumulated observations. Takes 40-60
-                    engineered features as input and predicts mention probability, expected position,
-                    and sentiment distribution. Validated with walk-forward cross-validation (no
-                    look-ahead bias). SHAP values computed for every prediction to explain <em>why</em>
-                    the model expects a particular outcome. Includes drift detection (z-score on
-                    features, feature importance shifts) to know when the model is going stale.
+                    Every observation is stored as a <code>brand x query x model x sample</code>
+                    row with <code>mentioned</code>, <code>position</code>, and
+                    <code>sentiment</code>. Each run becomes training data rather than throwaway
+                    output, so the corpus compounds over time.
                   </p>
                 </div>
               </div>
@@ -199,193 +193,194 @@ export default function SimulatorPage() {
               <div className="flex items-start gap-4">
                 <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--ink)] text-sm font-bold text-[var(--paper)]">4</span>
                 <div>
-                  <h3 className="text-lg text-[var(--ink)]">Application layer &mdash; What-if dashboard</h3>
+                  <h3 className="text-lg text-[var(--ink)]">Step 4 &mdash; Engineer the daily brand state</h3>
                   <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
-                    The user-facing simulator. Users modify content features (add statistics,
-                    improve freshness, add third-party citations) and instantly see predicted
-                    impact on mention rate, position, and sentiment&mdash;with confidence
-                    intervals and SHAP-based explanations of which changes drove the prediction.
-                    This is where Bitsy differs from every other tool: predictions happen in
-                    milliseconds, not minutes, and come with causal explanations.
+                    Roll raw observations up into one daily row per brand. That row includes
+                    <code>mention_rate</code> plus 13 explanatory features covering rank,
+                    sentiment, competitor pressure, query coverage, and cross-model consistency.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="paper-card rounded-[1.6rem] p-5">
+              <div className="flex items-start gap-4">
+                <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--ink)] text-sm font-bold text-[var(--paper)]">5</span>
+                <div>
+                  <h3 className="text-lg text-[var(--ink)]">Step 5 &mdash; Train the XGBoost digital twin</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
+                    Retrain nightly on all accumulated Convex rows. The model predicts
+                    <code>mention_rate</code> from the other 13 fields, uses walk-forward
+                    validation to avoid look-ahead bias, and exposes SHAP values so the model
+                    is explainable instead of opaque.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="paper-card rounded-[1.6rem] p-5">
+              <div className="flex items-start gap-4">
+                <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--ink)] text-sm font-bold text-[var(--paper)]">6</span>
+                <div>
+                  <h3 className="text-lg text-[var(--ink)]">Step 6 &mdash; Simulate what-if scenarios</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
+                    User-facing GEO tactics perturb the brand state and the surrogate returns an
+                    instant forecast. This is the point of the product: users can test
+                    hypotheses in milliseconds instead of paying for fresh API calls on every
+                    scenario.
                   </p>
                 </div>
               </div>
             </div>
           </div>
+
+          <Callout type="info">
+            <strong>Sampling discipline matters.</strong> Tryscope validated repeated daily
+            polling as the practical benchmark, and Discovered Labs&apos; eval framework gives
+            the statistical direction: 95% confidence at 2% margin requires roughly 353 unique
+            prompts with <code>K=3</code> resamples. The MVP starts smaller, but the system is
+            designed to accumulate toward that level of confidence over time.
+          </Callout>
         </Section>
 
         {/* ── Feature Engineering ── */}
-        <Section id="features" title="The 40-60 engineered features">
+        <Section id="features" title="The 14 daily brand features">
           <Prose>
             <p>
-              The surrogate model does not see raw text. It sees structured signals extracted
-              from both the daily observations and the content being analyzed. These features
-              are grouped into six categories, informed by the empirical citation studies we
-              reviewed (Profound 680M citations, Yext 17.2M citations, Ahrefs 17M, Seer 5K URLs).
+              Every brand gets one row per day. <code>mention_rate</code> is the target the
+              surrogate learns to predict; the other 13 fields describe rank, sentiment,
+              competitive pressure, and model disagreement.
             </p>
           </Prose>
 
           <DataTable
-            headers={["Category", "Example features", "Evidence basis"]}
+            headers={["Feature", "What it captures", "Research basis"]}
             rows={[
-              [
-                "Time-series",
-                "Mention rate (lag-1, 7d avg, 30d avg), volatility, trend direction",
-                "Daily polling data; detects momentum shifts before they become visible",
-              ],
-              [
-                "Competitor",
-                "Top-3 competitor avg mention rate, our-vs-best ratio, competitor gaining flag",
-                "Only 3-4 brands cited per ChatGPT response; displacement is zero-sum",
-              ],
-              [
-                "Content quality",
-                "Source freshness (months), high-authority source count, statistics density, quotation count, content length (chars)",
-                "GEO paper: +41% from quotations, +37% from statistics; Ahrefs: 76.4% of top-cited pages updated within 30 days",
-              ],
-              [
-                "Query characteristics",
-                "Informational vs. transactional %, average query length, semantic diversity",
-                "Profound: 1/3 of citations from fan-out queries with zero traditional search volume",
-              ],
-              [
-                "Mechanism",
-                "Parametric vs. RAG %, training cutoff proximity, web-search trigger rate",
-                "ChatGPT uses parametric knowledge 79% of the time; RAG mentions are immediate but volatile",
-              ],
-              [
-                "Seasonality",
-                "Day of week, weekend flag, seasonal index, recency-freshness interaction",
-                "Ahrefs: newer content cited first; 65% of crawler hits target content <1 year old",
-              ],
+              ["mention_rate", "% of responses mentioning the brand", "Core GEO metric; analogous to Share of Model"],
+              ["avg_position", "Mean rank when the brand is mentioned", "Profound: rank #1 is cited far more than top-20 positions"],
+              ["top1_rate", "% of mentions where the brand is ranked #1", "Winner-take-all recommendation behavior"],
+              ["top3_rate", "% of mentions where the brand appears in the top 3", "Comparative listicle and shortlist behavior"],
+              ["positive_rate", "% positive sentiment across mentions", "Onely: sentiment and reviews matter materially in recommendations"],
+              ["negative_rate", "% negative sentiment across mentions", "EMNLP 2025 recommendation-bias work"],
+              ["net_sentiment", "(positive - negative) / total", "Sellm-style structured extraction"],
+              ["competitor_avg_rate", "Competitors' mean mention rate", "Absent brands get substituted out"],
+              ["vs_best_competitor", "Our rate divided by the best competitor", "Only a few brands fit in each answer"],
+              ["model_agreement", "min(model_rates) / max(model_rates)", "Yext: no single AI optimization strategy"],
+              ["model_spread", "Range between best and worst model rates", "Claude/Gemini source preference divergence"],
+              ["query_coverage", "% of buyer questions where the brand appears", "Profound: fan-out queries drive a large share of citations"],
+              ["share_of_mentions", "Brand mentions divided by total mentions in the sample set", "Position-adjusted share metric from GEO research"],
+              ["brands_ahead", "Count of competitors with a higher mention rate", "Competitive displacement tracking"],
             ]}
           />
 
           <Callout type="info">
-            Content features map directly to the GEO paper&apos;s optimization strategies.
-            Each what-if toggle in the UI (&ldquo;What if I add statistics?&rdquo;) translates
-            to a feature perturbation the surrogate model can evaluate instantly.
+            This daily row is what persists to Convex and becomes the training corpus. Every
+            new collection run adds another brand-day example the surrogate can learn from.
           </Callout>
         </Section>
 
         {/* ── What-If Engine ── */}
-        <Section id="whatif" title="What the what-if engine does">
+        <Section id="whatif" title="How scenario simulation works">
           <Prose>
             <p>
-              The what-if engine is the core product interaction. A user asks: &ldquo;What
-              would happen to my mention rate if I refreshed my product page, added third-party
-              reviews, and included comparison statistics?&rdquo; The engine answers in three steps:
+              What-if simulation sits one layer above the observational model. Users choose a
+              GEO tactic, Bitsy encodes it into controllable feature changes, and the surrogate
+              estimates how the next daily brand state should move.
             </p>
           </Prose>
 
-          <SubSection title="Step 1: Encode the scenario">
+          <SubSection title="Step 1: Pick the user-facing tactic">
             <Prose>
               <p>
-                The user&apos;s hypothetical changes are translated into feature perturbations.
-                &ldquo;Refresh content&rdquo; maps to decreasing <code>source_freshness_months</code>.
-                &ldquo;Add statistics&rdquo; maps to increasing <code>statistics_density</code>.
-                &ldquo;Get third-party reviews&rdquo; maps to increasing <code>high_authority_source_count</code>.
-                The base case is the current feature vector from the latest daily observation.
+                The first release should expose only research-backed levers: add statistics,
+                add expert quotations, cite credible sources, refresh content, improve fluency,
+                and get third-party mentions.
               </p>
             </Prose>
           </SubSection>
 
-          <SubSection title="Step 2: Predict with uncertainty">
+          <SubSection title="Step 2: Translate tactics into feature changes">
             <Prose>
               <p>
-                The perturbed feature vector runs through the XGBoost surrogate (~1ms). To
-                quantify uncertainty, we use bootstrap ensemble prediction: train multiple
-                models on resampled data and report the spread. The output is a predicted
-                mention rate with 95% confidence interval, expected position shift, and
-                sentiment change for each AI model independently.
+                Each tactic maps to an upstream control variable such as
+                <code>statistics_density</code>, <code>quotation_count</code>,
+                <code>citation_count</code>, <code>source_freshness</code>,
+                <code>fluency_score</code>, or <code>third_party_count</code>. Those controls
+                are the layer a marketer can actually change.
               </p>
             </Prose>
           </SubSection>
 
-          <SubSection title="Step 3: Explain with SHAP">
+          <SubSection title="Step 3: Score the scenario with XGBoost + SHAP">
             <Prose>
               <p>
-                SHAP (SHapley Additive exPlanations) decomposes the prediction into per-feature
-                contributions. The user sees: &ldquo;Adding statistics contributed +4.2% to
-                predicted mention rate; refreshing content contributed +2.8%; third-party
-                reviews contributed +1.5%.&rdquo; This is the causal story that no monitoring
-                tool provides today.
-              </p>
-              <p>
-                We also run sensitivity analysis: for each feature in the scenario, sweep
-                across a range of values to show diminishing returns. &ldquo;You get most of
-                the freshness benefit within the first 30 days; refreshing again after 7 days
-                has minimal incremental lift.&rdquo;
+                The updated state runs through the surrogate (~1ms). Bitsy returns predicted
+                <code>mention_rate</code>, confidence bounds, and SHAP-style explanations of
+                which levers drove the lift. That is the product advantage over pure monitoring:
+                not just what happened, but what is likely to change next.
               </p>
             </Prose>
           </SubSection>
 
           <Callout type="insight">
-            <strong>Validation loop:</strong> Every what-if prediction is compared to actual
-            outcomes the following week. If the model predicted a +5% mention rate from
-            adding statistics, we check whether brands that actually added statistics saw
-            that lift. This continuous backtesting is how the surrogate stays honest.
+            <strong>Model boundary:</strong> the stored daily state is observational. The
+            strategy encoder should perturb controllable content signals, then translate those
+            into the observation space the surrogate is trained on. That keeps the model honest
+            about what it knows and what the user can control.
           </Callout>
         </Section>
 
         {/* ── GEO Optimization Strategies ── */}
-        <Section id="geo-strategies" title="The optimization strategies users can simulate">
+        <Section id="geo-strategies" title="The first strategy toggles">
           <Prose>
             <p>
-              The GEO paper (Princeton/Georgia Tech, ACM SIGKDD 2024) tested 9 content
-              optimization strategies on 10,000 queries. These become the primary what-if
-              levers in the simulator. Combined with empirical citation research, they form
-              the feature perturbation menu.
+              The first release should expose only tactics with quantified external evidence,
+              not generic SEO lore or intuition.
             </p>
           </Prose>
 
           <DataTable
-            headers={["Strategy", "Measured lift", "Maps to feature"]}
+            headers={["Strategy", "Feature change", "Evidence"]}
             rows={[
-              ["Add quotations from authoritative sources", "+41% visibility", "quotation_count, source_authority_score"],
-              ["Add relevant statistics and data points", "+37% visibility", "statistics_density, fact_density"],
-              ["Cite credible sources inline", "+30% (up to +115% for lower-ranked sites)", "citation_count, source_diversity"],
-              ["Improve fluency and readability", "+28% visibility", "fluency_score, readability_grade"],
-              ["Use authoritative tone", "+variable by domain", "authoritative_language_score"],
-              ["Refresh content (recency)", "+300% AI traffic in case study", "source_freshness_months"],
-              ["Increase content length to 5-10K chars", "10.18 vs 2.39 citations", "content_length_chars"],
-              ["Get third-party mentions", "6.5x more effective than owned", "third_party_mention_count"],
-              ["Keyword stuffing", "-10% (negative)", "keyword_density (inverse signal)"],
+              ["Add statistics and data", "statistics_density", "GEO paper: +37% visibility"],
+              ["Add expert quotations", "quotation_count", "GEO paper: +41% visibility"],
+              ["Cite credible sources", "citation_count", "GEO paper: +30%, up to +115% for lower-ranked sites"],
+              ["Refresh content", "source_freshness", "Seer: 76.4% of top-cited pages updated within 30 days; Ahrefs: AI-cited pages are 25.7% fresher"],
+              ["Improve fluency", "fluency_score", "GEO paper: +28% visibility"],
+              ["Get third-party mentions", "third_party_count", "Profound: 6.5x more effective than owned content; 85% of mentions come from third parties"],
             ]}
           />
 
-          <Callout type="warning">
-            <strong>Keyword stuffing actively hurts.</strong> This is the biggest divergence from
-            traditional SEO. The GEO paper showed a -6% to -10% effect. Traditional SEO keyword
-            optimization does not transfer to AI search. The simulator should clearly flag this.
+          <Callout type="info">
+            These are user-facing levers. Internally they should change the observation features
+            the surrogate actually trains on, rather than bypassing the model contract.
           </Callout>
         </Section>
 
         {/* ── Multi-Model Behavior ── */}
-        <Section id="multimodel" title="Per-model behavior differences">
+        <Section id="multimodel" title="Cross-model disagreement is a feature">
           <Prose>
             <p>
-              A critical design decision: the simulator must produce per-model predictions,
-              not a single aggregate. Research shows wildly divergent citation behavior across
-              platforms. A strategy that works for Gemini may fail for Claude.
+              We do not average models away. The daily state explicitly captures how much
+              ChatGPT, Claude, and Gemini disagree via <code>model_agreement</code> and
+              <code>model_spread</code>.
             </p>
           </Prose>
 
           <DataTable
-            headers={["Model", "Avg citations/response", "Key behavior", "Source control range"]}
+            headers={["Model", "Sampling role", "Observed behavior", "Why it matters"]}
             rows={[
-              ["ChatGPT (GPT-4o)", "3.5", "Parametric-first (79%); triggers web search only 21% of the time", "Varies by sector"],
-              ["Claude (Sonnet)", "4", "2-4x higher Limited Control sources; strong third-party preference", "6.3-24.4% Full Control"],
-              ["Gemini 2.5 Pro", "5", "Strongest E-E-A-T signals; rewards authority and structure", "22.4-54.0% Full Control"],
-              ["Perplexity Sonar", "13", "Search-first; most consistent across sectors; returns citation URLs", "37-50% Full Control"],
+              ["ChatGPT (GPT-4o-mini)", "Baseline high-volume polling model", "Short recommendation lists; winner-take-all outcomes", "Drives mention_rate, top1_rate, and top3_rate sensitivity"],
+              ["Claude (Sonnet)", "Contrastive second model", "Stronger third-party preference and different source mix", "Prevents optimizing only for ChatGPT behavior"],
+              ["Gemini (2.5 Flash)", "Authority-sensitive comparison model", "Responds differently to structure and authority signals", "Feeds model_agreement and model_spread directly"],
             ]}
           />
 
           <Callout type="info">
             Yext&apos;s analysis of 17.2M citations concluded: &ldquo;No single AI optimization
             strategy. Source mix for Gemini visibility does not equal source mix for Claude
-            visibility.&rdquo; This is why we train separate model heads or separate surrogates
-            per LLM provider.
+            visibility.&rdquo; That is why disagreement between models is itself a predictor,
+            not noise to discard.
           </Callout>
         </Section>
 
@@ -440,11 +435,11 @@ export default function SimulatorPage() {
           <DataTable
             headers={["Cost component", "Per brand / month", "Notes"]}
             rows={[
-              ["API collection (50 samples/day, 4 models)", "$9.00", "Using tiered strategy: 90% nano/Flash-Lite, 10% GPT-4o/Sonnet"],
+              ["API collection (buyer queries x 3 models x 2+ samples)", "Variable", "This is the main marginal cost; simulation itself does not hit APIs"],
               ["Model training (daily XGBoost refit)", "~$0.01", "CPU-only, sub-second training on daily batch"],
               ["Inference (per what-if query)", "~$0.00001", "~1ms XGBoost prediction, negligible compute"],
-              ["Infrastructure (DB, compute, storage)", "~$1.50", "PostgreSQL + lightweight compute"],
-              ["Total per brand", "~$10.50", "vs. $199/month SaaS price = 94.7% gross margin"],
+              ["Infrastructure (DB, compute, storage)", "~$1-2", "Convex + lightweight compute"],
+              ["Total per brand", "Low single digits at MVP scale", "Direct polling stays bounded because scenarios are served locally"],
             ]}
           />
 
@@ -469,7 +464,7 @@ export default function SimulatorPage() {
           <DataTable
             headers={["Approach", "Who does it", "Limitation"]}
             rows={[
-              ["Post-hoc monitoring (poll → dashboard)", "Profound, Peec, Otterly, 30+ others", "Tells you what happened, not why or what to do next"],
+              ["Post-hoc monitoring (poll -> dashboard)", "Profound, Peec, Otterly, 30+ others", "Tells you what happened, not why or what to do next"],
               ["Content scoring (static analysis)", "Frase, Writesonic, Scrunch", "No simulation; just scores current state against heuristics"],
               ["Pre-publish RAG simulation", "Tryscope (only)", "Direct API calls each time; no surrogate; enterprise-only pricing"],
               [
@@ -509,11 +504,10 @@ export default function SimulatorPage() {
                 <div>
                   <h3 className="text-lg text-[var(--ink)]">Data collection + baseline dashboard</h3>
                   <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
-                    Build the LLM API client (unified interface to OpenAI, Anthropic, Google,
-                    Perplexity). Set up the collection scheduler (5 queries x 4 models x 3
-                    samples = 60 calls/day per brand). Store results in PostgreSQL with the
-                    daily aggregation pipeline. Surface raw mention rates and citation counts
-                    in a simple dashboard. This gives us training data and a monitoring baseline.
+                    Build the LLM API client for OpenAI, Anthropic, and Google. Run each buyer
+                    query 2+ times per model with structured JSON output, store every
+                    <code>brand x query x model x sample</code> observation in Convex, and
+                    surface raw mention rate, position, and sentiment in a baseline dashboard.
                   </p>
                   <p className="mt-2 text-xs text-[var(--muted)]">
                     <strong>Output:</strong> Working data pipeline. Users see daily mention rate,
@@ -529,10 +523,10 @@ export default function SimulatorPage() {
                 <div>
                   <h3 className="text-lg text-[var(--ink)]">Feature engineering + surrogate model</h3>
                   <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
-                    Build the feature extraction pipeline (40-60 features across 6 categories).
-                    Train the first XGBoost surrogate with walk-forward validation. Compute
-                    SHAP values for global feature importance. Set up nightly retraining via
-                    batch job. Add model versioning with rollback capability.
+                    Build the 14-field daily brand state, where <code>mention_rate</code> is
+                    the target and the other 13 fields feed the surrogate. Train the first
+                    XGBoost model with walk-forward validation, compute SHAP values, and set up
+                    nightly retraining on all accumulated Convex data.
                   </p>
                   <p className="mt-2 text-xs text-[var(--muted)]">
                     <strong>Output:</strong> Trained surrogate model. Users see feature importance
@@ -548,11 +542,10 @@ export default function SimulatorPage() {
                 <div>
                   <h3 className="text-lg text-[var(--ink)]">What-if simulator + drift detection</h3>
                   <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
-                    Build the what-if engine: scenario encoding, bootstrap prediction with
-                    uncertainty bounds, SHAP decomposition, and sensitivity analysis. Add drift
-                    detection (data, concept, label) with automated alerts and retraining triggers.
-                    Build the simulation UI with toggleable GEO strategies mapped to feature
-                    perturbations.
+                    Build the strategy encoder that maps research-backed GEO tactics to
+                    controllable feature changes. Add scenario prediction, confidence bounds,
+                    SHAP decomposition, and drift detection (data, concept, label) with
+                    automated alerts and retraining triggers.
                   </p>
                   <p className="mt-2 text-xs text-[var(--muted)]">
                     <strong>Output:</strong> Full what-if simulator. Users ask &ldquo;what if I
@@ -569,14 +562,13 @@ export default function SimulatorPage() {
                   <h3 className="text-lg text-[var(--ink)]">Validation + scale</h3>
                   <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
                     Implement the weekly backtesting loop (compare predictions to actuals).
-                    Add fan-out query detection (1/3 of citations come from zero-search-volume
-                    decomposed queries). Multi-tenant isolation. Cost optimization (batch API,
-                    prompt caching, semantic response caching). Scale to 100+ brands with
-                    tiered model strategy.
+                    Expand query coverage, add more model providers when needed, and harden
+                    multi-tenant isolation. Optimize costs with caching and batching, then
+                    scale the daily training corpus to 100+ brands.
                   </p>
                   <p className="mt-2 text-xs text-[var(--muted)]">
                     <strong>Output:</strong> Production-grade simulator with validated predictions
-                    and sub-$200/month cost per 100 brands.
+                    and low per-brand marginal cost.
                   </p>
                 </div>
               </div>

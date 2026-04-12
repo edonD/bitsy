@@ -321,7 +321,8 @@ export default function SimulatorPage() {
           <Link href="/" className="ink-link text-sm">Back to home</Link>
           <h1 className="mt-2 text-4xl text-[var(--ink)] md:text-5xl">Simulator</h1>
           <p className="mt-2 max-w-xl text-sm leading-relaxed text-[var(--muted)]">
-            Check how AI search engines see your brand. Simulate changes, see what improves your visibility.
+            Enter your brand, competitors, and buyer questions. Bitsy polls ChatGPT, Claude,
+            and Gemini, then lets you test what the current model thinks will improve visibility.
           </p>
         </div>
         {phase !== "pick" && (
@@ -394,7 +395,8 @@ export default function SimulatorPage() {
               <p className="muted-label text-xs mb-1">Your brand</p>
               <h2 className="text-2xl text-[var(--ink)] mb-2">Who are you?</h2>
               <p className="text-sm text-[var(--muted)] mb-5">
-                We&apos;ll ask ChatGPT, Claude, and Gemini about your brand and see how they respond.
+                We&apos;ll ask ChatGPT, Claude, and Gemini about your brand, store the observations,
+                and build a daily visibility baseline from the results.
               </p>
 
               <div className="grid gap-4 sm:grid-cols-2">
@@ -696,8 +698,8 @@ export default function SimulatorPage() {
                 What changes could {brandConfig.targetBrand} make?
               </h2>
               <p className="text-sm text-[var(--muted)] mb-6">
-                Each toggle sends real feature changes to the XGBoost surrogate model.
-                Predictions update live.
+                This prototype exposes direct daily-state levers from the live XGBoost model.
+                Content-strategy encoding comes next; predictions update live.
               </p>
 
               <div className="space-y-3">

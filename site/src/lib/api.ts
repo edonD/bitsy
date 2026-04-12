@@ -36,6 +36,13 @@ export interface Contribution {
   pct: number;
 }
 
+export interface PerModelPrediction {
+  lift: number;
+  lift_pct: number;
+  base: number;
+  predicted: number;
+}
+
 export interface WhatIfResponse {
   brand: string;
   base_prediction: number;
@@ -46,6 +53,7 @@ export interface WhatIfResponse {
   ci_upper: number;
   confidence: string;
   contributions: Contribution[];
+  per_model?: Record<string, PerModelPrediction>;
 }
 
 export interface StatusResponse {

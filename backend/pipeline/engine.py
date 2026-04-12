@@ -595,32 +595,168 @@ def extract_all(
     return rows
 
 
+# ── Per-model feature extraction ────────────────────────────────────────────
+
+def extract_per_model(
+    brand: str,
+    model_name: str,
+    observations: list[dict],
+    all_brands: list[str],
+    queries: list[str],
+) -> dict:
+    """Extract features for ONE brand on ONE model."""
+    model_obs = [o for o in observations if o["model"] == model_name]
+    brand_obs = [o for o in model_obs if o["brand"] == brand]
+    others = [b for b in all_brands if b != brand]
+
+    total = len(brand_obs)
+    mentioned = [o for o in brand_obs if o["mentioned"]]
+    rate = len(mentioned) / total if total > 0 else 0
+
+    positions = [o["position"] for o in mentioned if o["position"] is not None]
+    avg_pos = sum(positions) / len(positions) if positions else 10
+    top1 = sum(1 for p in positions if p == 1) / len(positions) if positions else 0
+    top3 = sum(1 for p in positions if p <= 3) / len(positions) if positions else 0
+    pos_std = (sum((p - avg_pos) ** 2 for p in positions) / len(positions)) ** 0.5 if len(positions) >= 2 else 0
+
+    sents = [o["sentiment"] for o in mentioned if o["sentiment"]]
+    n_sent = len(sents)
+    pos_rate = sents.count("positive") / n_sent if n_sent > 0 else 0.5
+    neg_rate = sents.count("negative") / n_sent if n_sent > 0 else 0
+    net_sent = (sents.count("positive") - sents.count("negative")) / n_sent if n_sent > 0 else 0
+
+    comp_rates = []
+    for other in others:
+        o_obs = [o for o in model_obs if o["brand"] == other]
+        o_ment = sum(1 for o in o_obs if o["mentioned"])
+        comp_rates.append(o_ment / len(o_obs) if o_obs else 0)
+    comp_avg = sum(comp_rates) / len(comp_rates) if comp_rates else 0
+    best_comp = max(comp_rates) if comp_rates else 0
+
+    total_ment = sum(1 for o in model_obs if o["mentioned"])
+    share = len(mentioned) / total_ment if total_ment > 0 else 0
+
+    q_coverage = 0
+    for q in queries:
+        q_obs = [o for o in brand_obs if o["query"] == q]
+        if any(o["mentioned"] for o in q_obs):
+            q_coverage += 1
+    q_coverage = q_coverage / len(queries) if queries else 0
+
+    return {
+        "mention_rate": round(rate * 100, 2),
+        "model": model_name,
+        "avg_position": round(avg_pos, 2),
+        "top1_rate": round(top1 * 100, 2),
+        "top3_rate": round(top3 * 100, 2),
+        "position_std": round(pos_std, 3),
+        "positive_rate": round(pos_rate * 100, 2),
+        "negative_rate": round(neg_rate * 100, 2),
+        "net_sentiment": round(net_sent * 100, 2),
+        "competitor_avg_rate": round(comp_avg * 100, 2),
+        "vs_best_competitor": round(rate / best_comp, 3) if best_comp > 0 else 1.0,
+        "brands_ahead": sum(1 for r in comp_rates if r > rate),
+        "share_of_mentions": round(share * 100, 2),
+        "model_agreement": 100.0,  # single model = always agrees with itself
+        "model_spread": 0.0,
+        "query_coverage": round(q_coverage * 100, 2),
+    }
+
+
+def extract_all_per_model(
+    observations: list[dict],
+    all_brands: list[str],
+    models: list[str],
+    queries: list[str],
+) -> dict[str, list[dict]]:
+    """Extract per-model features. Returns {model_name: [brand_rows]}."""
+    result = {}
+    for model_name in models:
+        rows = []
+        for brand in all_brands:
+            feats = extract_per_model(brand, model_name, observations, all_brands, queries)
+            feats["brand"] = brand
+            rows.append(feats)
+        result[model_name] = rows
+    return result
+
+
+# ── Content feature names (from content_analyzer, NOT from LLM polling) ────
+
+CONTENT_FEATURE_NAMES = [
+    "statistics_density",
+    "quotation_count",
+    "citation_count",
+    "content_length",
+    "readability_grade",
+    "freshness_days",
+    "heading_count",
+]
+
+
+def merge_content_features(rows: list[dict], content_analysis: dict | None) -> list[dict]:
+    """Merge content analysis features into training rows."""
+    if not content_analysis:
+        # Fill with defaults so model can still train
+        for row in rows:
+            for feat in CONTENT_FEATURE_NAMES:
+                row.setdefault(feat, 0)
+        return rows
+
+    for row in rows:
+        row["statistics_density"] = content_analysis.get("statistics_density", 0)
+        row["quotation_count"] = content_analysis.get("quotation_count", 0)
+        row["citation_count"] = content_analysis.get("citation_count", 0)
+        row["content_length"] = content_analysis.get("content_length", 0)
+        row["readability_grade"] = content_analysis.get("readability_grade", 0)
+        row["freshness_days"] = content_analysis.get("freshness_days", 0) or 0
+        row["heading_count"] = (
+            content_analysis.get("h1_count", 0)
+            + content_analysis.get("h2_count", 0)
+            + content_analysis.get("h3_count", 0)
+        )
+
+    return rows
+
+
 # ═══════════════════════════════════════════════════════════════════════════
-# train() — fit XGBoost on feature rows
+# Surrogate model — supports aggregate + per-model training
 # ═══════════════════════════════════════════════════════════════════════════
 
 class SurrogateModel:
-    """Trained XGBoost surrogate with prediction + explanation."""
+    """XGBoost surrogate with aggregate + per-model prediction."""
 
-    def __init__(self):
+    def __init__(self, use_content_features: bool = False):
         self.model: xgb.XGBRegressor | None = None
-        self.feature_cols = FEATURE_NAMES
+        self.per_model_models: dict[str, xgb.XGBRegressor] = {}
+        self.use_content_features = use_content_features
+        self.feature_cols = FEATURE_NAMES + (CONTENT_FEATURE_NAMES if use_content_features else [])
         self.importance: dict[str, float] = {}
+        self.per_model_importance: dict[str, dict[str, float]] = {}
         self.rmse: float = 0
         self.r2: float = 0
 
-    def train(self, rows: list[dict]) -> dict:
-        """Train on feature rows (list of dicts with mention_rate + features)."""
-        df = pd.DataFrame(rows)
-        X = df[self.feature_cols]
-        y = df["mention_rate"]
-
-        self.model = xgb.XGBRegressor(
+    def _fit_one(self, X: pd.DataFrame, y: pd.Series) -> xgb.XGBRegressor:
+        model = xgb.XGBRegressor(
             n_estimators=100, max_depth=4, learning_rate=0.1,
             subsample=0.8, colsample_bytree=0.8,
             random_state=42, objective="reg:squarederror", verbosity=0,
         )
-        self.model.fit(X, y)
+        model.fit(X, y)
+        return model
+
+    def train(self, rows: list[dict]) -> dict:
+        """Train aggregate model on feature rows."""
+        df = pd.DataFrame(rows)
+
+        # Only use feature columns that exist in the data
+        available = [c for c in self.feature_cols if c in df.columns]
+        self.feature_cols = available
+
+        X = df[available]
+        y = df["mention_rate"]
+
+        self.model = self._fit_one(X, y)
 
         y_pred = self.model.predict(X)
         self.rmse = float(np.sqrt(mean_squared_error(y, y_pred)))
@@ -628,24 +764,58 @@ class SurrogateModel:
 
         imp = self.model.feature_importances_
         self.importance = dict(sorted(
-            zip(self.feature_cols, [float(x) for x in imp]),
+            zip(available, [float(x) for x in imp]),
             key=lambda x: x[1], reverse=True,
         ))
 
         return {"rmse": self.rmse, "r2": self.r2, "importance": self.importance}
 
-    def predict(self, features: dict) -> float:
-        """Predict mention rate for a feature dict."""
+    def train_per_model(self, per_model_rows: dict[str, list[dict]]) -> dict[str, dict]:
+        """Train separate surrogates for each LLM model."""
+        results = {}
+        for model_name, rows in per_model_rows.items():
+            if len(rows) < 2:
+                continue
+            df = pd.DataFrame(rows)
+            available = [c for c in self.feature_cols if c in df.columns]
+            X = df[available]
+            y = df["mention_rate"]
+
+            fitted = self._fit_one(X, y)
+            self.per_model_models[model_name] = fitted
+
+            y_pred = fitted.predict(X)
+            rmse = float(np.sqrt(mean_squared_error(y, y_pred)))
+            r2 = float(r2_score(y, y_pred)) if len(y) > 1 else 0
+
+            imp = fitted.feature_importances_
+            self.per_model_importance[model_name] = dict(sorted(
+                zip(available, [float(x) for x in imp]),
+                key=lambda x: x[1], reverse=True,
+            ))
+
+            results[model_name] = {"rmse": rmse, "r2": r2, "importance": self.per_model_importance[model_name]}
+
+        return results
+
+    def predict(self, features: dict, model_name: str | None = None) -> float:
+        """Predict mention rate. If model_name given, use per-model surrogate."""
+        m = self.per_model_models.get(model_name) if model_name else self.model
+        if m is None:
+            m = self.model
+        if m is None:
+            return 0
+
         X = pd.DataFrame([{k: features.get(k, 0) for k in self.feature_cols}])
-        pred = float(self.model.predict(X)[0])
+        pred = float(m.predict(X)[0])
         return max(0, min(100, pred))
 
-    def whatif(self, base_features: dict, changes: dict) -> dict:
-        """Run what-if: predict base, predict scenario, compute lift + contributions."""
-        base_pred = self.predict(base_features)
+    def whatif(self, base_features: dict, changes: dict, model_name: str | None = None) -> dict:
+        """Run what-if prediction. Optionally for a specific LLM model."""
+        base_pred = self.predict(base_features, model_name)
 
         scenario = {**base_features, **changes}
-        scenario_pred = self.predict(scenario)
+        scenario_pred = self.predict(scenario, model_name)
 
         lift = scenario_pred - base_pred
         lift_pct = (lift / base_pred * 100) if base_pred > 0 else 0
@@ -654,21 +824,18 @@ class SurrogateModel:
         ci_lower = max(0, scenario_pred - uncertainty)
         ci_upper = min(100, scenario_pred + uncertainty)
 
-        # Approximate per-feature contributions using importance weights
+        # Use model-specific importance if available
+        importance = self.per_model_importance.get(model_name, self.importance) if model_name else self.importance
+
         contributions = []
         total_weighted = 0
         for feat, change_val in changes.items():
-            if feat in base_features and feat in self.importance:
+            if feat in importance:
                 delta = change_val - base_features.get(feat, 0)
-                weight = self.importance.get(feat, 0)
+                weight = importance.get(feat, 0)
                 score = abs(delta) * weight
                 total_weighted += score
-                contributions.append({
-                    "feature": feat,
-                    "delta": delta,
-                    "weight": weight,
-                    "score": score,
-                })
+                contributions.append({"feature": feat, "delta": delta, "weight": weight, "score": score})
 
         for c in contributions:
             c["contribution"] = lift * (c["score"] / total_weighted) if total_weighted > 0 else 0
@@ -688,3 +855,10 @@ class SurrogateModel:
             "confidence": confidence,
             "contributions": contributions,
         }
+
+    def whatif_all_models(self, base_features: dict, changes: dict) -> dict:
+        """Run what-if for ALL models. Returns {model_name: whatif_result}."""
+        results = {}
+        for model_name in self.per_model_models:
+            results[model_name] = self.whatif(base_features, changes, model_name)
+        return results

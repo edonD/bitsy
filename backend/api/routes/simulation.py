@@ -17,7 +17,7 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from pipeline.engine import collect, extract_all, SurrogateModel, FEATURE_NAMES
+from pipeline.engine import collect, extract_all, extract_all_per_model, merge_content_features, SurrogateModel, FEATURE_NAMES, CONTENT_FEATURE_NAMES
 from pipeline.content_analyzer import analyze_url, analyze_text, rate_features, compute_overall_score, generate_summary
 from pipeline import convex_client as cx
 
@@ -67,6 +67,7 @@ class CollectResponse(BaseModel):
 class WhatIfRequest(BaseModel):
     brand: str
     changes: dict[str, float]
+    model: Optional[str] = None  # if set, predict for one model; if None, predict all
 
 class ContributionItem(BaseModel):
     feature: str
@@ -83,6 +84,7 @@ class WhatIfResponse(BaseModel):
     ci_upper: float
     confidence: str
     contributions: list[ContributionItem]
+    per_model: Optional[dict] = None  # {model_name: {lift, lift_pct, base, predicted}}
 
 class StatusResponse(BaseModel):
     has_data: bool
@@ -325,11 +327,22 @@ async def run_collection(req: CollectRequest):
     all_samples = cx.get_all_training_samples()
     clean_samples = []
     for s in all_samples:
-        row = {k: s[k] for k in ["brand", "mention_rate"] + FEATURE_NAMES if k in s}
+        row = {k: s[k] for k in ["brand", "mention_rate"] + FEATURE_NAMES + CONTENT_FEATURE_NAMES if k in s}
         clean_samples.append(row)
 
-    model = SurrogateModel()
+    # Check if any content features exist in the data
+    has_content = any(CONTENT_FEATURE_NAMES[0] in s for s in clean_samples)
+
+    model = SurrogateModel(use_content_features=has_content)
     metrics = model.train(clean_samples)
+
+    # Train per-model surrogates from today's observations
+    per_model_rows = extract_all_per_model(observations, all_brands, req.models, req.queries)
+    # Merge content features if we have them
+    if has_content:
+        for model_name in per_model_rows:
+            merge_content_features(per_model_rows[model_name], rows[0] if rows else None)
+    per_model_metrics = model.train_per_model(per_model_rows)
 
     _store["model"] = model
     _store["features"] = rows  # current day's features for what-if
@@ -425,7 +438,17 @@ async def run_whatif(req: WhatIfRequest):
     if not brand_feats:
         raise HTTPException(status_code=404, detail=f"Brand '{req.brand}' not found.")
 
-    result = _store["model"].whatif(brand_feats, req.changes)
+    # Aggregate prediction
+    result = _store["model"].whatif(brand_feats, req.changes, req.model)
+
+    # Per-model predictions (if per-model surrogates exist)
+    per_model = None
+    if not req.model and _store["model"].per_model_models:
+        pm_results = _store["model"].whatif_all_models(brand_feats, req.changes)
+        per_model = {
+            m: {"lift": r["lift"], "lift_pct": r["lift_pct"], "base": r["base_prediction"], "predicted": r["scenario_prediction"]}
+            for m, r in pm_results.items()
+        }
 
     return WhatIfResponse(
         brand=req.brand,
@@ -440,6 +463,7 @@ async def run_whatif(req: WhatIfRequest):
             ContributionItem(feature=c["feature"], contribution=round(c["contribution"], 2), pct=round(c["pct"], 1))
             for c in result["contributions"]
         ],
+        per_model=per_model,
     )
 
 

@@ -71,55 +71,221 @@ def _parse_json(text: str) -> dict | None:
     return None
 
 
-# ── Query fan-out ───────────────────────────────────────────────────────────
+# ── Dedup helper ─────────────────────────────────────────────────────────────
 
-def fan_out_queries(base_queries: list[str], model_caller=None) -> list[str]:
-    """
-    Generate paraphrased variations of buyer queries for broader coverage.
-    Uses the LLM itself to paraphrase, or falls back to simple templates.
-    """
-    if not model_caller:
-        model_caller = CALLERS.get("chatgpt")
+def _dedup_queries(queries: list[str], threshold: float = 0.85) -> list[str]:
+    """Remove near-duplicate queries using SequenceMatcher similarity."""
+    from difflib import SequenceMatcher
+    accepted = []
+    for q in queries:
+        q = q.strip()
+        if not q:
+            continue
+        is_dup = False
+        for existing in accepted:
+            ratio = SequenceMatcher(None, q.lower(), existing.lower()).ratio()
+            if ratio > threshold:
+                is_dup = True
+                break
+        if not is_dup:
+            accepted.append(q)
+    return accepted
 
-    if not model_caller:
-        return base_queries
 
-    all_queries = list(base_queries)
+# ── Improvement 1: Multi-Generator Paraphrases ──────────────────────────────
 
-    try:
-        prompt = f"""Generate 2 paraphrased versions of each question below.
+PARAPHRASE_PROMPT = """Generate 2 paraphrased versions of each question below.
 Return ONLY a JSON array of strings, no explanation.
 
 Questions:
-{json.dumps(base_queries)}
+{questions}
 
 Return format:
 ```json
 ["paraphrase 1", "paraphrase 2", ...]
 ```"""
-        raw = model_caller(prompt)
+
+
+def fan_out_queries(
+    base_queries: list[str],
+    model_caller=None,
+    multi_generator: bool = False,
+    callers: dict | None = None,
+) -> list[str]:
+    """
+    Generate paraphrased query variations for broader coverage.
+
+    multi_generator=False: use a single model (old behavior)
+    multi_generator=True:  use ALL models, pool results, dedupe
+    """
+    if callers is None:
+        callers = CALLERS
+
+    all_queries = list(base_queries)
+    prompt = PARAPHRASE_PROMPT.format(questions=json.dumps(base_queries))
+
+    if multi_generator:
+        # Use every available model, pool results
+        for name, caller in callers.items():
+            try:
+                raw = caller(prompt)
+                data = _parse_json(raw)
+                if data and isinstance(data, list):
+                    for q in data:
+                        if isinstance(q, str) and q.strip():
+                            all_queries.append(q.strip())
+            except Exception:
+                pass
+    else:
+        # Single model (default: chatgpt)
+        caller = model_caller or callers.get("chatgpt")
+        if not caller:
+            return base_queries
+        try:
+            raw = caller(prompt)
+            data = _parse_json(raw)
+            if data and isinstance(data, list):
+                for q in data:
+                    if isinstance(q, str) and q.strip():
+                        all_queries.append(q.strip())
+        except Exception:
+            pass
+
+    return _dedup_queries(all_queries)
+
+
+# ── Improvement 2: Intent Fan-Out ───────────────────────────────────────────
+
+INTENT_PROMPT = """Given this buyer question, generate diverse intent variations.
+Each variation should test a DIFFERENT buying intent, not just synonym swaps.
+
+Base question: "{query}"
+
+Generate one query for EACH intent type:
+1. Comparison: "alternatives to [known brand]" or "[brand] vs [brand]"
+2. Use-case: narrow to a specific industry, team size, or workflow
+3. Objection: address a concern (price, compliance, security, integrations)
+4. Persona: reframe for a specific buyer role (CTO, researcher, procurement)
+5. Budget: focus on cost/value dimension
+
+Return ONLY a JSON array of 5 strings:
+```json
+["comparison query", "use-case query", "objection query", "persona query", "budget query"]
+```"""
+
+
+def intent_fan_out(
+    base_queries: list[str],
+    model_caller=None,
+) -> list[str]:
+    """
+    Expand queries by intent type, not just paraphrase.
+    Each base query generates 5 intent-diverse variants.
+    """
+    caller = model_caller or CALLERS.get("chatgpt")
+    if not caller:
+        return []
+
+    intent_queries = []
+
+    for query in base_queries:
+        try:
+            raw = caller(INTENT_PROMPT.format(query=query))
+            data = _parse_json(raw)
+            if data and isinstance(data, list):
+                for q in data:
+                    if isinstance(q, str) and q.strip():
+                        intent_queries.append(q.strip())
+        except Exception:
+            pass
+
+    return intent_queries
+
+
+# ── Improvement 3: Independent Extraction ───────────────────────────────────
+
+INDEPENDENT_EXTRACT_PROMPT = """Read this AI response and list every company, brand, or product that is explicitly recommended or discussed.
+Do NOT add brands that aren't actually there. Only extract what's genuinely mentioned.
+
+Response to analyze:
+---
+{response_text}
+---
+
+Return a JSON block:
+```json
+{{
+  "brands_found": [
+    {{"brand": "ExactName", "position": 1, "sentiment": "positive|neutral|negative"}}
+  ]
+}}
+```
+
+Position 1 = first/most prominent. Include ALL brands mentioned."""
+
+# Rotation: use a different model to verify extraction
+_VERIFIER_ROTATION = {
+    "chatgpt": "claude",
+    "claude": "gemini",
+    "gemini": "chatgpt",
+}
+
+
+def independent_extract(
+    response_text: str,
+    primary_model: str,
+) -> tuple[dict | None, str]:
+    """
+    Send response to a DIFFERENT model for independent brand extraction.
+    Returns (parsed_data, verifier_model_name).
+    """
+    verifier_name = _VERIFIER_ROTATION.get(primary_model, "claude")
+    verifier = CALLERS.get(verifier_name)
+    if not verifier:
+        return None, verifier_name
+
+    try:
+        prompt = INDEPENDENT_EXTRACT_PROMPT.format(
+            response_text=response_text[:3000]
+        )
+        raw = verifier(prompt)
         data = _parse_json(raw)
-        if data and isinstance(data, list):
-            for q in data:
-                if isinstance(q, str) and q.strip() and q not in all_queries:
-                    all_queries.append(q.strip())
+        return data, verifier_name
     except Exception:
-        pass
-
-    return all_queries
+        return None, verifier_name
 
 
-# ── Two-pass collection ─────────────────────────────────────────────────────
+def _compare_extractions(
+    primary_brands: dict[str, dict],
+    independent_brands: dict[str, dict],
+    tracked_brands: list[str],
+) -> tuple[set[str], set[str], bool]:
+    """
+    Compare primary vs independent extraction for tracked brands.
+    Returns (agreed_brands, disagreed_brands, has_disagreement).
+    """
+    agreed = set()
+    disagreed = set()
+
+    for brand in tracked_brands:
+        bl = brand.lower()
+        in_primary = bl in primary_brands
+        in_independent = bl in independent_brands
+
+        if in_primary and in_independent:
+            agreed.add(brand)
+        elif in_primary or in_independent:
+            disagreed.add(brand)
+        # both absent = agreement (not mentioned)
+
+    return agreed, disagreed, len(disagreed) > 0
+
+
+# ── Two-pass organic collection ─────────────────────────────────────────────
 #
-# Pass 1 (ORGANIC): Ask the buyer question naturally. No brand names in the
-#         prompt. See what the LLM recommends on its own.
-#
-# Pass 2 (EXTRACT): Parse the organic response for tracked brands using
-#         case-insensitive matching. Record position, sentiment, and whether
-#         each tracked brand appeared organically.
-#
-# This eliminates the prompt bias where telling the LLM "check these brands"
-# causes it to mention them even if it doesn't know them.
+# Pass 1 (ORGANIC): Ask the buyer question naturally. No brand names.
+# Pass 2 (EXTRACT): Check for tracked brands in the response.
+# Pass 3 (VERIFY):  Optionally cross-validate with a different model.
 # ═══════════════════════════════════════════════════════════════════════════
 
 ORGANIC_PROMPT = """Answer this question as a knowledgeable advisor. Recommend specific products, companies, or brands by name. Be concrete — don't say "there are many options", actually name them.
@@ -147,24 +313,41 @@ def collect(
     samples_per_query: int = 2,
     fan_out: bool = True,
     on_progress=None,
+    # Improvement toggles
+    multi_generator_fanout: bool = False,
+    intent_fanout: bool = False,
+    cross_validate_extraction: bool = False,
+    cross_validate_rate: float = 0.5,
 ) -> tuple[list[dict], list[dict]]:
     """
-    Two-pass organic collection.
+    Organic collection with optional improvements:
 
-    1. Ask buyer questions WITHOUT brand names → get organic recommendations
-    2. Check if tracked brands appear in the organic response
+    - multi_generator_fanout: use all 3 models for paraphrases (not just ChatGPT)
+    - intent_fanout: generate intent-diverse queries (comparison, use-case, budget, etc.)
+    - cross_validate_extraction: verify brand extraction with a second model
 
     Returns (observations, api_logs).
     """
     brands = [target] + competitors
 
-    # Fan out queries for broader coverage
-    if fan_out and len(queries) < 6:
-        all_queries = fan_out_queries(queries)
+    # Build query set
+    all_queries = list(queries)
+
+    # Intent fan-out (on base queries only, before paraphrasing)
+    if intent_fanout:
+        intent_qs = intent_fan_out(queries)
+        all_queries = _dedup_queries(all_queries + intent_qs)
         if on_progress:
-            on_progress(0, 0, "system", f"Fan-out: {len(queries)} → {len(all_queries)} queries")
-    else:
-        all_queries = list(queries)
+            on_progress(0, 0, "system", f"Intent fan-out: {len(queries)} → {len(all_queries)} queries")
+
+    # Paraphrase fan-out
+    if fan_out and len(all_queries) < 15:
+        all_queries = fan_out_queries(
+            all_queries,
+            multi_generator=multi_generator_fanout,
+        )
+        if on_progress:
+            on_progress(0, 0, "system", f"Paraphrase fan-out: → {len(all_queries)} total queries")
 
     observations = []
     api_logs = []
@@ -214,12 +397,46 @@ def collect(
                     # Then also do case-insensitive string matching on raw text
                     raw_lower = (raw or "").lower()
 
+                    # --- Pass 3 (optional): cross-validate with a different model ---
+                    independent_brands = {}
+                    did_cross_validate = False
+                    has_disagreement = False
+
+                    if cross_validate_extraction and raw:
+                        # Verify at the configured rate (e.g., 50% of calls)
+                        import hashlib
+                        call_hash = int(hashlib.md5(f"{query}{model_name}{sample_idx}".encode()).hexdigest()[:8], 16)
+                        should_verify = (call_hash % 100) < (cross_validate_rate * 100)
+
+                        if should_verify:
+                            ind_data, verifier = independent_extract(raw, model_name)
+                            did_cross_validate = True
+                            log_entry["verifier_model"] = verifier
+
+                            if ind_data and "brands_found" in ind_data:
+                                for m in ind_data["brands_found"]:
+                                    name = m.get("brand", "")
+                                    independent_brands[name.lower()] = m
+
+                    # --- Build observations for tracked brands ---
                     for brand in brands:
                         brand_lower = brand.lower()
 
-                        # Check JSON first, then raw text fallback
                         found_in_json = brand_lower in mentioned_in_json
                         found_in_text = brand_lower in raw_lower
+
+                        # If cross-validated, only count as mentioned if BOTH agree
+                        if did_cross_validate:
+                            found_in_independent = brand_lower in independent_brands
+                            if found_in_json and not found_in_independent:
+                                has_disagreement = True
+                                # Primary says yes, verifier says no → don't count (conservative)
+                                found_in_json = False
+                            elif not found_in_json and found_in_independent:
+                                has_disagreement = True
+                                # Primary missed it, verifier found it → count it
+                                found_in_json = True
+                                mentioned_in_json[brand_lower] = independent_brands[brand_lower]
 
                         if found_in_json:
                             m = mentioned_in_json[brand_lower]
@@ -232,10 +449,10 @@ def collect(
                                 "organic": True,
                                 "position": m.get("position"),
                                 "sentiment": m.get("sentiment", "neutral"),
+                                "cross_validated": did_cross_validate,
+                                "extraction_disagreement": has_disagreement,
                             })
                         elif found_in_text:
-                            # Brand found in raw text but not in structured JSON
-                            # Estimate position from text offset
                             pos = raw_lower.index(brand_lower)
                             total_len = len(raw_lower) or 1
                             estimated_position = max(1, round((pos / total_len) * 10))
@@ -248,6 +465,8 @@ def collect(
                                 "organic": True,
                                 "position": estimated_position,
                                 "sentiment": "neutral",
+                                "cross_validated": did_cross_validate,
+                                "extraction_disagreement": has_disagreement,
                             })
                         else:
                             observations.append({
@@ -259,7 +478,12 @@ def collect(
                                 "organic": True,
                                 "position": None,
                                 "sentiment": None,
+                                "cross_validated": did_cross_validate,
+                                "extraction_disagreement": has_disagreement,
                             })
+
+                    if has_disagreement:
+                        log_entry["status"] = "extraction_conflict"
 
                 except Exception as e:
                     log_entry["status"] = "error"

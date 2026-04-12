@@ -38,6 +38,11 @@ class CollectRequest(BaseModel):
     queries: list[str]
     models: list[str] = Field(default=["chatgpt", "claude", "gemini"])
     samples_per_query: int = Field(default=2, ge=1, le=5)
+    # Engine improvements (all default off for backward compat)
+    multi_generator_fanout: bool = False
+    intent_fanout: bool = False
+    cross_validate_extraction: bool = False
+    cross_validate_rate: float = Field(default=0.5, ge=0, le=1)
 
 class BrandResult(BaseModel):
     brand: str
@@ -252,6 +257,10 @@ async def run_collection(req: CollectRequest):
         models=req.models,
         samples_per_query=req.samples_per_query,
         on_progress=lambda done, total, m, q: print(f"  [{done}/{total}] {m} | {q[:50]}"),
+        multi_generator_fanout=req.multi_generator_fanout,
+        intent_fanout=req.intent_fanout,
+        cross_validate_extraction=req.cross_validate_extraction,
+        cross_validate_rate=req.cross_validate_rate,
     )
 
     # 1b. Persist raw API logs to Convex

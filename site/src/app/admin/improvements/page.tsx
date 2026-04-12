@@ -274,18 +274,27 @@ export default function ImprovementsPage() {
           {[
             {
               title: "Per-model ranking models",
-              desc: "Train separate surrogates for ChatGPT, Claude, and Gemini instead of one aggregate model. Each model has different citation behavior (Yext 17.2M study).",
+              status: "done",
+              desc: "Train separate surrogates for ChatGPT, Claude, and Gemini instead of one aggregate model. Each model has different citation behavior (Yext 17.2M study). Whatif returns per_model predictions.",
             },
             {
               title: "Content analysis from website URL",
-              desc: "Crawl the user's website to extract GEO features (statistics density, quotation count, freshness, content length) as independent variables for the surrogate model.",
+              status: "done",
+              desc: "Crawl the user's website to extract 9 GEO features (statistics, quotations, citations, length, readability, freshness, schema, headings). Content features wired into surrogate as independent input variables.",
+            },
+            {
+              title: "Content features as surrogate input",
+              status: "done",
+              desc: "CONTENT_FEATURE_NAMES (7 features from content analysis) merged into training rows alongside observation features. Separates 'what you control' from 'what you observe' — the causal fix.",
             },
             {
               title: "Temporal validation (lagged features)",
+              status: "planned",
               desc: "Predict next-week's mention rate from this-week's content features, not same-day regression. Requires 30+ days of accumulated data.",
             },
             {
               title: "Weekly backtesting",
+              status: "planned",
               desc: "Compare last week's predictions to this week's actual mention rates. Automated model quality tracking.",
             },
           ].map((item) => (
@@ -293,8 +302,8 @@ export default function ImprovementsPage() {
               key={item.title}
               className="paper-card rounded-[1.4rem] p-4 flex items-start gap-3"
             >
-              <span className="rounded-full border border-gray-200 bg-gray-50 px-2.5 py-0.5 text-[10px] font-semibold text-gray-500 shrink-0 mt-0.5">
-                planned
+              <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-semibold shrink-0 mt-0.5 ${item.status === "done" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-gray-200 bg-gray-50 text-gray-500"}`}>
+                {item.status}
               </span>
               <div>
                 <p className="text-sm font-semibold text-[var(--ink)]">

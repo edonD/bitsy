@@ -130,4 +130,30 @@ http.route({
   }),
 });
 
+// ── API Logs ──────────────────────────────────────────────────────────────
+
+http.route({
+  path: "/pipeline/apiLogs/store",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const body = await request.json();
+    const ids = await ctx.runMutation(api.apiLogs.store, body);
+    return new Response(JSON.stringify({ ids }), {
+      headers: { "Content-Type": "application/json" },
+    });
+  }),
+});
+
+http.route({
+  path: "/pipeline/apiLogs/getRecent",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const body = await request.json();
+    const data = await ctx.runQuery(api.apiLogs.getRecent, body);
+    return new Response(JSON.stringify({ data }), {
+      headers: { "Content-Type": "application/json" },
+    });
+  }),
+});
+
 export default http;

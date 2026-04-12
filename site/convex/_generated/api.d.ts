@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as apiLogs from "../apiLogs.js";
 import type * as http from "../http.js";
 import type * as logs from "../logs.js";
 import type * as mentions from "../mentions.js";
@@ -21,6 +22,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  apiLogs: typeof apiLogs;
   http: typeof http;
   logs: typeof logs;
   mentions: typeof mentions;

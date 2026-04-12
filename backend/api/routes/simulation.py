@@ -245,7 +245,7 @@ async def run_collection(req: CollectRequest):
     cx.add_log("collect", f"Starting collection for {req.target}", "pending")
 
     # 1. Collect from real LLM APIs
-    observations = collect(
+    observations, api_logs = collect(
         target=req.target,
         competitors=req.competitors,
         queries=req.queries,
@@ -253,6 +253,25 @@ async def run_collection(req: CollectRequest):
         samples_per_query=req.samples_per_query,
         on_progress=lambda done, total, m, q: print(f"  [{done}/{total}] {m} | {q[:50]}"),
     )
+
+    # 1b. Persist raw API logs to Convex
+    log_records = []
+    for log in api_logs:
+        log_records.append({
+            "date": today,
+            "query": log["query"],
+            "model": log["model"],
+            "sample": log["sample"],
+            "prompt_sent": log["prompt_sent"],
+            "raw_response": (log.get("raw_response") or "")[:4000],  # cap at 4KB
+            "parsed_brands": log.get("parsed"),
+            "status": log["status"],
+            "error": log.get("error"),
+        })
+    for i in range(0, len(log_records), 20):
+        cx.store_api_logs(log_records[i:i + 20])
+
+    cx.add_log("collect", f"Stored {len(api_logs)} API call logs", "success")
 
     # 2. Write raw observations to Convex
     mention_records = []
@@ -451,6 +470,16 @@ async def get_importance():
     if not _store["model"]:
         raise HTTPException(status_code=400, detail="No model. Run /collect first.")
     return {"importance": _store["model"].importance, "r2": _store["model"].r2}
+
+
+@router.get("/logs")
+async def get_api_logs(limit: int = 50):
+    """Get recent raw API call logs (prompt sent, response received)."""
+    try:
+        logs = cx.get_recent_api_logs(limit)
+        return {"logs": logs, "count": len(logs)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/recommendations")

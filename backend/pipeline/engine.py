@@ -98,14 +98,16 @@ def collect(
     models: list[str] = ["chatgpt", "claude", "gemini"],
     samples_per_query: int = 2,
     on_progress=None,
-) -> list[dict]:
+) -> tuple[list[dict], list[dict]]:
     """
-    Run real API calls and return observations.
+    Run real API calls and return (observations, api_logs).
 
-    Each observation: {query, model, sample, brand, mentioned, position, sentiment}
+    observations: [{query, model, sample, brand, mentioned, position, sentiment}]
+    api_logs:     [{query, model, sample, prompt_sent, raw_response, parsed, status, error}]
     """
     brands = [target] + competitors
     observations = []
+    api_logs = []
     total = len(queries) * len(models) * samples_per_query
     done = 0
 
@@ -120,9 +122,24 @@ def collect(
                 if on_progress:
                     on_progress(done, total, model_name, query)
 
+                log_entry = {
+                    "query": query,
+                    "model": model_name,
+                    "sample": sample_idx,
+                    "prompt_sent": prompt,
+                    "raw_response": None,
+                    "parsed": None,
+                    "status": "pending",
+                    "error": None,
+                }
+
                 try:
                     raw = caller(prompt)
+                    log_entry["raw_response"] = raw
                     data = _parse_json(raw)
+                    log_entry["parsed"] = data
+                    log_entry["status"] = "success" if data else "parse_error"
+
                     if data:
                         mentioned_map = {
                             m["brand"]: m
@@ -151,9 +168,13 @@ def collect(
                                     "sentiment": None,
                                 })
                 except Exception as e:
+                    log_entry["status"] = "error"
+                    log_entry["error"] = str(e)
                     print(f"  ERROR [{model_name}]: {e}")
 
-    return observations
+                api_logs.append(log_entry)
+
+    return observations, api_logs
 
 
 # ═══════════════════════════════════════════════════════════════════════════

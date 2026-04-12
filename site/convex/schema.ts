@@ -92,4 +92,20 @@ export default defineSchema({
   })
     .index("by_step", ["step"])
     .index("by_timestamp", ["timestamp"]),
+
+  // Raw API call logs (prompt sent, response received)
+  api_logs: defineTable({
+    date: v.string(),
+    query: v.string(),
+    model: v.string(),
+    sample: v.number(),
+    prompt_sent: v.string(),
+    raw_response: v.optional(v.string()),
+    parsed_brands: v.optional(v.any()),
+    status: v.string(),
+    error: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_date", ["date"])
+    .index("by_model", ["model"]),
 });

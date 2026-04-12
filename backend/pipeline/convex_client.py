@@ -84,3 +84,13 @@ def add_log(step: str, message: str, status: str, data: Any = None) -> str:
         "status": status,
         "data": data,
     })["id"]
+
+
+# ── API Logs ────────────────────────────────────────────────────────────────
+
+def store_api_logs(records: list[dict]) -> list:
+    return _post("/pipeline/apiLogs/store", {"records": records})["ids"]
+
+
+def get_recent_api_logs(limit: int = 50) -> list[dict]:
+    return _post("/pipeline/apiLogs/getRecent", {"limit": limit})["data"]

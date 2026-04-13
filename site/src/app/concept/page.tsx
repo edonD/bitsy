@@ -327,13 +327,20 @@ export default function ConceptPage() {
         <section className="mt-14 border-t border-[color:var(--line)] pt-10">
           <h2 className="mb-6 text-3xl text-[var(--ink)]">The surrogate model: architecture and theory</h2>
 
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-3 text-sm text-amber-800 mb-6">
+            <strong>Implementation status:</strong> The current engine uses XGBoost with
+            feature-importance-weighted attribution and bootstrap residual intervals. The
+            techniques below (CQR, TreeSHAP-IQ, ADWIN, CPCV) describe the target architecture
+            we are building toward — included here for methodological transparency.
+          </div>
+
           <div className="space-y-4 text-base leading-8 text-[var(--muted)]">
             <p>
               Calling LLM APIs for every what-if question costs ~$0.005/query and takes 2-5 seconds.
               Instead, we build a <strong>surrogate model</strong> — an XGBoost proxy trained on
-              accumulated daily observations that predicts mention rate from 14 features
-              in ~1ms. Nature Scientific Reports showed XGBoost surrogates achieve up to
-              10<sup>6</sup> speedup with R&sup2; of 0.97 <a href="#ref-12" className="ink-link">[12]</a>.
+              accumulated daily observations that predicts mention rate from 14 observation features
+              plus 7 content features in ~1ms. Nature Scientific Reports showed XGBoost surrogates
+              achieve up to 10<sup>6</sup> speedup with R&sup2; of 0.97 <a href="#ref-12" className="ink-link">[12]</a>.
             </p>
           </div>
 
@@ -353,7 +360,7 @@ export default function ConceptPage() {
           <div className="space-y-4 text-base leading-8 text-[var(--muted)]">
             <p>
               A point prediction is useless without knowing how uncertain it is. We
-              use <strong>Conformalized Quantile Regression (CQR)</strong> <a href="#ref-14" className="ink-link">[14]</a>,
+              plan to use <strong>Conformalized Quantile Regression (CQR)</strong> <a href="#ref-14" className="ink-link">[14]</a>,
               which provides distribution-free, finite-sample coverage guarantees:
             </p>
           </div>
@@ -396,7 +403,7 @@ export default function ConceptPage() {
           <div className="space-y-4 text-base leading-8 text-[var(--muted)]">
             <p>
               LLM behavior changes: models update, RAG sources rotate, competitors shift. We
-              use <strong>ADWIN</strong> (Adaptive Windowing) <a href="#ref-17" className="ink-link">[17]</a> for
+              plan to use <strong>ADWIN</strong> (Adaptive Windowing) <a href="#ref-17" className="ink-link">[17]</a> for
               online drift detection on each feature stream:
             </p>
           </div>
@@ -428,7 +435,7 @@ export default function ConceptPage() {
           <div className="space-y-4 text-base leading-8 text-[var(--muted)]">
             <p>
               Since ChatGPT, Claude, and Gemini behave differently <a href="#ref-5" className="ink-link">[5]</a>,
-              we use XGBoost&apos;s native <code>multi_output_tree</code> strategy to train a single
+              we train separate per-model XGBoost surrogates (one for ChatGPT, Claude, Gemini) rather than a single
               tree ensemble predicting mention rate for all three simultaneously. Each split
               optimizes across all targets, capturing shared signal (freshness helps everywhere)
               while allowing per-model divergence (Claude weights reviews higher). When a user
@@ -460,7 +467,7 @@ export default function ConceptPage() {
             {[
               { step: "1", title: "Collect", desc: "Poll ChatGPT, Claude, Gemini at temperature=0. Store every observation in Convex with brand, position, sentiment, model." },
               { step: "2", title: "Extract", desc: "Compute 14 features per brand: mention rate, position stats, sentiment, model agreement, competitive dynamics, query coverage." },
-              { step: "3", title: "Train", desc: "XGBoost multi-output regressor on all accumulated data. CQR for prediction intervals. CPCV for validation. TreeSHAP-IQ for explanations." },
+              { step: "3", title: "Train", desc: "XGBoost surrogate (aggregate + per-model) on all accumulated data. Currently: feature-importance attribution. Target: CQR intervals, CPCV validation, TreeSHAP-IQ explanations." },
               { step: "4", title: "Detect", desc: "ADWIN monitors each feature stream for drift. When detected: auto-retrain, log, alert." },
               { step: "5", title: "Predict", desc: "User toggles a GEO strategy. Surrogate predicts per-model mention rates in ~1ms with conformal intervals and interaction explanations." },
               { step: "6", title: "Recommend", desc: "Rank which changes help most: predicted lift, effort level, specific tactics — grounded in GEO paper findings." },

@@ -10,6 +10,7 @@ GET  /api/simulations/importance   — feature importance from trained model
 GET  /api/simulations/recommendations — actionable GEO recommendations
 """
 
+import asyncio
 import time
 from datetime import date
 from typing import Optional
@@ -17,7 +18,15 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from pipeline.engine import collect, extract_all, extract_all_per_model, merge_content_features, SurrogateModel, FEATURE_NAMES, CONTENT_FEATURE_NAMES
+from pipeline.engine import (
+    collect,
+    extract_all,
+    extract_all_per_model,
+    merge_content_features_for_brand,
+    SurrogateModel,
+    FEATURE_NAMES,
+    CONTENT_FEATURE_NAMES,
+)
 from pipeline.content_analyzer import analyze_url, analyze_text, rate_features, compute_overall_score, generate_summary
 from pipeline import convex_client as cx
 
@@ -37,6 +46,7 @@ class CollectRequest(BaseModel):
     target: str
     competitors: list[str]
     queries: list[str]
+    website_url: Optional[str] = None
     models: list[str] = Field(default=["chatgpt", "claude", "gemini"])
     samples_per_query: int = Field(default=2, ge=1, le=5)
     # Engine improvements (all default off for backward compat)
@@ -208,7 +218,111 @@ FEATURE_ACTIONS = {
             "Counter negative narratives with data",
         ],
     },
+    # ── Content features (controllable by the user) ─────────────────────
+    "statistics_density": {
+        "action": "Add statistics and data points to your content",
+        "target": 8.0,
+        "effort": "low",
+        "tactics": [
+            "Include concrete numbers, percentages, and data-backed claims",
+            "Add comparison metrics (X% faster, Y% cheaper)",
+            "Reference industry benchmarks and research findings",
+        ],
+    },
+    "quotation_count": {
+        "action": "Add expert quotations to your content",
+        "target": 4,
+        "effort": "low",
+        "tactics": [
+            "Quote industry analysts or recognized experts",
+            "Include customer testimonials with attribution",
+            "Reference research papers with direct quotes",
+        ],
+    },
+    "citation_count": {
+        "action": "Cite credible external sources",
+        "target": 6,
+        "effort": "low",
+        "tactics": [
+            "Link to authoritative industry reports and studies",
+            "Reference well-known publications (TechCrunch, Forbes, Nature)",
+            "Add numbered references to academic papers",
+        ],
+    },
+    "content_length": {
+        "action": "Expand your content to 5-10K characters",
+        "target": 7000,
+        "effort": "medium",
+        "tactics": [
+            "Add detailed explanations for each product feature",
+            "Include comparison sections with competitors",
+            "Write FAQ sections addressing common buyer questions",
+        ],
+    },
+    "readability_grade": {
+        "action": "Improve content readability",
+        "target": 10,
+        "effort": "low",
+        "tactics": [
+            "Shorten sentences to 15-20 words average",
+            "Use active voice instead of passive constructions",
+            "Break complex paragraphs into bullet points",
+        ],
+    },
+    "freshness_days": {
+        "action": "Refresh your content (update within 30 days)",
+        "target": 14,
+        "effort": "low",
+        "tactics": [
+            "Update publication and modification dates",
+            "Refresh statistics with the most recent data available",
+            "Add recent developments, product updates, or news",
+        ],
+    },
+    "heading_count": {
+        "action": "Improve content structure with headings",
+        "target": 8,
+        "effort": "low",
+        "tactics": [
+            "Add H2 sections for each major topic",
+            "Use H3 subsections for detailed breakdowns",
+            "Structure content as scannable sections AI can extract",
+        ],
+    },
 }
+
+
+def _clean_training_rows(samples: list[dict]) -> list[dict]:
+    clean = []
+    for sample in samples:
+        row = {
+            key: sample[key]
+            for key in ["brand", "date", "mention_rate"] + FEATURE_NAMES + CONTENT_FEATURE_NAMES
+            if key in sample
+        }
+        clean.append(row)
+    return clean
+
+
+def _latest_rows_by_brand(samples: list[dict]) -> list[dict]:
+    latest: dict[str, dict] = {}
+    for sample in sorted(samples, key=lambda s: (s.get("date", ""), s.get("brand", ""))):
+        brand = sample.get("brand")
+        if brand:
+            latest[brand] = sample
+    return list(latest.values())
+
+
+def _content_metrics(analysis) -> dict[str, float | int | None]:
+    return {
+        "statistics_density": analysis.statistics_density,
+        "quotation_count": analysis.quotation_count,
+        "citation_count": analysis.citation_count,
+        "content_length": analysis.content_length,
+        "readability_grade": analysis.readability_grade,
+        "freshness_days": analysis.freshness_days,
+        "heading_count": analysis.h1_count + analysis.h2_count + analysis.h3_count,
+    }
 
 # ── Startup: load from Convex ──────────────────────────────────────────────
 
@@ -220,16 +334,14 @@ def _load_from_convex():
             print("  Convex: no training samples yet")
             return
 
-        # Clean Convex metadata fields
-        clean = []
-        for s in samples:
-            row = {k: s[k] for k in ["brand", "mention_rate"] + FEATURE_NAMES if k in s}
-            clean.append(row)
+        clean = _clean_training_rows(samples)
+        latest = _latest_rows_by_brand(clean)
+        has_content = any(CONTENT_FEATURE_NAMES[0] in s for s in clean)
 
-        model = SurrogateModel()
+        model = SurrogateModel(use_content_features=has_content)
         metrics = model.train(clean)
         _store["model"] = model
-        _store["features"] = clean
+        _store["features"] = latest
 
         brands = list({s["brand"] for s in clean})
         print(f"  Convex: loaded {len(clean)} training samples, {len(brands)} brands, R2={metrics['r2']:.4f}")
@@ -309,12 +421,24 @@ async def run_collection(req: CollectRequest):
     # 3. Extract features for all brands
     all_brands = [req.target] + req.competitors
     rows = extract_all(observations, all_brands, req.models, req.queries)
+    content_metrics = None
+    if req.website_url:
+        analysis = await asyncio.to_thread(analyze_url, req.website_url)
+        if not analysis.fetch_error:
+            content_metrics = _content_metrics(analysis)
+            merge_content_features_for_brand(rows, req.target, content_metrics)
+            cx.add_log("content", f"Analyzed content for {req.target}", "success", content_metrics)
+        else:
+            cx.add_log("content", f"Content analysis failed for {req.target}", "error", {"error": analysis.fetch_error})
+            merge_content_features_for_brand(rows, req.target, None)
+    else:
+        merge_content_features_for_brand(rows, req.target, None)
 
     # 4. Write brand signals to Convex
     signal_records = []
     training_records = []
     for r in rows:
-        signal = {"date": today, **{k: r[k] for k in ["brand", "mention_rate"] + FEATURE_NAMES}}
+        signal = {"date": today, **{k: r[k] for k in ["brand", "mention_rate"] + FEATURE_NAMES + CONTENT_FEATURE_NAMES if k in r}}
         signal_records.append(signal)
         training_records.append(signal)
 
@@ -325,10 +449,7 @@ async def run_collection(req: CollectRequest):
 
     # 5. Train model on ALL accumulated Convex data (not just today)
     all_samples = cx.get_all_training_samples()
-    clean_samples = []
-    for s in all_samples:
-        row = {k: s[k] for k in ["brand", "mention_rate"] + FEATURE_NAMES + CONTENT_FEATURE_NAMES if k in s}
-        clean_samples.append(row)
+    clean_samples = _clean_training_rows(all_samples)
 
     # Check if any content features exist in the data
     has_content = any(CONTENT_FEATURE_NAMES[0] in s for s in clean_samples)
@@ -338,11 +459,9 @@ async def run_collection(req: CollectRequest):
 
     # Train per-model surrogates from today's observations
     per_model_rows = extract_all_per_model(observations, all_brands, req.models, req.queries)
-    # Merge content features if we have them
-    if has_content:
-        for model_name in per_model_rows:
-            merge_content_features(per_model_rows[model_name], rows[0] if rows else None)
-    per_model_metrics = model.train_per_model(per_model_rows)
+    for model_name in per_model_rows:
+        merge_content_features_for_brand(per_model_rows[model_name], req.target, content_metrics)
+    model.train_per_model(per_model_rows)
 
     _store["model"] = model
     _store["features"] = rows  # current day's features for what-if
@@ -351,10 +470,10 @@ async def run_collection(req: CollectRequest):
         "competitors": req.competitors,
         "queries": req.queries,
         "models": req.models,
+        "website_url": req.website_url,
     }
 
     # 6. Store training run metadata in Convex
-    run_count = len(cx.get_all_training_samples())  # already fetched
     cx.store_training_run({
         "date": today,
         "r2_score": metrics["r2"],
@@ -386,7 +505,7 @@ async def run_collection(req: CollectRequest):
 
     return CollectResponse(
         total_observations=len(observations),
-        total_calls=len(req.queries) * len(req.models) * req.samples_per_query,
+        total_calls=len(api_logs),
         brands=brands_out,
         model_metrics=metrics,
         training_samples_total=len(clean_samples),
@@ -401,12 +520,14 @@ async def retrain_model():
     if not samples:
         raise HTTPException(status_code=400, detail="No training data in Convex.")
 
-    clean = [{k: s[k] for k in ["brand", "mention_rate"] + FEATURE_NAMES if k in s} for s in samples]
+    clean = _clean_training_rows(samples)
+    latest = _latest_rows_by_brand(clean)
+    has_content = any(CONTENT_FEATURE_NAMES[0] in s for s in clean)
 
-    model = SurrogateModel()
+    model = SurrogateModel(use_content_features=has_content)
     metrics = model.train(clean)
     _store["model"] = model
-    _store["features"] = clean
+    _store["features"] = latest
 
     today = date.today().isoformat()
     cx.store_training_run({
@@ -478,15 +599,22 @@ async def get_status():
     brands = list({s["brand"] for s in samples}) if samples else []
     target = _store["config"]["target"] if _store.get("config") else None
 
+    try:
+        from datetime import date
+        today_mentions = cx.get_mentions_by_date(date.today().isoformat())
+        obs_count = len(today_mentions)
+    except Exception:
+        obs_count = 0
+
     return StatusResponse(
         has_data=len(samples) > 0,
-        observation_count=0,
+        observation_count=obs_count,
         training_sample_count=len(samples),
         model_trained=_store["model"] is not None,
         model_r2=_store["model"].r2 if _store["model"] else None,
         target=target,
         brands=brands,
-        feature_names=FEATURE_NAMES,
+        feature_names=FEATURE_NAMES + (CONTENT_FEATURE_NAMES if _store["model"] and _store["model"].use_content_features else []),
     )
 
 
@@ -583,6 +711,7 @@ class AnalyzeContentResponse(BaseModel):
     url: Optional[str]
     title: Optional[str]
     features: list[ContentFeatureResponse]
+    metrics: dict[str, float | int | None]
     summary: str
     content_length: int
     word_count: int
@@ -592,8 +721,6 @@ class AnalyzeContentResponse(BaseModel):
 @router.post("/analyze-content", response_model=AnalyzeContentResponse)
 async def analyze_content_endpoint(req: AnalyzeContentRequest):
     """Analyze a URL or raw text for GEO-relevant content features."""
-    import asyncio
-
     if not req.url and not req.text:
         raise HTTPException(status_code=400, detail="Provide either 'url' or 'text'.")
 
@@ -604,7 +731,7 @@ async def analyze_content_endpoint(req: AnalyzeContentRequest):
 
     if analysis.fetch_error:
         return AnalyzeContentResponse(
-            url=analysis.url, title=None, features=[], summary=analysis.fetch_error,
+            url=analysis.url, title=None, features=[], metrics={}, summary=analysis.fetch_error,
             content_length=0, word_count=0, overall_score=0, fetch_error=analysis.fetch_error,
         )
 
@@ -621,7 +748,7 @@ async def analyze_content_endpoint(req: AnalyzeContentRequest):
     ]
 
     return AnalyzeContentResponse(
-        url=analysis.url, title=analysis.title, features=features,
+        url=analysis.url, title=analysis.title, features=features, metrics=_content_metrics(analysis),
         summary=summary, content_length=analysis.content_length,
         word_count=analysis.word_count, overall_score=score, fetch_error=None,
     )

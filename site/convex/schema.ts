@@ -108,4 +108,12 @@ export default defineSchema({
   })
     .index("by_date", ["date"])
     .index("by_model", ["model"]),
+
+  // Waitlist signups
+  waitlist: defineTable({
+    email: v.string(),
+    source: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_email", ["email"]),
 });

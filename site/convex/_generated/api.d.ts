@@ -14,6 +14,7 @@ import type * as logs from "../logs.js";
 import type * as mentions from "../mentions.js";
 import type * as signals from "../signals.js";
 import type * as training from "../training.js";
+import type * as waitlist from "../waitlist.js";
 
 import type {
   ApiFromModules,
@@ -28,6 +29,7 @@ declare const fullApi: ApiFromModules<{
   mentions: typeof mentions;
   signals: typeof signals;
   training: typeof training;
+  waitlist: typeof waitlist;
 }>;
 
 /**

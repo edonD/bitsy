@@ -1,19 +1,26 @@
 "use client";
 
 import { useState } from "react";
+import { useMutation } from "convex/react";
+import { api } from "../../../convex/_generated/api";
 
 export function Pricing() {
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [alreadyExists, setAlreadyExists] = useState(false);
+  const joinWaitlist = useMutation(api.waitlist.join);
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!email.trim()) return;
-    // Store in localStorage for now — replace with real backend later
-    const existing = JSON.parse(localStorage.getItem("bitsy-waitlist") || "[]");
-    existing.push({ email: email.trim(), date: new Date().toISOString() });
-    localStorage.setItem("bitsy-waitlist", JSON.stringify(existing));
-    setSubmitted(true);
+    try {
+      const result = await joinWaitlist({ email: email.trim(), source: "homepage" });
+      setAlreadyExists(result.alreadyExists);
+      setSubmitted(true);
+    } catch {
+      // Fallback: still show success (don't block user if Convex is down)
+      setSubmitted(true);
+    }
   }
 
   return (
@@ -90,10 +97,12 @@ export function Pricing() {
               </>
             ) : (
               <div className="text-center py-6">
-                <p className="text-3xl text-[var(--ink)] mb-2">You&apos;re in.</p>
+                <p className="text-3xl text-[var(--ink)] mb-2">
+                  {alreadyExists ? "You\u2019re already on the list." : "You\u2019re in."}
+                </p>
                 <p className="text-sm text-[var(--muted)]">
                   We&apos;ll email you at <strong className="text-[var(--ink)]">{email}</strong> when
-                  early access opens. You&apos;re locked in for 50% off.
+                  early access opens.{!alreadyExists && " You\u2019re locked in for 50% off."}
                 </p>
               </div>
             )}

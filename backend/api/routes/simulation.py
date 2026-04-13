@@ -458,22 +458,28 @@ async def run_collection(req: CollectRequest):
     model = SurrogateModel(use_content_features=has_content)
     metrics = model.train(clean_samples)
 
-    # Train per-model surrogates on accumulated data
-    # Group all training samples by the model they came from (stored in mention_records)
-    # For now, use all accumulated samples for each per-model surrogate
-    # (all brands have cross-model data, so each model's surrogate learns from all brands)
+    # Train per-model surrogates from today's per-model observations only
+    # (not mixed with aggregate history — that dilutes model-specific signal)
     per_model_rows: dict[str, list[dict]] = {}
     for model_name in req.models:
-        # Extract per-model features from TODAY's observations
         today_pm = extract_all_per_model(observations, all_brands, [model_name], req.queries)
         today_rows = today_pm.get(model_name, [])
-        # Add content features
-        merge_content_features(today_rows, content_metrics)
 
-        # Combine with historical: use all accumulated samples as baseline
-        # (historical samples are aggregate, but still provide signal)
-        combined = list(clean_samples) + today_rows
-        per_model_rows[model_name] = combined
+        # Content features: only apply to the TARGET brand, not competitors
+        if content_metrics:
+            for row in today_rows:
+                if row.get("brand") == req.target:
+                    for feat in CONTENT_FEATURE_NAMES:
+                        row[feat] = content_metrics.get(feat, 0) or 0
+                else:
+                    for feat in CONTENT_FEATURE_NAMES:
+                        row.setdefault(feat, 0)
+        else:
+            for row in today_rows:
+                for feat in CONTENT_FEATURE_NAMES:
+                    row.setdefault(feat, 0)
+
+        per_model_rows[model_name] = today_rows
 
     per_model_metrics = model.train_per_model(per_model_rows)
 

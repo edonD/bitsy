@@ -26,7 +26,7 @@ export function Hero() {
               href="/#pricing"
               className="btn-primary rounded-full px-8 py-3.5 font-mono text-sm font-semibold uppercase tracking-[0.08em]"
             >
-              Get started
+              Join waitlist
             </Link>
             <Link
               href="/#sample-report"
@@ -37,7 +37,7 @@ export function Hero() {
           </div>
 
           <p className="mt-6 text-sm text-[var(--muted)]">
-            Plans from $50/mo · No free trial · Tests {tools.join(", ")}
+            Coming soon &middot; 50% off for waitlist &middot; Tests {tools.join(", ")}
           </p>
         </div>
 

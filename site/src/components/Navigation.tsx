@@ -4,7 +4,7 @@ const navItems = [
   { href: "/#product", label: "Product" },
   { href: "/#how-it-works", label: "How it works" },
   { href: "/#sample-report", label: "Report" },
-  { href: "/#pricing", label: "Pricing" },
+  { href: "/concept", label: "Concept" },
   { href: "/#faq", label: "FAQ" },
 ];
 
@@ -31,7 +31,7 @@ export function Navigation() {
           href="/#pricing"
           className="btn-primary rounded-full px-5 py-2.5 text-sm font-semibold"
         >
-          Get started
+          Join waitlist
         </Link>
       </nav>
     </header>

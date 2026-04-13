@@ -7,18 +7,18 @@ export function Hero() {
     <section id="top" className="section-wash">
       <div className="mx-auto max-w-6xl px-6 pb-16 pt-16 md:pb-20 md:pt-20">
         <div className="mx-auto max-w-4xl text-center">
-          <p className="muted-label text-xs">AI search testing</p>
+          <p className="muted-label text-xs">AI visibility engine</p>
           <h1 className="mx-auto mt-6 max-w-4xl text-5xl font-semibold leading-[0.94] tracking-[-0.055em] text-[var(--ink)] sm:text-6xl md:text-7xl">
-            Test AI search
+            See how AI
             <br />
             <span className="font-[family:var(--font-display)] text-[1.02em] font-medium italic tracking-[-0.035em]">
-              before
+              talks about
             </span>{" "}
-            you publish
+            your brand
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-[var(--ink-soft)]">
-            Run real buyer prompts across {tools.join(", ")}. See where you show up, where a
-            competitor wins, and what to fix next.
+            Find out if {tools.join(", ")} recommend you or your competitors.
+            Simulate content changes and measure the impact before you publish.
           </p>
 
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">

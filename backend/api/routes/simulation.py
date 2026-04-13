@@ -95,7 +95,10 @@ class WhatIfResponse(BaseModel):
     ci_upper: float
     confidence: str
     contributions: list[ContributionItem]
-    per_model: Optional[dict] = None  # {model_name: {lift, lift_pct, base, predicted}}
+    per_model: Optional[dict] = None
+    # Confidence gates
+    data_days: int = 0
+    confidence_tier: str = "benchmark"  # "benchmark" | "emerging" | "established"
 
 class StatusResponse(BaseModel):
     has_data: bool
@@ -591,6 +594,21 @@ async def run_whatif(req: WhatIfRequest):
             for m, r in pm_results.items()
         }
 
+    # Compute confidence tier based on how much data exists for this brand
+    try:
+        brand_signals = cx.get_signals_by_brand(req.brand, days=90)
+        unique_dates = {s.get("date") for s in brand_signals}
+        data_days = len(unique_dates)
+    except Exception:
+        data_days = 0
+
+    if data_days >= 21:
+        confidence_tier = "established"
+    elif data_days >= 7:
+        confidence_tier = "emerging"
+    else:
+        confidence_tier = "benchmark"
+
     return WhatIfResponse(
         brand=req.brand,
         base_prediction=result["base_prediction"],
@@ -605,6 +623,8 @@ async def run_whatif(req: WhatIfRequest):
             for c in result["contributions"]
         ],
         per_model=per_model,
+        data_days=data_days,
+        confidence_tier=confidence_tier,
     )
 
 
@@ -773,3 +793,43 @@ async def analyze_content_endpoint(req: AnalyzeContentRequest):
         summary=summary, content_length=analysis.content_length,
         word_count=analysis.word_count, overall_score=score, fetch_error=None,
     )
+
+
+# ── Benchmark ──────────────────────────────────────────────────────────────
+
+@router.post("/benchmark/run")
+async def run_benchmark(verticals: list[str] | None = None):
+    """Trigger a benchmark panel run (admin only)."""
+    import asyncio
+    from pipeline.benchmark import run_daily_benchmark, BENCHMARK_VERTICALS
+
+    async def _run():
+        return await asyncio.to_thread(
+            run_daily_benchmark,
+            verticals=verticals,
+            on_progress=lambda msg: print(f"  benchmark: {msg}"),
+        )
+
+    result = await _run()
+
+    # Reload model from fresh Convex data
+    _load_from_convex()
+
+    return result
+
+
+@router.get("/benchmark/status")
+async def benchmark_status():
+    """Get benchmark corpus info and latest run."""
+    from pipeline.benchmark import BENCHMARK_VERTICALS, get_all_brands, get_all_queries, PROMPT_VERSION
+
+    latest_run = cx.get_latest_training_run()
+
+    return {
+        "verticals": len(BENCHMARK_VERTICALS),
+        "brands": len(get_all_brands()),
+        "queries": len(get_all_queries()),
+        "prompt_version": PROMPT_VERSION,
+        "latest_run": latest_run,
+        "vertical_names": list(BENCHMARK_VERTICALS.keys()),
+    }

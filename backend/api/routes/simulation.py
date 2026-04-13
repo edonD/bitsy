@@ -22,6 +22,7 @@ from pipeline.engine import (
     collect,
     extract_all,
     extract_all_per_model,
+    merge_content_features,
     merge_content_features_for_brand,
     SurrogateModel,
     FEATURE_NAMES,
@@ -457,11 +458,24 @@ async def run_collection(req: CollectRequest):
     model = SurrogateModel(use_content_features=has_content)
     metrics = model.train(clean_samples)
 
-    # Train per-model surrogates from today's observations
-    per_model_rows = extract_all_per_model(observations, all_brands, req.models, req.queries)
-    for model_name in per_model_rows:
-        merge_content_features_for_brand(per_model_rows[model_name], req.target, content_metrics)
-    model.train_per_model(per_model_rows)
+    # Train per-model surrogates on accumulated data
+    # Group all training samples by the model they came from (stored in mention_records)
+    # For now, use all accumulated samples for each per-model surrogate
+    # (all brands have cross-model data, so each model's surrogate learns from all brands)
+    per_model_rows: dict[str, list[dict]] = {}
+    for model_name in req.models:
+        # Extract per-model features from TODAY's observations
+        today_pm = extract_all_per_model(observations, all_brands, [model_name], req.queries)
+        today_rows = today_pm.get(model_name, [])
+        # Add content features
+        merge_content_features(today_rows, content_metrics)
+
+        # Combine with historical: use all accumulated samples as baseline
+        # (historical samples are aggregate, but still provide signal)
+        combined = list(clean_samples) + today_rows
+        per_model_rows[model_name] = combined
+
+    per_model_metrics = model.train_per_model(per_model_rows)
 
     _store["model"] = model
     _store["features"] = rows  # current day's features for what-if
@@ -668,7 +682,8 @@ async def get_recommendations(brand: str):
         target_val = info["target"]
 
         # Only recommend if there's room to improve
-        improves_up = feat not in ("avg_position", "negative_rate", "model_spread", "brands_ahead")
+        # These features improve when the value goes DOWN (lower = better)
+        improves_up = feat not in ("avg_position", "negative_rate", "model_spread", "brands_ahead", "readability_grade", "freshness_days")
         if improves_up and current >= target_val:
             continue
         if not improves_up and current <= target_val:

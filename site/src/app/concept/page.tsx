@@ -467,10 +467,10 @@ export default function ConceptPage() {
             {[
               { step: "1", title: "Collect", desc: "Poll ChatGPT, Claude, Gemini at temperature=0. Store every observation in Convex with brand, position, sentiment, model." },
               { step: "2", title: "Extract", desc: "Compute 14 features per brand: mention rate, position stats, sentiment, model agreement, competitive dynamics, query coverage." },
-              { step: "3", title: "Train", desc: "XGBoost surrogate (aggregate + per-model) on all accumulated data. Currently: feature-importance attribution. Target: CQR intervals, CPCV validation, TreeSHAP-IQ explanations." },
-              { step: "4", title: "Detect", desc: "ADWIN monitors each feature stream for drift. When detected: auto-retrain, log, alert." },
-              { step: "5", title: "Predict", desc: "User toggles a GEO strategy. Surrogate predicts per-model mention rates in ~1ms with conformal intervals and interaction explanations." },
-              { step: "6", title: "Recommend", desc: "Rank which changes help most: predicted lift, effort level, specific tactics — grounded in GEO paper findings." },
+              { step: "3", title: "Train", desc: "XGBoost surrogate (aggregate + per-model) on accumulated data. Feature-importance attribution for explanations. Planned: CQR intervals, CPCV validation, TreeSHAP-IQ interactions." },
+              { step: "4", title: "Detect", desc: "Planned: ADWIN drift detection on each feature stream. When detected: auto-retrain, log, alert. Requires 30+ days of daily collections." },
+              { step: "5", title: "Predict", desc: "User toggles a GEO strategy or analyzes draft content. Surrogate predicts per-model mention rates in ~1ms. Planned: conformal intervals." },
+              { step: "6", title: "Recommend", desc: "Rank which content and observation changes help most: predicted lift, effort level, specific tactics — grounded in GEO paper findings." },
             ].map((s) => (
               <div key={s.step} className="paper-card rounded-[1.4rem] p-4 flex items-start gap-4">
                 <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--ink)] text-sm font-bold text-[var(--paper)]">

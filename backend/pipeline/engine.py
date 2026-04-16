@@ -18,7 +18,7 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 import xgboost as xgb
-from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
 # ── LLM callers ─────────────────────────────────────────────────────────────
 
@@ -338,7 +338,7 @@ def collect(
         intent_qs = intent_fan_out(queries)
         all_queries = _dedup_queries(all_queries + intent_qs)
         if on_progress:
-            on_progress(0, 0, "system", f"Intent fan-out: {len(queries)} → {len(all_queries)} queries")
+            on_progress(0, 0, "system", f"Intent fan-out: {len(queries)} -> {len(all_queries)} queries")
 
     # Paraphrase fan-out
     if fan_out and len(all_queries) < 15:
@@ -347,7 +347,7 @@ def collect(
             multi_generator=multi_generator_fanout,
         )
         if on_progress:
-            on_progress(0, 0, "system", f"Paraphrase fan-out: → {len(all_queries)} total queries")
+            on_progress(0, 0, "system", f"Paraphrase fan-out: -> {len(all_queries)} total queries")
 
     observations = []
     api_logs = []
@@ -430,11 +430,11 @@ def collect(
                             found_in_independent = brand_lower in independent_brands
                             if found_in_json and not found_in_independent:
                                 has_disagreement = True
-                                # Primary says yes, verifier says no → don't count (conservative)
+                                # Primary says yes, verifier says no -> don't count (conservative)
                                 found_in_json = False
                             elif not found_in_json and found_in_independent:
                                 has_disagreement = True
-                                # Primary missed it, verifier found it → count it
+                                # Primary missed it, verifier found it -> count it
                                 found_in_json = True
                                 mentioned_in_json[brand_lower] = independent_brands[brand_lower]
 
@@ -693,6 +693,8 @@ CONTENT_FEATURE_NAMES = [
     "heading_count",
 ]
 
+LAG_FEATURE_NAME = "lagged_mention_rate"
+
 
 def merge_content_features(rows: list[dict], content_analysis: dict | None) -> list[dict]:
     """Merge content analysis features into training rows."""
@@ -719,6 +721,18 @@ def merge_content_features(rows: list[dict], content_analysis: dict | None) -> l
     return rows
 
 
+def merge_content_features_for_brand(
+    rows: list[dict],
+    brand: str,
+    content_analysis: dict | None,
+) -> list[dict]:
+    """Attach content features only to the specified brand and default others to zero."""
+    for row in rows:
+        target_analysis = content_analysis if row.get("brand") == brand else None
+        merge_content_features([row], target_analysis)
+    return rows
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # Surrogate model — supports aggregate + per-model training
 # ═══════════════════════════════════════════════════════════════════════════
@@ -730,11 +744,16 @@ class SurrogateModel:
         self.model: xgb.XGBRegressor | None = None
         self.per_model_models: dict[str, xgb.XGBRegressor] = {}
         self.use_content_features = use_content_features
-        self.feature_cols = FEATURE_NAMES + (CONTENT_FEATURE_NAMES if use_content_features else [])
+        self.base_feature_cols = FEATURE_NAMES + (CONTENT_FEATURE_NAMES if use_content_features else [])
+        self.feature_cols = list(self.base_feature_cols)
         self.importance: dict[str, float] = {}
         self.per_model_importance: dict[str, dict[str, float]] = {}
         self.rmse: float = 0
+        self.mae: float = 0
         self.r2: float = 0
+        self.interval_radius: float = 0
+        self.validation_mode: str = "in_sample"
+        self.training_mode: str = "same_day"
 
     def _fit_one(self, X: pd.DataFrame, y: pd.Series) -> xgb.XGBRegressor:
         model = xgb.XGBRegressor(
@@ -745,22 +764,98 @@ class SurrogateModel:
         model.fit(X, y)
         return model
 
+    def _prepare_temporal_rows(self, rows: list[dict]) -> pd.DataFrame | None:
+        df = pd.DataFrame(rows).copy()
+        if df.empty or "date" not in df.columns or "brand" not in df.columns:
+            return None
+
+        df["date"] = pd.to_datetime(df["date"], errors="coerce")
+        df = df.dropna(subset=["date"]).sort_values(["brand", "date"])
+        if df.empty or df["date"].nunique() < 2:
+            return None
+
+        # Keep the latest row per brand/day so one noisy rerun does not create multiple targets.
+        df = df.drop_duplicates(subset=["brand", "date"], keep="last").copy()
+        df[LAG_FEATURE_NAME] = df["mention_rate"]
+        df["target_mention_rate"] = df.groupby("brand")["mention_rate"].shift(-1)
+        df["target_date"] = df.groupby("brand")["date"].shift(-1)
+        df = df.dropna(subset=["target_mention_rate", "target_date"]).copy()
+
+        if len(df) < 4 or df["date"].nunique() < 2:
+            return None
+        return df
+
+    def _walk_forward_metrics(
+        self,
+        df: pd.DataFrame,
+        feature_cols: list[str],
+        target_col: str,
+    ) -> dict | None:
+        eval_dates = sorted(pd.unique(df["date"]))
+        y_true: list[float] = []
+        y_pred: list[float] = []
+
+        for eval_date in eval_dates[1:]:
+            train = df[df["date"] < eval_date]
+            test = df[df["date"] == eval_date]
+            if len(train) < 4 or test.empty:
+                continue
+
+            fitted = self._fit_one(train[feature_cols], train[target_col])
+            preds = fitted.predict(test[feature_cols])
+            y_true.extend(test[target_col].tolist())
+            y_pred.extend(preds.tolist())
+
+        if len(y_true) < 2:
+            return None
+
+        errors = np.abs(np.array(y_true) - np.array(y_pred))
+        return {
+            "rmse": float(np.sqrt(mean_squared_error(y_true, y_pred))),
+            "mae": float(mean_absolute_error(y_true, y_pred)),
+            "r2": float(r2_score(y_true, y_pred)),
+            # Conformal-style residual radius from walk-forward residuals.
+            "interval_radius": float(np.quantile(errors, 0.95)) if len(errors) else 0.0,
+            "validation_mode": "walk_forward",
+        }
+
     def train(self, rows: list[dict]) -> dict:
         """Train aggregate model on feature rows."""
-        df = pd.DataFrame(rows)
+        temporal_df = self._prepare_temporal_rows(rows)
+        target_col = "mention_rate"
 
-        # Only use feature columns that exist in the data
-        available = [c for c in self.feature_cols if c in df.columns]
-        self.feature_cols = available
-
-        X = df[available]
-        y = df["mention_rate"]
+        if temporal_df is not None:
+            self.training_mode = "next_period_forecast"
+            target_col = "target_mention_rate"
+            available = [c for c in self.base_feature_cols + [LAG_FEATURE_NAME] if c in temporal_df.columns]
+            self.feature_cols = available
+            metrics = self._walk_forward_metrics(temporal_df, available, target_col)
+            X = temporal_df[available]
+            y = temporal_df[target_col]
+        else:
+            self.training_mode = "same_day"
+            df = pd.DataFrame(rows)
+            available = [c for c in self.base_feature_cols if c in df.columns]
+            self.feature_cols = available
+            metrics = None
+            X = df[available]
+            y = df["mention_rate"]
 
         self.model = self._fit_one(X, y)
 
-        y_pred = self.model.predict(X)
-        self.rmse = float(np.sqrt(mean_squared_error(y, y_pred)))
-        self.r2 = float(r2_score(y, y_pred)) if len(y) > 1 else 0
+        if metrics:
+            self.rmse = metrics["rmse"]
+            self.mae = metrics["mae"]
+            self.r2 = metrics["r2"]
+            self.interval_radius = metrics["interval_radius"]
+            self.validation_mode = metrics["validation_mode"]
+        else:
+            y_pred = self.model.predict(X)
+            self.rmse = float(np.sqrt(mean_squared_error(y, y_pred)))
+            self.mae = float(mean_absolute_error(y, y_pred))
+            self.r2 = float(r2_score(y, y_pred)) if len(y) > 1 else 0
+            self.interval_radius = 1.96 * max(self.rmse, 2.0)
+            self.validation_mode = "in_sample"
 
         imp = self.model.feature_importances_
         self.importance = dict(sorted(
@@ -768,7 +863,15 @@ class SurrogateModel:
             key=lambda x: x[1], reverse=True,
         ))
 
-        return {"rmse": self.rmse, "r2": self.r2, "importance": self.importance}
+        return {
+            "rmse": self.rmse,
+            "mae": self.mae,
+            "r2": self.r2,
+            "importance": self.importance,
+            "interval_radius": self.interval_radius,
+            "training_mode": self.training_mode,
+            "validation_mode": self.validation_mode,
+        }
 
     def train_per_model(self, per_model_rows: dict[str, list[dict]]) -> dict[str, dict]:
         """Train separate surrogates for each LLM model."""
@@ -786,6 +889,7 @@ class SurrogateModel:
 
             y_pred = fitted.predict(X)
             rmse = float(np.sqrt(mean_squared_error(y, y_pred)))
+            mae = float(mean_absolute_error(y, y_pred))
             r2 = float(r2_score(y, y_pred)) if len(y) > 1 else 0
 
             imp = fitted.feature_importances_
@@ -794,7 +898,13 @@ class SurrogateModel:
                 key=lambda x: x[1], reverse=True,
             ))
 
-            results[model_name] = {"rmse": rmse, "r2": r2, "importance": self.per_model_importance[model_name]}
+            results[model_name] = {
+                "rmse": rmse,
+                "mae": mae,
+                "r2": r2,
+                "importance": self.per_model_importance[model_name],
+                "validation_mode": "in_sample",
+            }
 
         return results
 
@@ -806,7 +916,13 @@ class SurrogateModel:
         if m is None:
             return 0
 
-        X = pd.DataFrame([{k: features.get(k, 0) for k in self.feature_cols}])
+        row = {}
+        for key in self.feature_cols:
+            if key == LAG_FEATURE_NAME:
+                row[key] = features.get(key, features.get("mention_rate", 0))
+            else:
+                row[key] = features.get(key, 0)
+        X = pd.DataFrame([row])
         pred = float(m.predict(X)[0])
         return max(0, min(100, pred))
 
@@ -820,7 +936,7 @@ class SurrogateModel:
         lift = scenario_pred - base_pred
         lift_pct = (lift / base_pred * 100) if base_pred > 0 else 0
 
-        uncertainty = 1.96 * max(self.rmse, 2.0)
+        uncertainty = max(self.interval_radius, 1.96 * max(self.rmse, 2.0))
         ci_lower = max(0, scenario_pred - uncertainty)
         ci_upper = min(100, scenario_pred + uncertainty)
 

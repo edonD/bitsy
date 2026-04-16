@@ -15,6 +15,15 @@ load_dotenv(env_path)
 
 from api.routes import health, simulation
 
+LOCAL_DEV_ORIGINS = [
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "http://localhost:3099",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:3001",
+    "http://127.0.0.1:3099",
+]
+
 
 def create_app() -> FastAPI:
     app = FastAPI(
@@ -25,7 +34,8 @@ def create_app() -> FastAPI:
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["http://localhost:3000", "http://localhost:3001", "http://localhost:3099"],
+        allow_origins=LOCAL_DEV_ORIGINS,
+        allow_origin_regex=r"^http://(localhost|127\.0\.0\.1):\d+$",
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

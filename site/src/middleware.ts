@@ -12,6 +12,13 @@ const BLOCKED_ROUTES = [
 
 export function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
+  const hostname = request.headers.get("host") || "";
+
+  // Allow full access on localhost for development/testing
+  const isLocalhost = hostname.startsWith("localhost") || hostname.startsWith("127.0.0.1");
+  if (isLocalhost) {
+    return NextResponse.next();
+  }
 
   // Check if the path starts with any blocked route
   const isBlocked = BLOCKED_ROUTES.some((route) => path.startsWith(route));

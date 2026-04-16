@@ -19,6 +19,14 @@ const sampleFields = {
   model_agreement: v.number(),
   model_spread: v.number(),
   query_coverage: v.number(),
+  // Optional content features
+  statistics_density: v.optional(v.number()),
+  quotation_count: v.optional(v.number()),
+  citation_count: v.optional(v.number()),
+  content_length: v.optional(v.number()),
+  readability_grade: v.optional(v.number()),
+  freshness_days: v.optional(v.number()),
+  heading_count: v.optional(v.number()),
 };
 
 // Store training samples (one per brand per day)

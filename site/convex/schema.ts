@@ -19,7 +19,7 @@ export default defineSchema({
     .index("by_date_brand", ["date", "brand"]),
 
   // Aggregated brand features per day (one row per brand per day)
-  // These 14 features match engine.py FEATURE_NAMES exactly
+  // 14 FEATURE_NAMES from engine.py + 7 optional CONTENT_FEATURE_NAMES
   brand_signals: defineTable({
     date: v.string(),
     brand: v.string(),
@@ -38,13 +38,21 @@ export default defineSchema({
     model_agreement: v.number(),
     model_spread: v.number(),
     query_coverage: v.number(),
+    // Optional content features (from URL analysis, target brand only)
+    statistics_density: v.optional(v.number()),
+    quotation_count: v.optional(v.number()),
+    citation_count: v.optional(v.number()),
+    content_length: v.optional(v.number()),
+    readability_grade: v.optional(v.number()),
+    freshness_days: v.optional(v.number()),
+    heading_count: v.optional(v.number()),
     createdAt: v.number(),
   })
     .index("by_date", ["date"])
     .index("by_brand", ["brand"])
     .index("by_date_brand", ["date", "brand"]),
 
-  // Training data rows (same features as brand_signals, accumulated over days)
+  // Training data rows (same schema as brand_signals, accumulated over days)
   training_samples: defineTable({
     date: v.string(),
     brand: v.string(),
@@ -63,6 +71,14 @@ export default defineSchema({
     model_agreement: v.number(),
     model_spread: v.number(),
     query_coverage: v.number(),
+    // Optional content features
+    statistics_density: v.optional(v.number()),
+    quotation_count: v.optional(v.number()),
+    citation_count: v.optional(v.number()),
+    content_length: v.optional(v.number()),
+    readability_grade: v.optional(v.number()),
+    freshness_days: v.optional(v.number()),
+    heading_count: v.optional(v.number()),
     createdAt: v.number(),
   })
     .index("by_date", ["date"])

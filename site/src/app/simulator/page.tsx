@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { DebugPanel } from "@/components/DebugPanel"; // DEBUG PANEL — remove this line to disable
 import {
   getStatus,
   runCollection,
@@ -67,11 +68,13 @@ const TEMPLATES: { label: string; config: BrandConfig }[] = [
 function pct(n: number) { return `${n.toFixed(1)}%`; }
 function signed(n: number) { return n >= 0 ? `+${n.toFixed(1)}` : n.toFixed(1); }
 
+// Fast defaults: ~30-60 seconds per run.
+// Heavy expansions (fan-out, cross-validation) are opt-in via the admin improvements page.
 const COLLECTION_OPTIONS = {
   samples_per_query: 2,
-  multi_generator_fanout: true,
-  intent_fanout: true,
-  cross_validate_extraction: true,
+  multi_generator_fanout: false,
+  intent_fanout: false,
+  cross_validate_extraction: false,
   cross_validate_rate: 0.5,
 } as const;
 
@@ -374,6 +377,8 @@ export default function SimulatorPage() {
   // ════════════════════════════════════════════════════════════════════════
 
   return (
+    <>
+    <DebugPanel /> {/* DEBUG PANEL — remove this line to disable */}
     <div className="mx-auto max-w-6xl px-6 py-10">
       {/* Header */}
       <div className="flex flex-wrap items-end justify-between gap-4 mb-6">
@@ -1343,5 +1348,6 @@ export default function SimulatorPage() {
         <Link href="/simulator/spec" className="ink-link text-sm">Technical spec</Link>
       </div>
     </div>
+    </>
   );
 }

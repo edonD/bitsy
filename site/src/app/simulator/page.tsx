@@ -5,12 +5,21 @@ import Link from "next/link";
 import {
   getStatus,
   runCollection,
+  runWhatIf,
   analyzeContent,
+  analyzeCompetitors,
+  getQueryBreakdown,
+  getCitedSources,
+  getTrends,
   type BrandResult,
   type CollectResponse,
   type StatusResponse,
   type ContentAnalysisResponse,
-  type ContentFeature,
+  type WhatIfResponse,
+  type CompetitorAnalysisResponse,
+  type QueryBreakdownResponse,
+  type CitedSourcesResponse,
+  type TrendsResponse,
 } from "@/lib/api";
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -22,7 +31,7 @@ interface BrandConfig {
   queries: string[];
 }
 
-type Tab = "visibility" | "simulate" | "measure";
+type Tab = "visibility" | "compete" | "simulate" | "measure";
 
 // ── Templates ──────────────────────────────────────────────────────────────
 
@@ -58,6 +67,24 @@ const TEMPLATES: { label: string; config: BrandConfig }[] = [
 function pct(n: number) { return `${n.toFixed(1)}%`; }
 function signed(n: number) { return n >= 0 ? `+${n.toFixed(1)}` : n.toFixed(1); }
 
+const COLLECTION_OPTIONS = {
+  samples_per_query: 2,
+  multi_generator_fanout: true,
+  intent_fanout: true,
+  cross_validate_extraction: true,
+  cross_validate_rate: 0.5,
+} as const;
+
+const CONTENT_METRIC_KEYS = [
+  "statistics_density",
+  "quotation_count",
+  "citation_count",
+  "content_length",
+  "readability_grade",
+  "freshness_days",
+  "heading_count",
+] as const;
+
 function Bar({ value, max, color, label }: { value: number; max: number; color: string; label: string }) {
   const w = max > 0 ? Math.max(2, (value / max) * 100) : 2;
   return (
@@ -82,23 +109,55 @@ export default function SimulatorPage() {
   const [isSetup, setIsSetup] = useState(true);
   const [collecting, setCollecting] = useState(false);
   const [collectResult, setCollectResult] = useState<CollectResponse | null>(null);
+  const [lastMeasuredKey, setLastMeasuredKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [backendStatus, setBackendStatus] = useState<StatusResponse | null>(null);
 
   // Simulate tab
   const [draftContent, setDraftContent] = useState("");
-  const [contentAnalysis, setContentAnalysis] = useState<ContentAnalysisResponse | null>(null);
+  const [websiteAnalysis, setWebsiteAnalysis] = useState<ContentAnalysisResponse | null>(null);
+  const [draftAnalysis, setDraftAnalysis] = useState<ContentAnalysisResponse | null>(null);
   const [analyzingContent, setAnalyzingContent] = useState(false);
   const [simulating, setSimulating] = useState(false);
-  const [simBaseline, setSimBaseline] = useState<CollectResponse | null>(null);
-  const [simWithContent, setSimWithContent] = useState<CollectResponse | null>(null);
+  const [simulationResult, setSimulationResult] = useState<WhatIfResponse | null>(null);
 
   // Measure tab
   const [runs, setRuns] = useState<{ label: string; date: string; data: CollectResponse }[]>([]);
   const [compareA, setCompareA] = useState<number | null>(null);
   const [compareB, setCompareB] = useState<number | null>(null);
 
+  // Compete tab
+  const [competitorUrls, setCompetitorUrls] = useState<Record<string, string>>({});
+  const [compAnalysis, setCompAnalysis] = useState<CompetitorAnalysisResponse | null>(null);
+  const [competing, setCompeting] = useState(false);
+  const [compError, setCompError] = useState<string | null>(null);
+  const [queryBreakdown, setQueryBreakdownState] = useState<QueryBreakdownResponse | null>(null);
+  const [citedSources, setCitedSources] = useState<CitedSourcesResponse | null>(null);
+  const [trends, setTrends] = useState<TrendsResponse | null>(null);
+  const [loadingBreakdown, setLoadingBreakdown] = useState(false);
+
   useEffect(() => { getStatus().then(setBackendStatus).catch(() => null); }, []);
+
+  // Load breakdown + sources when entering Compete tab with a collection result
+  useEffect(() => {
+    if (tab === "compete" && collectResult && brand.name) {
+      setLoadingBreakdown(true);
+      Promise.all([
+        getQueryBreakdown(7).catch(() => null),
+        getCitedSources(brand.name, 7).catch(() => null),
+      ]).then(([qb, cs]) => {
+        if (qb) setQueryBreakdownState(qb);
+        if (cs) setCitedSources(cs);
+      }).finally(() => setLoadingBreakdown(false));
+    }
+  }, [tab, collectResult, brand.name]);
+
+  // Load trends when entering Measure tab
+  useEffect(() => {
+    if (tab === "measure" && brand.name) {
+      getTrends(brand.name, 30).then(setTrends).catch(() => null);
+    }
+  }, [tab, brand.name]);
 
   // ── Actions ────────────────────────────────────────────────────────────
 
@@ -118,24 +177,57 @@ export default function SimulatorPage() {
   }
 
   const canRun = brand.name.trim() && brand.competitors.length > 0 && brand.queries.length > 0;
+  const currentSetupKey = JSON.stringify({
+    name: brand.name.trim(),
+    website: brand.website.trim(),
+    competitors: [...brand.competitors].sort(),
+    queries: brand.queries,
+  });
+  const hasCollectedCurrentBrand =
+    lastMeasuredKey === currentSetupKey &&
+    (collectResult?.brands.some((b) => b.brand === brand.name && b.is_target) ?? false);
+
+  function contentChangesFromAnalysis(data: ContentAnalysisResponse | null) {
+    if (!data) return {} as Record<string, number>;
+
+    return CONTENT_METRIC_KEYS.reduce<Record<string, number>>((acc, key) => {
+      const value = data.metrics[key];
+      if (typeof value === "number" && Number.isFinite(value)) {
+        acc[key] = value;
+      }
+      return acc;
+    }, {});
+  }
 
   async function runVisibility() {
     if (!canRun) return;
     setCollecting(true);
     setError(null);
+    setDraftAnalysis(null);
+    setSimulationResult(null);
 
     // Analyze website content in parallel with LLM collection
     if (brand.website) {
       analyzeContent({ url: brand.website })
-        .then(setContentAnalysis)
+        .then(setWebsiteAnalysis)
         .catch(() => null);
+    } else {
+      setWebsiteAnalysis(null);
     }
 
     try {
-      const result = await runCollection({ target: brand.name, competitors: brand.competitors, queries: brand.queries, samples_per_query: 2 });
+      const result = await runCollection({
+        target: brand.name,
+        competitors: brand.competitors,
+        queries: brand.queries,
+        website_url: brand.website || undefined,
+        ...COLLECTION_OPTIONS,
+      });
       setCollectResult(result);
+      setLastMeasuredKey(currentSetupKey);
       setIsSetup(false);
       setRuns((prev) => [{ label: `Run ${prev.length + 1}`, date: new Date().toLocaleString(), data: result }, ...prev]);
+      getStatus().then(setBackendStatus).catch(() => null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Collection failed");
     } finally { setCollecting(false); }
@@ -146,24 +238,88 @@ export default function SimulatorPage() {
     setSimulating(true);
     setError(null);
     try {
-      const baseline = await runCollection({ target: brand.name, competitors: brand.competitors, queries: brand.queries, samples_per_query: 2 });
-      setSimBaseline(baseline);
-      const contentQueries = brand.queries.map((q) => `Context: ${draftContent.slice(0, 2000)}\n\nQuestion: ${q}`);
-      const withContent = await runCollection({ target: brand.name, competitors: brand.competitors, queries: contentQueries, samples_per_query: 2 });
-      setSimWithContent(withContent);
+      let baseline = collectResult;
+      if (!hasCollectedCurrentBrand) {
+        baseline = await runCollection({
+          target: brand.name,
+          competitors: brand.competitors,
+          queries: brand.queries,
+          website_url: brand.website || undefined,
+          ...COLLECTION_OPTIONS,
+        });
+        setCollectResult(baseline);
+        setLastMeasuredKey(currentSetupKey);
+        setIsSetup(false);
+        setRuns((prev) => [{ label: `Run ${prev.length + 1}`, date: new Date().toLocaleString(), data: baseline! }, ...prev]);
+        getStatus().then(setBackendStatus).catch(() => null);
+      }
+
+      if (brand.website && !websiteAnalysis) {
+        analyzeContent({ url: brand.website })
+          .then(setWebsiteAnalysis)
+          .catch(() => null);
+      }
+
+      const analyzedDraft = await analyzeContent({ text: draftContent });
+      setDraftAnalysis(analyzedDraft);
+
+      const changes = contentChangesFromAnalysis(analyzedDraft);
+      const result = await runWhatIf({ brand: brand.name, changes });
+      setSimulationResult(result);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Simulation failed");
     } finally { setSimulating(false); }
   }
 
-  function resetAll() { setIsSetup(true); setCollectResult(null); setError(null); setSimBaseline(null); setSimWithContent(null); setDraftContent(""); setContentAnalysis(null); }
+  function resetAll() {
+    setIsSetup(true);
+    setCollectResult(null);
+    setLastMeasuredKey(null);
+    setError(null);
+    setSimulationResult(null);
+    setDraftContent("");
+    setWebsiteAnalysis(null);
+    setDraftAnalysis(null);
+    setCompAnalysis(null);
+    setCompetitorUrls({});
+    setQueryBreakdownState(null);
+    setCitedSources(null);
+    setTrends(null);
+  }
+
+  async function runCompetitorAnalysis() {
+    if (!brand.name || !brand.website) {
+      setCompError("Brand name and website URL required");
+      return;
+    }
+    if (brand.competitors.length === 0) {
+      setCompError("Add at least one competitor");
+      return;
+    }
+    setCompeting(true);
+    setCompError(null);
+    try {
+      const result = await analyzeCompetitors({
+        target: { brand: brand.name, url: brand.website },
+        competitors: brand.competitors.map((c) => ({
+          brand: c,
+          url: competitorUrls[c] || undefined,
+        })),
+      });
+      setCompAnalysis(result);
+    } catch (e) {
+      setCompError(e instanceof Error ? e.message : "Analysis failed");
+    } finally {
+      setCompeting(false);
+    }
+  }
 
   async function analyzeDraft() {
     if (!draftContent.trim()) return;
     setAnalyzingContent(true);
     try {
       const result = await analyzeContent({ text: draftContent });
-      setContentAnalysis(result);
+      setDraftAnalysis(result);
     } catch { /* silent */ }
     finally { setAnalyzingContent(false); }
   }
@@ -235,7 +391,7 @@ export default function SimulatorPage() {
       {error && (
         <div className="mb-6 rounded-2xl border border-rose-200 bg-rose-50 px-5 py-3 text-sm text-rose-800">
           {error}
-          <span className="ml-2 text-xs text-rose-500">Backend running? <code className="font-mono">uvicorn api.app:app --port 8000</code></span>
+          <span className="ml-2 text-xs text-rose-500">Backend running? <code className="font-mono">cd backend; poetry run uvicorn api.app:app --port 8000</code></span>
         </div>
       )}
 
@@ -243,8 +399,9 @@ export default function SimulatorPage() {
       <div className="flex items-center gap-1 mb-8 border-b border-[color:var(--line)]">
         {([
           { id: "visibility" as Tab, label: "Visibility", desc: "Where you stand now" },
+          { id: "compete" as Tab, label: "Compete", desc: "Gap analysis vs competitors" },
           { id: "simulate" as Tab, label: "Simulate", desc: "Test before publishing" },
-          { id: "measure" as Tab, label: "Measure", desc: "Compare runs" },
+          { id: "measure" as Tab, label: "Measure", desc: "Track over time" },
         ]).map((t) => (
           <button key={t.id} onClick={() => setTab(t.id)} className={`relative px-5 py-3.5 text-sm font-semibold transition-colors ${tab === t.id ? "text-[var(--ink)]" : "text-[var(--muted)] hover:text-[var(--ink)]"}`}>
             {t.label}
@@ -349,7 +506,7 @@ export default function SimulatorPage() {
                 <div className="metric-card"><p className="text-xs uppercase tracking-[0.16em] text-[var(--muted)]">Brand</p><p className="mt-1 text-xl text-[var(--ink)]">{brand.name || "—"}</p>{brand.website && <p className="mt-1 text-xs text-[var(--muted)] truncate">{brand.website}</p>}</div>
                 <div className="metric-card"><p className="text-xs uppercase tracking-[0.16em] text-[var(--muted)]">Competitors</p><p className="mt-1 text-2xl text-[var(--ink)]">{brand.competitors.length}</p></div>
                 <div className="metric-card"><p className="text-xs uppercase tracking-[0.16em] text-[var(--muted)]">Questions</p><p className="mt-1 text-2xl text-[var(--ink)]">{brand.queries.length}</p></div>
-                <div className="metric-card"><p className="text-xs uppercase tracking-[0.16em] text-[var(--muted)]">API calls</p><p className="mt-1 text-2xl text-[var(--ink)]">{brand.queries.length * 6}</p><p className="mt-1 text-xs text-[var(--muted)]">{brand.queries.length} &times; 3 models &times; 2 samples</p></div>
+                <div className="metric-card"><p className="text-xs uppercase tracking-[0.16em] text-[var(--muted)]">Base API calls</p><p className="mt-1 text-2xl text-[var(--ink)]">{brand.queries.length * 6}</p><p className="mt-1 text-xs text-[var(--muted)]">{brand.queries.length} &times; 3 models &times; 2 samples, before query expansion</p></div>
               </div>
               <button onClick={runVisibility} disabled={!canRun || collecting} className={`mt-6 w-full rounded-2xl px-4 py-3.5 text-sm font-semibold ${canRun && !collecting ? "btn-primary" : "cursor-not-allowed bg-[rgba(26,23,20,0.12)] text-[var(--muted)]"}`}>
                 {collecting ? "Calling APIs..." : "Check my visibility"}
@@ -365,7 +522,7 @@ export default function SimulatorPage() {
         <div className="paper-panel rounded-[2rem] p-12 text-center">
           <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-[var(--ink)] text-[var(--paper)] text-lg font-bold mb-4 animate-pulse">B</div>
           <p className="text-lg font-semibold text-[var(--ink)]">Checking AI visibility for {brand.name}</p>
-          <p className="mt-2 text-sm text-[var(--muted)]">Asking {brand.queries.length} questions to ChatGPT, Claude, and Gemini</p>
+          <p className="mt-2 text-sm text-[var(--muted)]">Asking your questions to ChatGPT, Claude, and Gemini with query fan-out and extraction checks</p>
           {brand.website && <p className="mt-1 text-xs text-[var(--muted)]">{brand.website}</p>}
         </div>
       )}
@@ -496,8 +653,8 @@ export default function SimulatorPage() {
           )}
 
           {/* Content analysis from website */}
-          {contentAnalysis && contentAnalysis.features.length > 0 && (
-            <ContentAnalysisPanel data={contentAnalysis} label="Your website content" />
+          {websiteAnalysis && websiteAnalysis.features.length > 0 && (
+            <ContentAnalysisPanel data={websiteAnalysis} label="Your website content" />
           )}
 
           {/* Low visibility warning */}
@@ -516,17 +673,384 @@ export default function SimulatorPage() {
       })()}
 
       {/* ═══════════════════════════════════════════════════════════════ */}
+      {/* COMPETE TAB                                                    */}
+      {/* ═══════════════════════════════════════════════════════════════ */}
+      {tab === "compete" && (
+        <div className="space-y-6">
+          {/* Setup — URL inputs for competitors */}
+          <div className="paper-panel rounded-[2rem] p-6">
+            <p className="muted-label text-xs mb-1">Competitor analysis</p>
+            <h2 className="text-2xl text-[var(--ink)] mb-2">
+              Gap analysis vs your competitors
+            </h2>
+            <p className="text-sm text-[var(--muted)] mb-6">
+              We&apos;ll crawl your site and each competitor&apos;s site, then show
+              you exactly where you&apos;re behind — grounded in real numbers, not
+              generic advice.
+            </p>
+
+            {!brand.name.trim() && (
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-3 text-sm text-amber-800 mb-6">
+                Set up your brand in the Visibility tab first.
+              </div>
+            )}
+
+            {brand.name && (
+              <>
+                <div className="mb-5">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-[var(--muted)] mb-3">
+                    Your website
+                  </p>
+                  <div className="paper-card rounded-[1.2rem] p-4 flex items-center gap-3">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--ink)] text-xs font-bold text-[var(--paper)]">
+                      {brand.name[0]?.toUpperCase()}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-[var(--ink)]">{brand.name}</p>
+                      <p className="text-xs text-[var(--muted)] truncate">{brand.website || "No URL set"}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <p className="text-xs font-semibold uppercase tracking-wider text-[var(--muted)] mb-3">
+                  Competitor URLs (optional — we can still compare mention rates without crawling)
+                </p>
+                <div className="space-y-2">
+                  {brand.competitors.map((c) => (
+                    <div key={c} className="flex items-center gap-3">
+                      <span className="w-32 shrink-0 text-sm text-[var(--ink)] font-semibold truncate">{c}</span>
+                      <input
+                        type="url"
+                        value={competitorUrls[c] || ""}
+                        onChange={(e) => setCompetitorUrls({ ...competitorUrls, [c]: e.target.value })}
+                        placeholder={`https://${c.toLowerCase().replace(/\s+/g, "")}.com`}
+                        className="field-input flex-1"
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                {compError && (
+                  <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-5 py-3 text-sm text-rose-800">
+                    {compError}
+                  </div>
+                )}
+
+                <button
+                  onClick={runCompetitorAnalysis}
+                  disabled={competing || !brand.website}
+                  className={`mt-6 rounded-2xl px-6 py-3.5 text-sm font-semibold ${
+                    competing || !brand.website
+                      ? "cursor-not-allowed bg-[rgba(26,23,20,0.12)] text-[var(--muted)]"
+                      : "btn-primary"
+                  }`}
+                >
+                  {competing ? "Crawling competitors..." : "Run gap analysis"}
+                </button>
+              </>
+            )}
+          </div>
+
+          {/* Loading state */}
+          {competing && (
+            <div className="paper-panel rounded-[2rem] p-10 text-center">
+              <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-[var(--ink)] text-[var(--paper)] text-lg font-bold mb-4 animate-pulse">B</div>
+              <p className="text-lg font-semibold text-[var(--ink)]">Crawling {brand.competitors.length + 1} websites...</p>
+              <p className="mt-2 text-sm text-[var(--muted)]">Extracting GEO features from each competitor&apos;s content</p>
+            </div>
+          )}
+
+          {/* Results */}
+          {compAnalysis && !competing && (() => {
+            const successfulCompetitors = compAnalysis.competitors.filter((c) => c.analysis);
+            const failedCompetitors = compAnalysis.competitors.filter((c) => !c.analysis);
+
+            return (
+              <>
+                {/* Summary */}
+                <div className="paper-panel rounded-[2rem] p-6">
+                  <p className="muted-label text-xs mb-1">Crawl summary</p>
+                  <div className="grid gap-4 sm:grid-cols-3 mt-4">
+                    <div className="metric-card">
+                      <p className="text-xs uppercase tracking-[0.16em] text-[var(--muted)]">Target</p>
+                      <p className="mt-1 text-lg text-[var(--ink)]">{compAnalysis.target.brand}</p>
+                      <p className="text-xs text-[var(--muted)] truncate">{compAnalysis.target.url}</p>
+                    </div>
+                    <div className="metric-card">
+                      <p className="text-xs uppercase tracking-[0.16em] text-[var(--muted)]">Crawled</p>
+                      <p className="mt-1 text-3xl text-[var(--ink)]">{successfulCompetitors.length}<span className="text-lg text-[var(--muted)]">/{compAnalysis.competitors.length}</span></p>
+                      <p className="text-xs text-[var(--muted)]">competitors</p>
+                    </div>
+                    <div className="metric-card">
+                      <p className="text-xs uppercase tracking-[0.16em] text-[var(--muted)]">Gaps found</p>
+                      <p className="mt-1 text-3xl text-rose-700">{compAnalysis.gaps.filter((g) => g.gap_direction === "behind").length}</p>
+                      <p className="text-xs text-[var(--muted)]">features where you lag</p>
+                    </div>
+                  </div>
+
+                  {failedCompetitors.length > 0 && (
+                    <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
+                      Could not crawl: {failedCompetitors.map((c) => `${c.brand} (${c.error})`).join(", ")}
+                    </div>
+                  )}
+                </div>
+
+                {/* Top recommendations with specifics */}
+                {compAnalysis.recommendations.length > 0 && (
+                  <div className="paper-panel rounded-[2rem] p-6">
+                    <p className="muted-label text-xs mb-1">Specific actions</p>
+                    <h2 className="text-2xl text-[var(--ink)] mb-2">
+                      What to do, grounded in real competitor data
+                    </h2>
+                    <p className="text-sm text-[var(--muted)] mb-6">
+                      Top {compAnalysis.recommendations.length} actions ranked by gap size and research-backed impact.
+                    </p>
+
+                    <div className="space-y-4">
+                      {compAnalysis.recommendations.map((rec, i) => {
+                        const priorityColor =
+                          rec.priority === "high" ? "border-rose-300 bg-rose-50/50"
+                          : rec.priority === "medium" ? "border-amber-300 bg-amber-50/50"
+                          : "border-[color:var(--line)]";
+                        const priorityBadge =
+                          rec.priority === "high" ? "bg-rose-100 text-rose-800"
+                          : rec.priority === "medium" ? "bg-amber-100 text-amber-800"
+                          : "bg-gray-100 text-gray-700";
+
+                        return (
+                          <div key={rec.feature} className={`rounded-[1.4rem] border-2 ${priorityColor} p-5`}>
+                            <div className="flex items-start gap-3 mb-3">
+                              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--ink)] text-sm font-bold text-[var(--paper)] shrink-0">
+                                {i + 1}
+                              </span>
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <h3 className="text-lg font-semibold text-[var(--ink)]">{rec.action}</h3>
+                                  <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${priorityBadge}`}>
+                                    {rec.priority}
+                                  </span>
+                                  <span className="rounded-full border border-[color:var(--line)] bg-[rgba(255,255,255,0.7)] px-2.5 py-0.5 text-[10px] font-semibold text-[var(--muted)]">
+                                    {rec.effort} effort
+                                  </span>
+                                </div>
+                                <p className="mt-2 text-sm leading-relaxed text-[var(--ink)]">{rec.detail}</p>
+                                <p className="mt-2 text-xs italic text-[var(--muted)]">{rec.evidence}</p>
+
+                                {/* Gap visualization */}
+                                <div className="mt-3 flex items-center gap-3">
+                                  <div className="flex-1 flex items-center gap-2 text-xs">
+                                    <span className="text-[var(--muted)] w-16 shrink-0">You:</span>
+                                    <div className="flex-1 h-2 bg-[rgba(114,105,92,0.15)] rounded-full overflow-hidden">
+                                      <div
+                                        className="h-full bg-[var(--muted)] rounded-full"
+                                        style={{ width: `${Math.max(2, (rec.target_value / Math.max(rec.leader_value, 1)) * 100)}%` }}
+                                      />
+                                    </div>
+                                    <span className="font-mono text-[var(--ink)] w-12 text-right">{rec.target_value}</span>
+                                  </div>
+                                </div>
+                                <div className="mt-1 flex items-center gap-3">
+                                  <div className="flex-1 flex items-center gap-2 text-xs">
+                                    <span className="text-[var(--muted)] w-16 shrink-0 truncate">{rec.leader_brand}:</span>
+                                    <div className="flex-1 h-2 bg-[rgba(114,105,92,0.15)] rounded-full overflow-hidden">
+                                      <div className="h-full bg-emerald-500 rounded-full" style={{ width: "100%" }} />
+                                    </div>
+                                    <span className="font-mono text-[var(--ink)] w-12 text-right">{rec.leader_value}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Side-by-side feature comparison */}
+                {compAnalysis.gaps.length > 0 && (
+                  <div className="paper-panel rounded-[2rem] p-6">
+                    <p className="muted-label text-xs mb-1">Full comparison</p>
+                    <h2 className="text-2xl text-[var(--ink)] mb-6">All features side-by-side</h2>
+                    <div className="paper-card rounded-[1.4rem] overflow-x-auto">
+                      <table className="w-full border-collapse text-sm">
+                        <thead>
+                          <tr className="bg-[rgba(255,255,255,0.42)]">
+                            <th className="border-b border-[color:var(--line)] px-4 py-3 text-left font-semibold text-[var(--ink)]">Feature</th>
+                            <th className="border-b border-[color:var(--line)] px-4 py-3 text-right font-semibold text-[var(--ink)]">You</th>
+                            <th className="border-b border-[color:var(--line)] px-4 py-3 text-right font-semibold text-[var(--ink)]">Competitors avg</th>
+                            <th className="border-b border-[color:var(--line)] px-4 py-3 text-left font-semibold text-[var(--ink)]">Leader</th>
+                            <th className="border-b border-[color:var(--line)] px-4 py-3 text-right font-semibold text-[var(--ink)]">Leader value</th>
+                            <th className="border-b border-[color:var(--line)] px-4 py-3 text-right font-semibold text-[var(--ink)]">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[color:var(--line)]">
+                          {compAnalysis.gaps.map((g) => {
+                            const statusColor =
+                              g.gap_direction === "behind" ? "text-rose-700"
+                              : g.gap_direction === "ahead" ? "text-emerald-700"
+                              : "text-[var(--muted)]";
+                            const statusLabel =
+                              g.gap_direction === "behind" ? `behind by ${Math.abs(g.gap).toFixed(1)}`
+                              : g.gap_direction === "ahead" ? `ahead by ${Math.abs(g.gap).toFixed(1)}`
+                              : g.gap_direction === "even" ? "even"
+                              : "—";
+                            return (
+                              <tr key={g.feature} className="hover:bg-[rgba(255,255,255,0.28)]">
+                                <td className="px-4 py-3 text-[var(--ink)]">{g.label}</td>
+                                <td className="px-4 py-3 text-right font-mono text-[var(--ink)]">{g.target_value}</td>
+                                <td className="px-4 py-3 text-right text-[var(--muted)]">{g.competitor_avg.toFixed(1)}</td>
+                                <td className="px-4 py-3 text-[var(--ink)] text-xs">{g.leader_brand}</td>
+                                <td className="px-4 py-3 text-right font-mono text-[var(--ink)]">{g.leader_value}</td>
+                                <td className={`px-4 py-3 text-right font-semibold ${statusColor}`}>{statusLabel}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* Per-model guidance */}
+                <div className="paper-panel rounded-[2rem] p-6">
+                  <p className="muted-label text-xs mb-1">Per-model strategy</p>
+                  <h2 className="text-2xl text-[var(--ink)] mb-2">Different AI models need different tactics</h2>
+                  <p className="text-sm text-[var(--muted)] mb-6">
+                    Yext&apos;s 17.2M citation study: no single optimization works across all models.
+                    What wins on Gemini does not win on Claude.
+                  </p>
+                  <div className="grid gap-4 md:grid-cols-3">
+                    {Object.entries(compAnalysis.model_guidance).map(([key, g]) => {
+                      const color =
+                        key === "chatgpt" ? "#10a37f"
+                        : key === "claude" ? "#d97706"
+                        : "#4285f4";
+                      return (
+                        <div key={key} className="paper-card rounded-[1.4rem] p-5">
+                          <div className="flex items-center gap-2 mb-3">
+                            <div className="h-3 w-3 rounded-full" style={{ backgroundColor: color }} />
+                            <p className="text-sm font-semibold text-[var(--ink)]">{g.label}</p>
+                          </div>
+                          <p className="text-xs text-[var(--muted)] mb-2"><strong className="text-[var(--ink)]">Mix:</strong> {g.knowledge_mix}</p>
+                          <p className="text-xs text-[var(--muted)] mb-3"><strong className="text-[var(--ink)]">Prefers:</strong> {g.prefers}</p>
+                          <ul className="space-y-1.5">
+                            {g.actions.map((a, i) => (
+                              <li key={i} className="text-xs text-[var(--muted)] flex items-start gap-2">
+                                <span className="mt-1.5 inline-block h-1 w-1 flex-none rounded-full bg-[var(--ink)]" />
+                                <span>{a}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            );
+          })()}
+
+          {/* Per-query breakdown (available if visibility was run) */}
+          {queryBreakdown && queryBreakdown.queries.length > 0 && (
+            <div className="paper-panel rounded-[2rem] p-6">
+              <p className="muted-label text-xs mb-1">Per-query breakdown</p>
+              <h2 className="text-2xl text-[var(--ink)] mb-2">Which queries are you winning?</h2>
+              <p className="text-sm text-[var(--muted)] mb-6">
+                Based on the last {queryBreakdown.days_covered} days of polling ({queryBreakdown.total_observations} observations).
+              </p>
+              <div className="space-y-3">
+                {queryBreakdown.queries.slice(0, 10).map((q) => {
+                  const targetStat = q.brands.find((b) => b.brand.toLowerCase() === brand.name.toLowerCase());
+                  const targetPos = targetStat ? q.brands.findIndex((b) => b.brand.toLowerCase() === brand.name.toLowerCase()) + 1 : null;
+                  const isWinning = q.winner?.toLowerCase() === brand.name.toLowerCase();
+
+                  return (
+                    <div key={q.query} className="paper-card rounded-[1.4rem] p-4">
+                      <div className="flex items-start justify-between gap-4 mb-3">
+                        <p className="text-sm font-medium text-[var(--ink)]">{q.query}</p>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {isWinning ? (
+                            <span className="rounded-full bg-emerald-100 text-emerald-800 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider">
+                              You win
+                            </span>
+                          ) : q.winner ? (
+                            <span className="rounded-full bg-rose-100 text-rose-800 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider">
+                              {q.winner} wins
+                            </span>
+                          ) : null}
+                          {targetPos && <span className="text-xs text-[var(--muted)]">Rank #{targetPos}</span>}
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {q.brands.slice(0, 5).map((b, i) => {
+                          const isTarget = b.brand.toLowerCase() === brand.name.toLowerCase();
+                          return (
+                            <span
+                              key={b.brand}
+                              className={`rounded-full px-2.5 py-1 text-xs font-mono ${
+                                isTarget
+                                  ? "bg-[var(--ink)] text-[var(--paper)]"
+                                  : "surface-chip text-[var(--muted)]"
+                              }`}
+                            >
+                              #{i + 1} {b.brand} <span className="opacity-60">{b.mention_rate.toFixed(0)}%</span>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Cited sources */}
+          {citedSources && citedSources.sources.length > 0 && (
+            <div className="paper-panel rounded-[2rem] p-6">
+              <p className="muted-label text-xs mb-1">Sources AI models cite</p>
+              <h2 className="text-2xl text-[var(--ink)] mb-2">
+                When {citedSources.brand} is mentioned, which sources appear?
+              </h2>
+              <p className="text-sm text-[var(--muted)] mb-6">
+                Domains appearing in {citedSources.total_responses_mentioning} responses where {citedSources.brand} was cited.
+                These are your earned-media targets.
+              </p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {citedSources.sources.slice(0, 20).map((src) => (
+                  <div key={src.domain} className="paper-card rounded-[1.2rem] px-4 py-2.5 flex items-center justify-between">
+                    <span className="text-sm text-[var(--ink)] truncate">{src.domain}</span>
+                    <span className="text-xs text-[var(--muted)] shrink-0 ml-2">
+                      {src.count}× ({src.rate.toFixed(0)}%)
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {loadingBreakdown && !queryBreakdown && (
+            <div className="paper-panel rounded-[2rem] p-6 text-center text-sm text-[var(--muted)]">
+              Loading query breakdown and cited sources...
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════════════ */}
       {/* SIMULATE TAB                                                   */}
       {/* ═══════════════════════════════════════════════════════════════ */}
       {tab === "simulate" && (
         <div className="space-y-6">
           <div className="paper-panel rounded-[2rem] p-6">
-            <p className="muted-label text-xs mb-1">Pre-publish test</p>
+            <p className="muted-label text-xs mb-1">Counterfactual forecast</p>
             <h2 className="text-2xl text-[var(--ink)] mb-2">Will this content help or hurt?</h2>
             <p className="text-sm text-[var(--muted)] mb-6">
               Paste your draft blog post, product page update, or any content you&apos;re planning
-              to publish. We&apos;ll run your buyer questions twice &mdash; once without the content
-              (baseline) and once with it injected as retrieval context &mdash; and show you the difference.
+              to publish. Bitsy scores the draft on GEO levers like statistics, quotations,
+              citations, readability, freshness, and structure, then forecasts how those changes
+              move your next visibility state.
             </p>
 
             {!brand.name.trim() && (
@@ -539,7 +1063,7 @@ export default function SimulatorPage() {
             <textarea
               value={draftContent}
               onChange={(e) => setDraftContent(e.target.value)}
-              placeholder={"Paste your blog post, product page copy, or any content you're planning to publish...\n\nThe system will inject this as retrieval context when asking AI models your buyer questions, simulating what happens when the content is indexed."}
+              placeholder={"Paste your blog post, product page copy, or any content you're planning to publish...\n\nBitsy will extract the draft's content signals and run the surrogate forecast against your latest measured brand state."}
               rows={10}
               className="field-input mt-2 resize-y"
             />
@@ -547,7 +1071,7 @@ export default function SimulatorPage() {
               {draftContent.length.toLocaleString()} characters
               {draftContent.length > 0 && draftContent.length < 500 && " — short content may have limited impact"}
               {draftContent.length >= 5000 && draftContent.length <= 10000 && " — optimal range (5-10K chars)"}
-              {draftContent.length > 10000 && " — first 2,000 characters used for context injection"}
+              {draftContent.length > 10000 && " — long-form content is fine; the analyzer scores the full draft"}
             </p>
 
             <div className="mt-6 flex flex-wrap gap-3">
@@ -555,42 +1079,40 @@ export default function SimulatorPage() {
                 {analyzingContent ? "Analyzing..." : "Analyze content"}
               </button>
               <button onClick={runSimulation} disabled={!canRun || !draftContent.trim() || simulating} className={`rounded-2xl px-6 py-3.5 text-sm font-semibold ${canRun && draftContent.trim() && !simulating ? "btn-primary" : "cursor-not-allowed bg-[rgba(26,23,20,0.12)] text-[var(--muted)]"}`}>
-                {simulating ? "Running A/B test..." : "Test this content"}
+                {simulating ? "Forecasting..." : "Run forecast"}
               </button>
             </div>
           </div>
 
           {/* Content analysis of draft */}
-          {contentAnalysis && contentAnalysis.features.length > 0 && !simBaseline && (
-            <ContentAnalysisPanel data={contentAnalysis} label="Draft content analysis" />
+          {draftAnalysis && draftAnalysis.features.length > 0 && !simulationResult && (
+            <ContentAnalysisPanel data={draftAnalysis} label="Draft content analysis" />
           )}
 
           {simulating && (
             <div className="paper-panel rounded-[2rem] p-10 text-center">
               <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-[var(--ink)] text-[var(--paper)] text-lg font-bold mb-4 animate-pulse">B</div>
-              <p className="text-lg font-semibold text-[var(--ink)]">Running A/B test for {brand.name}</p>
-              <p className="mt-2 text-sm text-[var(--muted)]">Run A: baseline &rarr; Run B: with your draft as retrieval context</p>
-              <p className="mt-1 text-xs text-[var(--muted)]">{brand.queries.length * 6 * 2} total API calls</p>
+              <p className="text-lg font-semibold text-[var(--ink)]">Forecasting impact for {brand.name}</p>
+              <p className="mt-2 text-sm text-[var(--muted)]">Refreshing baseline state if needed, analyzing the draft, then running the surrogate.</p>
             </div>
           )}
 
-          {simBaseline && simWithContent && !simulating && (() => {
-            const baseTarget = simBaseline.brands.find((b) => b.is_target);
-            const withTarget = simWithContent.brands.find((b) => b.is_target);
-            const rateDelta = baseTarget && withTarget ? withTarget.mention_rate - baseTarget.mention_rate : 0;
-            const sentDelta = baseTarget && withTarget ? withTarget.net_sentiment - baseTarget.net_sentiment : 0;
+          {simulationResult && !simulating && target && (() => {
+            const perModel = Object.entries(simulationResult.per_model ?? {});
             return (
               <div className="space-y-6">
                 <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-3 text-sm text-emerald-800">
-                  A/B test complete. Baseline vs content-injected across {brand.queries.length} questions &times; 3 models.
+                  Forecast complete. This scenario starts from your latest measured visibility and applies the draft&apos;s content signals as feature changes.
                 </div>
 
-                {/* Big delta */}
                 <div className="paper-panel rounded-[2rem] p-8 text-center">
                   <p className="muted-label text-xs mb-2">Impact on {brand.name}</p>
-                  <p className={`text-6xl font-semibold ${rateDelta >= 0 ? "text-emerald-700" : "text-rose-700"}`}>{signed(rateDelta)} pp</p>
-                  <p className="mt-2 text-sm text-[var(--muted)]">mention rate change</p>
-                  {Math.abs(sentDelta) > 0.1 && <p className={`mt-1 text-sm ${sentDelta >= 0 ? "text-emerald-700" : "text-rose-700"}`}>Sentiment: {signed(sentDelta)} pp</p>}
+                  <p className={`text-6xl font-semibold ${simulationResult.lift >= 0 ? "text-emerald-700" : "text-rose-700"}`}>{signed(simulationResult.lift)} pp</p>
+                  <p className="mt-2 text-sm text-[var(--muted)]">predicted mention rate change</p>
+                  <p className="mt-1 text-sm text-[var(--muted)]">
+                    {pct(simulationResult.base_prediction)} to <strong className="text-[var(--ink)]">{pct(simulationResult.scenario_prediction)}</strong>
+                    {" "}with {simulationResult.confidence} confidence.
+                  </p>
                 </div>
 
                 {/* Side by side */}
@@ -598,48 +1120,78 @@ export default function SimulatorPage() {
                   <div className="paper-panel rounded-[2rem] p-6">
                     <div className="flex items-center gap-2 mb-4">
                       <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[rgba(114,105,92,0.15)] text-xs font-bold text-[var(--muted)]">A</span>
-                      <span className="text-sm font-semibold text-[var(--muted)]">Without your content</span>
+                      <span className="text-sm font-semibold text-[var(--muted)]">Current measured state</span>
                     </div>
-                    {baseTarget && <><p className="text-4xl text-[var(--ink)]">{pct(baseTarget.mention_rate)}</p><p className="text-sm text-[var(--muted)] mt-1">position #{baseTarget.avg_position?.toFixed(1) ?? "—"} &middot; sentiment {signed(baseTarget.net_sentiment)}</p></>}
+                    <p className="text-4xl text-[var(--ink)]">{pct(simulationResult.base_prediction)}</p>
+                    <p className="text-sm text-[var(--muted)] mt-1">position #{target.avg_position?.toFixed(1) ?? "—"} &middot; sentiment {signed(target.net_sentiment)}</p>
                   </div>
                   <div className="paper-panel rounded-[2rem] p-6 border-2 border-[var(--ink)]">
                     <div className="flex items-center gap-2 mb-4">
                       <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--ink)] text-xs font-bold text-[var(--paper)]">B</span>
-                      <span className="text-sm font-semibold text-[var(--ink)]">With your content</span>
+                      <span className="text-sm font-semibold text-[var(--ink)]">With this draft published</span>
                     </div>
-                    {withTarget && <><p className="text-4xl text-[var(--ink)]">{pct(withTarget.mention_rate)}</p><p className="text-sm text-[var(--muted)] mt-1">position #{withTarget.avg_position?.toFixed(1) ?? "—"} &middot; sentiment {signed(withTarget.net_sentiment)}</p></>}
+                    <p className="text-4xl text-[var(--ink)]">{pct(simulationResult.scenario_prediction)}</p>
+                    <p className="text-sm text-[var(--muted)] mt-1">95% interval {pct(simulationResult.ci_lower)} to {pct(simulationResult.ci_upper)}</p>
                   </div>
                 </div>
 
-                {/* Full table */}
+                {perModel.length > 0 && (
                 <div className="paper-panel rounded-[2rem] p-6">
-                  <p className="muted-label text-xs mb-1">All brands</p>
-                  <h2 className="text-2xl text-[var(--ink)] mb-6">How your content changes the landscape</h2>
+                  <p className="muted-label text-xs mb-1">Per-model forecast</p>
+                  <h2 className="text-2xl text-[var(--ink)] mb-6">How each LLM is expected to move</h2>
                   <div className="paper-card rounded-[1.4rem] overflow-x-auto">
                     <table className="w-full border-collapse text-sm">
                       <thead><tr className="bg-[rgba(255,255,255,0.42)]">
-                        <th className="border-b border-[color:var(--line)] px-4 py-3 text-left font-semibold text-[var(--ink)]">Brand</th>
-                        <th className="border-b border-[color:var(--line)] px-4 py-3 text-right font-semibold text-[var(--ink)]">Without</th>
-                        <th className="border-b border-[color:var(--line)] px-4 py-3 text-right font-semibold text-[var(--ink)]">With content</th>
+                        <th className="border-b border-[color:var(--line)] px-4 py-3 text-left font-semibold text-[var(--ink)]">Model</th>
+                        <th className="border-b border-[color:var(--line)] px-4 py-3 text-right font-semibold text-[var(--ink)]">Current</th>
+                        <th className="border-b border-[color:var(--line)] px-4 py-3 text-right font-semibold text-[var(--ink)]">Forecast</th>
                         <th className="border-b border-[color:var(--line)] px-4 py-3 text-right font-semibold text-[var(--ink)]">Change</th>
                       </tr></thead>
                       <tbody className="divide-y divide-[color:var(--line)]">
-                        {simWithContent.brands.map((bW) => {
-                          const bA = simBaseline.brands.find((x) => x.brand === bW.brand);
-                          const d = bA ? bW.mention_rate - bA.mention_rate : 0;
-                          return (
-                            <tr key={bW.brand} className={`hover:bg-[rgba(255,255,255,0.28)] ${bW.is_target ? "font-semibold" : ""}`}>
-                              <td className="px-4 py-3 text-[var(--ink)]">{bW.brand}{bW.is_target ? " *" : ""}</td>
-                              <td className="px-4 py-3 text-right text-[var(--muted)]">{pct(bA?.mention_rate ?? 0)}</td>
-                              <td className="px-4 py-3 text-right text-[var(--muted)]">{pct(bW.mention_rate)}</td>
-                              <td className={`px-4 py-3 text-right font-semibold ${d > 0.1 ? "text-emerald-700" : d < -0.1 ? "text-rose-700" : "text-[var(--muted)]"}`}>{Math.abs(d) > 0.1 ? `${signed(d)} pp` : "—"}</td>
-                            </tr>
-                          );
-                        })}
+                        {perModel.map(([model, result]) => (
+                          <tr key={model} className="hover:bg-[rgba(255,255,255,0.28)]">
+                            <td className="px-4 py-3 text-[var(--ink)] capitalize">{model}</td>
+                            <td className="px-4 py-3 text-right text-[var(--muted)]">{pct(result.base)}</td>
+                            <td className="px-4 py-3 text-right text-[var(--muted)]">{pct(result.predicted)}</td>
+                            <td className={`px-4 py-3 text-right font-semibold ${result.lift > 0.1 ? "text-emerald-700" : result.lift < -0.1 ? "text-rose-700" : "text-[var(--muted)]"}`}>
+                              {Math.abs(result.lift) > 0.1 ? `${signed(result.lift)} pp` : "—"}
+                            </td>
+                          </tr>
+                        ))}
                       </tbody>
                     </table>
                   </div>
                 </div>
+                )}
+
+                {draftAnalysis && draftAnalysis.features.length > 0 && (
+                  <div className="grid gap-4 lg:grid-cols-2">
+                    {websiteAnalysis && websiteAnalysis.features.length > 0 && (
+                      <ContentAnalysisPanel data={websiteAnalysis} label="Current website content" />
+                    )}
+                    <ContentAnalysisPanel data={draftAnalysis} label="Draft content analysis" />
+                  </div>
+                )}
+
+                {simulationResult.contributions.length > 0 && (
+                  <div className="paper-panel rounded-[2rem] p-6">
+                    <p className="muted-label text-xs mb-1">Why the model moved</p>
+                    <h2 className="text-2xl text-[var(--ink)] mb-6">Feature-level contributions</h2>
+                    <div className="space-y-3">
+                      {simulationResult.contributions.map((item) => (
+                        <div key={item.feature} className="paper-card rounded-[1.4rem] p-4 flex items-center justify-between gap-4">
+                          <div>
+                            <p className="text-sm font-semibold text-[var(--ink)]">{item.feature}</p>
+                            <p className="text-xs text-[var(--muted)]">{item.pct.toFixed(0)}% of modeled lift</p>
+                          </div>
+                          <p className={`text-sm font-semibold ${item.contribution >= 0 ? "text-emerald-700" : "text-rose-700"}`}>
+                            {signed(item.contribution)} pp
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })()}
@@ -651,9 +1203,78 @@ export default function SimulatorPage() {
       {/* ═══════════════════════════════════════════════════════════════ */}
       {tab === "measure" && (
         <div className="space-y-6">
+          {/* Temporal expectations */}
           <div className="paper-panel rounded-[2rem] p-6">
-            <p className="muted-label text-xs mb-1">A/B comparison</p>
-            <h2 className="text-2xl text-[var(--ink)] mb-2">Compare runs over time</h2>
+            <p className="muted-label text-xs mb-1">Expected timelines</p>
+            <h2 className="text-2xl text-[var(--ink)] mb-4">When will content changes show up?</h2>
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="paper-card rounded-[1.4rem] p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="h-3 w-3 rounded-full bg-[#6366f1]" />
+                  <p className="text-sm font-semibold text-[var(--ink)]">Perplexity (RAG)</p>
+                </div>
+                <p className="text-2xl text-[var(--ink)] font-semibold">2-7 days</p>
+                <p className="text-xs text-[var(--muted)] mt-1">Real-time web search. New content typically indexed within 48h.</p>
+              </div>
+              <div className="paper-card rounded-[1.4rem] p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="h-3 w-3 rounded-full bg-[#10a37f]" />
+                  <p className="text-sm font-semibold text-[var(--ink)]">ChatGPT with browsing</p>
+                </div>
+                <p className="text-2xl text-[var(--ink)] font-semibold">4-14 days</p>
+                <p className="text-xs text-[var(--muted)] mt-1">Triggers web search ~21% of the time. Slower index refresh.</p>
+              </div>
+              <div className="paper-card rounded-[1.4rem] p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="h-3 w-3 rounded-full bg-[var(--muted)]" />
+                  <p className="text-sm font-semibold text-[var(--ink)]">ChatGPT parametric</p>
+                </div>
+                <p className="text-2xl text-[var(--ink)] font-semibold">6-18 months</p>
+                <p className="text-xs text-[var(--muted)] mt-1">Baked into training data. Only updates on next model release.</p>
+              </div>
+            </div>
+            <p className="mt-4 text-xs text-[var(--muted)]">
+              <strong className="text-[var(--ink)]">Implication:</strong> RAG-based effects appear within a week.
+              To move the parametric needle, you need earned media and third-party mentions that will be in the next training corpus — your own site content is less impactful there.
+            </p>
+          </div>
+
+          {/* Timeline chart */}
+          {trends && trends.timeline.length > 0 && (() => {
+            const maxRate = Math.max(...trends.timeline.map((p) => p.mention_rate), 1);
+            return (
+              <div className="paper-panel rounded-[2rem] p-6">
+                <p className="muted-label text-xs mb-1">Mention rate timeline</p>
+                <h2 className="text-2xl text-[var(--ink)] mb-4">{trends.brand} over time</h2>
+                <div className="flex items-end gap-1 h-32 border-b border-[color:var(--line)] pb-1">
+                  {trends.timeline.map((p) => {
+                    const h = (p.mention_rate / maxRate) * 100;
+                    return (
+                      <div key={p.date} className="flex-1 flex flex-col items-center gap-1 group relative">
+                        <div
+                          className="w-full rounded-t transition-all"
+                          style={{ height: `${Math.max(2, h)}%`, backgroundColor: "var(--ink)" }}
+                          title={`${p.date}: ${p.mention_rate.toFixed(1)}%`}
+                        />
+                        <span className="absolute -bottom-6 text-[9px] text-[var(--muted)] opacity-0 group-hover:opacity-100 whitespace-nowrap">
+                          {p.date.slice(5)}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="flex justify-between mt-2 text-[10px] text-[var(--muted)]">
+                  <span>{trends.timeline[0]?.date}</span>
+                  <span>{trends.days_of_data} days</span>
+                  <span>{trends.timeline[trends.timeline.length - 1]?.date}</span>
+                </div>
+              </div>
+            );
+          })()}
+
+          <div className="paper-panel rounded-[2rem] p-6">
+            <p className="muted-label text-xs mb-1">Before/after comparison</p>
+            <h2 className="text-2xl text-[var(--ink)] mb-2">Compare runs side-by-side</h2>
             <p className="text-sm text-[var(--muted)] mb-6">
               Each visibility check is saved here. Select two runs to compare &mdash; before
               and after a content update, a PR campaign, or a competitor&apos;s move.

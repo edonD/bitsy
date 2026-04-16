@@ -89,8 +89,13 @@ export async function runCollection(params: {
   target: string;
   competitors: string[];
   queries: string[];
+  website_url?: string;
   models?: string[];
   samples_per_query?: number;
+  multi_generator_fanout?: boolean;
+  intent_fanout?: boolean;
+  cross_validate_extraction?: boolean;
+  cross_validate_rate?: number;
 }): Promise<CollectResponse> {
   const res = await fetch(`${API}/api/simulations/collect`, {
     method: "POST",
@@ -99,8 +104,13 @@ export async function runCollection(params: {
       target: params.target,
       competitors: params.competitors,
       queries: params.queries,
+      website_url: params.website_url,
       models: params.models ?? ["chatgpt", "claude", "gemini"],
       samples_per_query: params.samples_per_query ?? 2,
+      multi_generator_fanout: params.multi_generator_fanout ?? false,
+      intent_fanout: params.intent_fanout ?? false,
+      cross_validate_extraction: params.cross_validate_extraction ?? false,
+      cross_validate_rate: params.cross_validate_rate ?? 0.5,
     }),
   });
   if (!res.ok) {
@@ -113,6 +123,7 @@ export async function runCollection(params: {
 export async function runWhatIf(params: {
   brand: string;
   changes: Record<string, number>;
+  model?: string;
 }): Promise<WhatIfResponse> {
   const res = await fetch(`${API}/api/simulations/whatif`, {
     method: "POST",
@@ -159,6 +170,7 @@ export interface ContentAnalysisResponse {
   url: string | null;
   title: string | null;
   features: ContentFeature[];
+  metrics: Record<string, number | null>;
   summary: string;
   content_length: number;
   word_count: number;
@@ -173,5 +185,142 @@ export async function analyzeContent(params: { url?: string; text?: string }): P
     body: JSON.stringify(params),
   });
   if (!res.ok) throw new Error(`Content analysis failed: ${res.status}`);
+  return res.json();
+}
+
+// ── Competitor analysis ────────────────────────────────────────────────────
+
+export interface BrandProfile {
+  brand: string;
+  url: string | null;
+  analysis: Record<string, number | string | boolean | null> | null;
+  error: string | null;
+}
+
+export interface FeatureGap {
+  feature: string;
+  label: string;
+  target_value: number;
+  competitor_avg: number;
+  competitor_max: number;
+  leader_brand: string;
+  leader_value: number;
+  gap: number;
+  gap_direction: "behind" | "ahead" | "even" | "unknown";
+  priority: "high" | "medium" | "low";
+}
+
+export interface SpecificRecommendation {
+  feature: string;
+  label: string;
+  action: string;
+  detail: string;
+  evidence: string;
+  effort: string;
+  priority: string;
+  gap: number;
+  leader_brand: string;
+  leader_value: number;
+  target_value: number;
+}
+
+export interface ModelGuidance {
+  label: string;
+  knowledge_mix: string;
+  prefers: string;
+  actions: string[];
+}
+
+export interface CompetitorAnalysisResponse {
+  target: BrandProfile;
+  competitors: BrandProfile[];
+  gaps: FeatureGap[];
+  recommendations: SpecificRecommendation[];
+  model_guidance: Record<string, ModelGuidance>;
+}
+
+export async function analyzeCompetitors(params: {
+  target: { brand: string; url?: string };
+  competitors: { brand: string; url?: string }[];
+}): Promise<CompetitorAnalysisResponse> {
+  const res = await fetch(`${API}/api/simulations/analyze-competitors`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) throw new Error(`Competitor analysis failed: ${res.status}`);
+  return res.json();
+}
+
+// ── Per-query breakdown ────────────────────────────────────────────────────
+
+export interface QueryBrandStats {
+  brand: string;
+  mention_rate: number;
+  avg_position: number | null;
+  samples: number;
+  per_model: Record<string, { rate: number; total: number }>;
+}
+
+export interface QueryBreakdown {
+  query: string;
+  winner: string | null;
+  brands: QueryBrandStats[];
+  total_samples: number;
+}
+
+export interface QueryBreakdownResponse {
+  queries: QueryBreakdown[];
+  total_observations: number;
+  days_covered: number;
+}
+
+export async function getQueryBreakdown(days: number = 7): Promise<QueryBreakdownResponse> {
+  const res = await fetch(`${API}/api/simulations/query-breakdown?days=${days}`);
+  if (!res.ok) throw new Error(`Query breakdown failed: ${res.status}`);
+  return res.json();
+}
+
+// ── Cited sources ──────────────────────────────────────────────────────────
+
+export interface CitedSource {
+  domain: string;
+  count: number;
+  rate: number;
+}
+
+export interface CitedSourcesResponse {
+  brand: string;
+  total_responses_mentioning: number;
+  total_logs_checked: number;
+  sources: CitedSource[];
+  days_covered: number;
+}
+
+export async function getCitedSources(brand: string, days: number = 7): Promise<CitedSourcesResponse> {
+  const res = await fetch(`${API}/api/simulations/cited-sources?brand=${encodeURIComponent(brand)}&days=${days}`);
+  if (!res.ok) throw new Error(`Cited sources failed: ${res.status}`);
+  return res.json();
+}
+
+// ── Trends ─────────────────────────────────────────────────────────────────
+
+export interface TrendPoint {
+  date: string;
+  mention_rate: number;
+  avg_position: number | null;
+  net_sentiment: number;
+  top1_rate: number;
+}
+
+export interface TrendsResponse {
+  brand: string;
+  timeline: TrendPoint[];
+  days_of_data: number;
+}
+
+export async function getTrends(brand: string, days: number = 30): Promise<TrendsResponse> {
+  const res = await fetch(`${API}/api/simulations/trends?brand=${encodeURIComponent(brand)}&days=${days}`);
+  if (!res.ok) throw new Error(`Trends failed: ${res.status}`);
   return res.json();
 }

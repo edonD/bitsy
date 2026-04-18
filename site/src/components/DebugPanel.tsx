@@ -589,6 +589,12 @@ export function DebugPanel() {
                   >
                     → Open FastAPI /docs
                   </a>
+                  <a
+                    href="/admin/trace"
+                    className="block rounded bg-emerald-950/50 px-3 py-2 text-[10px] text-emerald-400 hover:bg-emerald-900/60 transition-colors font-bold"
+                  >
+                    → Open DEV TRACE page (full engine transparency)
+                  </a>
                 </div>
               </div>
 

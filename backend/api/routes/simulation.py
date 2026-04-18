@@ -51,6 +51,10 @@ class CollectRequest(BaseModel):
     models: list[str] = Field(default=["chatgpt", "claude", "gemini"])
     samples_per_query: int = Field(default=2, ge=1, le=5)
     # Engine improvements (all default off for backward compat)
+    fan_out: bool = True  # paraphrase fan-out (2 queries -> 9 queries)
+    # Mode toggles — memory = trained knowledge only, search = web tools on
+    enable_memory: bool = True
+    enable_search: bool = False
     multi_generator_fanout: bool = False
     intent_fanout: bool = False
     cross_validate_extraction: bool = False
@@ -359,7 +363,7 @@ _load_from_convex()
 # ── Endpoints ──────────────────────────────────────────────────────────────
 
 @router.post("/collect", response_model=CollectResponse)
-async def run_collection(req: CollectRequest):
+def run_collection(req: CollectRequest):
     """
     Run real LLM API calls → persist to Convex → train model on ALL accumulated data.
     """
@@ -368,6 +372,26 @@ async def run_collection(req: CollectRequest):
 
     cx.add_log("collect", f"Starting collection for {req.target}", "pending")
 
+    # Stream each log to Convex immediately so the trace page can poll /logs
+    # and show live progress instead of waiting for the full run to finish.
+    def _store_log_live(log: dict) -> None:
+        try:
+            cx.store_api_logs([{
+                "date": today,
+                "query": log["query"],
+                "model": log["model"],
+                "sample": log["sample"],
+                "mode": log.get("mode") or "memory",
+                "prompt_sent": log["prompt_sent"],
+                "raw_response": (log.get("raw_response") or "")[:4000],
+                "parsed_brands": log.get("parsed"),
+                "sources": log.get("sources") or [],
+                "status": log["status"],
+                "error": log.get("error"),
+            }])
+        except Exception as e:
+            print(f"  WARN: failed to store log: {e}")
+
     # 1. Collect from real LLM APIs
     observations, api_logs = collect(
         target=req.target,
@@ -375,29 +399,16 @@ async def run_collection(req: CollectRequest):
         queries=req.queries,
         models=req.models,
         samples_per_query=req.samples_per_query,
+        fan_out=req.fan_out,
         on_progress=lambda done, total, m, q: print(f"  [{done}/{total}] {m} | {q[:50]}"),
+        on_log_complete=_store_log_live,
+        enable_memory=req.enable_memory,
+        enable_search=req.enable_search,
         multi_generator_fanout=req.multi_generator_fanout,
         intent_fanout=req.intent_fanout,
         cross_validate_extraction=req.cross_validate_extraction,
         cross_validate_rate=req.cross_validate_rate,
     )
-
-    # 1b. Persist raw API logs to Convex
-    log_records = []
-    for log in api_logs:
-        log_records.append({
-            "date": today,
-            "query": log["query"],
-            "model": log["model"],
-            "sample": log["sample"],
-            "prompt_sent": log["prompt_sent"],
-            "raw_response": (log.get("raw_response") or "")[:4000],  # cap at 4KB
-            "parsed_brands": log.get("parsed"),
-            "status": log["status"],
-            "error": log.get("error"),
-        })
-    for i in range(0, len(log_records), 20):
-        cx.store_api_logs(log_records[i:i + 20])
 
     cx.add_log("collect", f"Stored {len(api_logs)} API call logs", "success")
 
@@ -427,7 +438,7 @@ async def run_collection(req: CollectRequest):
     rows = extract_all(observations, all_brands, req.models, req.queries)
     content_metrics = None
     if req.website_url:
-        analysis = await asyncio.to_thread(analyze_url, req.website_url)
+        analysis = analyze_url(req.website_url)
         if not analysis.fetch_error:
             content_metrics = _content_metrics(analysis)
             merge_content_features_for_brand(rows, req.target, content_metrics)
@@ -537,7 +548,7 @@ async def run_collection(req: CollectRequest):
 
 
 @router.post("/train")
-async def retrain_model():
+def retrain_model():
     """Retrain XGBoost on ALL accumulated Convex data."""
     samples = cx.get_all_training_samples()
     if not samples:
@@ -568,7 +579,7 @@ async def retrain_model():
 
 
 @router.post("/whatif", response_model=WhatIfResponse)
-async def run_whatif(req: WhatIfRequest):
+def run_whatif(req: WhatIfRequest):
     """Run what-if prediction using the trained XGBoost surrogate."""
     if not _store["model"]:
         raise HTTPException(status_code=400, detail="No model trained. Run /collect first.")
@@ -760,13 +771,13 @@ class AnalyzeContentResponse(BaseModel):
     fetch_error: Optional[str]
 
 @router.post("/analyze-content", response_model=AnalyzeContentResponse)
-async def analyze_content_endpoint(req: AnalyzeContentRequest):
+def analyze_content_endpoint(req: AnalyzeContentRequest):
     """Analyze a URL or raw text for GEO-relevant content features."""
     if not req.url and not req.text:
         raise HTTPException(status_code=400, detail="Provide either 'url' or 'text'.")
 
     if req.url:
-        analysis = await asyncio.to_thread(analyze_url, req.url)
+        analysis = analyze_url(req.url)
     else:
         analysis = analyze_text(req.text)
 
@@ -798,19 +809,14 @@ async def analyze_content_endpoint(req: AnalyzeContentRequest):
 # ── Benchmark ──────────────────────────────────────────────────────────────
 
 @router.post("/benchmark/run")
-async def run_benchmark(verticals: list[str] | None = None):
+def run_benchmark(verticals: list[str] | None = None):
     """Trigger a benchmark panel run (admin only)."""
-    import asyncio
-    from pipeline.benchmark import run_daily_benchmark, BENCHMARK_VERTICALS
+    from pipeline.benchmark import run_daily_benchmark
 
-    async def _run():
-        return await asyncio.to_thread(
-            run_daily_benchmark,
-            verticals=verticals,
-            on_progress=lambda msg: print(f"  benchmark: {msg}"),
-        )
-
-    result = await _run()
+    result = run_daily_benchmark(
+        verticals=verticals,
+        on_progress=lambda msg: print(f"  benchmark: {msg}"),
+    )
 
     # Reload model from fresh Convex data
     _load_from_convex()
@@ -848,7 +854,7 @@ class AnalyzeCompetitorsRequest(BaseModel):
 
 
 @router.post("/analyze-competitors")
-async def analyze_competitors(req: AnalyzeCompetitorsRequest):
+def analyze_competitors(req: AnalyzeCompetitorsRequest):
     """Crawl target + competitor websites and return gap analysis + specific recommendations."""
     import asyncio
     from pipeline.competitor_analyzer import (
@@ -864,7 +870,7 @@ async def analyze_competitors(req: AnalyzeCompetitorsRequest):
     ]
 
     # Crawl in a thread (requests is blocking)
-    profiles = await asyncio.to_thread(crawl_all, all_brands)
+    profiles = crawl_all(all_brands)
 
     target_profile = profiles[0]
     competitor_profiles = profiles[1:]

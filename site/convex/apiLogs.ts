@@ -9,9 +9,11 @@ export const store = mutation({
         query: v.string(),
         model: v.string(),
         sample: v.number(),
+        mode: v.optional(v.string()),  // "memory" | "search"
         prompt_sent: v.string(),
         raw_response: v.optional(v.string()),
         parsed_brands: v.optional(v.any()),
+        sources: v.optional(v.array(v.string())),
         status: v.string(),
         error: v.optional(v.string()),
       })

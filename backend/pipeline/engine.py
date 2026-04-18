@@ -21,41 +21,171 @@ import xgboost as xgb
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
 # ── LLM callers ─────────────────────────────────────────────────────────────
+#
+# We test mention rate on the real flagship models users actually hit, so the
+# numbers are representative of what a real buyer would see. Latency is what
+# it is — parallelism (collect() uses a thread pool) handles throughput.
+#
+# Clients are cached at module scope purely to avoid SDK init overhead per
+# call; it doesn't change model behavior.
+
+_openai_client = None
+_anthropic_client = None
+_google_client = None
+
+
+def _get_openai():
+    global _openai_client
+    if _openai_client is None:
+        from openai import OpenAI
+        _openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    return _openai_client
+
+
+def _get_anthropic():
+    global _anthropic_client
+    if _anthropic_client is None:
+        from anthropic import Anthropic
+        _anthropic_client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+    return _anthropic_client
+
+
+def _get_google():
+    global _google_client
+    if _google_client is None:
+        from google import genai
+        _google_client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
+    return _google_client
+
+
+# Override via env vars if you want to pin a specific model.
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5")
+ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-opus-4-7")
+GOOGLE_MODEL = os.getenv("GOOGLE_MODEL", "gemini-2.5-pro")
+
 
 def _call_openai(prompt: str) -> str:
-    from openai import OpenAI
-    c = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-    r = c.chat.completions.create(
-        model="gpt-4o-mini", temperature=0,
+    r = _get_openai().chat.completions.create(
+        model=OPENAI_MODEL, temperature=0,
         messages=[{"role": "user", "content": prompt}],
     )
-    return r.choices[0].message.content
+    return r.choices[0].message.content or ""
 
 
 def _call_anthropic(prompt: str) -> str:
-    from anthropic import Anthropic
-    c = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
-    r = c.messages.create(
-        model="claude-sonnet-4-20250514", max_tokens=1024, temperature=0,
+    r = _get_anthropic().messages.create(
+        model=ANTHROPIC_MODEL, max_tokens=1024, temperature=0,
         messages=[{"role": "user", "content": prompt}],
     )
-    return r.content[0].text
+    block = r.content[0]
+    return getattr(block, "text", "") or ""
 
 
 def _call_google(prompt: str) -> str:
-    from google import genai
-    c = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
-    r = c.models.generate_content(
-        model="gemini-2.5-flash", contents=prompt,
+    r = _get_google().models.generate_content(
+        model=GOOGLE_MODEL,
+        contents=prompt,
         config={"temperature": 0},
     )
-    return r.text
+    return r.text or ""
+
+
+# ── Search-enabled callers ──────────────────────────────────────────────────
+#
+# Same three providers, but with the model allowed to actually browse the web.
+# Each returns (text, sources) where sources is the deduped list of URLs the
+# model cited in its answer. Users on chatgpt.com / claude.ai / gemini.google
+# get responses produced this way, so comparing memory-mode vs search-mode is
+# how we actually measure visibility.
+
+def _call_openai_with_search(prompt: str) -> tuple[str, list[str]]:
+    # Responses API is the surface that exposes web_search; plain chat
+    # completions don't support it.
+    r = _get_openai().responses.create(
+        model=OPENAI_MODEL,
+        tools=[{"type": "web_search"}],
+        input=prompt,
+    )
+    text = getattr(r, "output_text", "") or ""
+    sources: list[str] = []
+    for item in getattr(r, "output", []) or []:
+        if getattr(item, "type", None) == "message":
+            for content in getattr(item, "content", []) or []:
+                for ann in getattr(content, "annotations", []) or []:
+                    url = getattr(ann, "url", None)
+                    if url and url not in sources:
+                        sources.append(url)
+    return text, sources
+
+
+def _call_anthropic_with_search(prompt: str) -> tuple[str, list[str]]:
+    # Claude Opus 4.7 rejects `temperature` — it's deprecated on newer models.
+    # Omit it here so the web_search tool call doesn't 400.
+    r = _get_anthropic().messages.create(
+        model=ANTHROPIC_MODEL,
+        max_tokens=1024,
+        tools=[{
+            "type": "web_search_20250305",
+            "name": "web_search",
+            "max_uses": 5,
+        }],
+        messages=[{"role": "user", "content": prompt}],
+    )
+    text_parts: list[str] = []
+    sources: list[str] = []
+    for block in r.content:
+        btype = getattr(block, "type", None)
+        if btype == "text":
+            text_parts.append(getattr(block, "text", "") or "")
+            for cit in getattr(block, "citations", []) or []:
+                url = getattr(cit, "url", None)
+                if url and url not in sources:
+                    sources.append(url)
+        elif btype == "web_search_tool_result":
+            # Raw search hits — keep them even if the model didn't cite them,
+            # so we can see what it *saw*.
+            for hit in getattr(block, "content", []) or []:
+                url = getattr(hit, "url", None)
+                if url and url not in sources:
+                    sources.append(url)
+    return "\n".join(text_parts), sources
+
+
+def _call_google_with_search(prompt: str) -> tuple[str, list[str]]:
+    from google.genai import types
+    r = _get_google().models.generate_content(
+        model=GOOGLE_MODEL,
+        contents=prompt,
+        config=types.GenerateContentConfig(
+            temperature=0,
+            tools=[types.Tool(google_search=types.GoogleSearch())],
+        ),
+    )
+    text = r.text or ""
+    sources: list[str] = []
+    for cand in getattr(r, "candidates", []) or []:
+        gm = getattr(cand, "grounding_metadata", None)
+        if not gm:
+            continue
+        for chunk in getattr(gm, "grounding_chunks", []) or []:
+            web = getattr(chunk, "web", None)
+            if web:
+                url = getattr(web, "uri", None)
+                if url and url not in sources:
+                    sources.append(url)
+    return text, sources
 
 
 CALLERS = {
     "chatgpt": _call_openai,
     "claude": _call_anthropic,
     "gemini": _call_google,
+}
+
+SEARCH_CALLERS = {
+    "chatgpt": _call_openai_with_search,
+    "claude": _call_anthropic_with_search,
+    "gemini": _call_google_with_search,
 }
 
 
@@ -313,6 +443,10 @@ def collect(
     samples_per_query: int = 2,
     fan_out: bool = True,
     on_progress=None,
+    on_log_complete=None,  # called after each LLM call with the full log entry
+    # Mode toggles: memory = parametric knowledge only; search = web tools on
+    enable_memory: bool = True,
+    enable_search: bool = False,
     # Improvement toggles
     multi_generator_fanout: bool = False,
     intent_fanout: bool = False,
@@ -349,150 +483,213 @@ def collect(
         if on_progress:
             on_progress(0, 0, "system", f"Paraphrase fan-out: -> {len(all_queries)} total queries")
 
-    observations = []
-    api_logs = []
-    total = len(all_queries) * len(models) * samples_per_query
-    done = 0
+    # Build the full work list up front so we can run calls concurrently.
+    # When both memory and search are enabled, every (query, model, sample)
+    # gets two work items — one per mode — and they're tagged on the log
+    # so the trace UI can show them side-by-side.
+    active_modes: list[str] = []
+    if enable_memory:
+        active_modes.append("memory")
+    if enable_search:
+        active_modes.append("search")
+    if not active_modes:
+        active_modes = ["memory"]
 
+    work_items = []
     for query in all_queries:
-        # ORGANIC prompt — no brand names
         prompt = ORGANIC_PROMPT.format(query=query)
-
         for model_name in models:
-            caller = CALLERS.get(model_name)
-            if not caller:
-                continue
+            for mode in active_modes:
+                caller_map = SEARCH_CALLERS if mode == "search" else CALLERS
+                caller = caller_map.get(model_name)
+                if not caller:
+                    continue
+                for sample_idx in range(samples_per_query):
+                    work_items.append((query, prompt, model_name, caller, sample_idx, mode))
 
-            for sample_idx in range(samples_per_query):
-                done += 1
-                if on_progress:
-                    on_progress(done, total, model_name, query)
+    total = len(work_items)
+    observations: list[dict] = []
+    api_logs: list[dict] = []
 
-                log_entry = {
+    # Fan out LLM calls across a thread pool so they run in parallel instead
+    # of one-after-another. Each provider (OpenAI/Anthropic/Google) uses a
+    # blocking SDK so threads are the right concurrency primitive here.
+    import concurrent.futures
+    max_workers = min(total, 10)  # cap so we don't flood rate limits
+
+    def _one(work):
+        query, prompt, model_name, caller, sample_idx, mode = work
+        return _process_one_call(
+            query=query,
+            prompt=prompt,
+            model_name=model_name,
+            caller=caller,
+            sample_idx=sample_idx,
+            mode=mode,
+            brands=brands,
+            cross_validate_extraction=cross_validate_extraction,
+            cross_validate_rate=cross_validate_rate,
+        )
+
+    done = 0
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as pool:
+        futures = {pool.submit(_one, w): w for w in work_items}
+        for future in concurrent.futures.as_completed(futures):
+            log_entry, local_obs = future.result()
+            api_logs.append(log_entry)
+            observations.extend(local_obs)
+            done += 1
+            if on_progress:
+                on_progress(done, total, log_entry["model"], log_entry["query"])
+            if on_log_complete:
+                try:
+                    on_log_complete(log_entry)
+                except Exception as cb_err:
+                    print(f"  WARN on_log_complete: {cb_err}")
+
+    return observations, api_logs
+
+
+def _process_one_call(
+    *,
+    query: str,
+    prompt: str,
+    model_name: str,
+    caller,
+    sample_idx: int,
+    mode: str,
+    brands: list[str],
+    cross_validate_extraction: bool,
+    cross_validate_rate: float,
+) -> tuple[dict, list[dict]]:
+    """Run one LLM call + brand extraction. Returns (log_entry, observations)."""
+    log_entry = {
+        "query": query,
+        "model": model_name,
+        "sample": sample_idx,
+        "mode": mode,  # "memory" or "search"
+        "prompt_sent": prompt,
+        "raw_response": None,
+        "parsed": None,
+        "sources": [],
+        "status": "pending",
+        "error": None,
+    }
+    local_obs: list[dict] = []
+
+    try:
+        result = caller(prompt)
+        # Memory callers return str; search callers return (str, list[str])
+        if isinstance(result, tuple):
+            raw, sources = result
+            log_entry["sources"] = sources
+        else:
+            raw = result
+        log_entry["raw_response"] = raw
+        data = _parse_json(raw)
+        log_entry["parsed"] = data
+        log_entry["status"] = "success" if data else "parse_error"
+
+        # Pass 2: check for tracked brands — both structured JSON and raw text.
+        mentioned_in_json = {}
+        if data and "brands_mentioned" in data:
+            for m in data["brands_mentioned"]:
+                name = m.get("brand", "")
+                mentioned_in_json[name.lower()] = m
+
+        raw_lower = (raw or "").lower()
+
+        # Pass 3 (optional): cross-validate with a second extraction model.
+        independent_brands = {}
+        did_cross_validate = False
+        has_disagreement = False
+
+        if cross_validate_extraction and raw:
+            import hashlib
+            call_hash = int(
+                hashlib.md5(f"{query}{model_name}{sample_idx}".encode()).hexdigest()[:8], 16
+            )
+            should_verify = (call_hash % 100) < (cross_validate_rate * 100)
+            if should_verify:
+                ind_data, verifier = independent_extract(raw, model_name)
+                did_cross_validate = True
+                log_entry["verifier_model"] = verifier
+                if ind_data and "brands_found" in ind_data:
+                    for m in ind_data["brands_found"]:
+                        name = m.get("brand", "")
+                        independent_brands[name.lower()] = m
+
+        for brand in brands:
+            brand_lower = brand.lower()
+            found_in_json = brand_lower in mentioned_in_json
+            found_in_text = brand_lower in raw_lower
+
+            if did_cross_validate:
+                found_in_independent = brand_lower in independent_brands
+                if found_in_json and not found_in_independent:
+                    has_disagreement = True
+                    found_in_json = False
+                elif not found_in_json and found_in_independent:
+                    has_disagreement = True
+                    found_in_json = True
+                    mentioned_in_json[brand_lower] = independent_brands[brand_lower]
+
+            if found_in_json:
+                m = mentioned_in_json[brand_lower]
+                local_obs.append({
                     "query": query,
                     "model": model_name,
                     "sample": sample_idx,
-                    "prompt_sent": prompt,
-                    "raw_response": None,
-                    "parsed": None,
-                    "status": "pending",
-                    "error": None,
-                }
+                    "mode": mode,
+                    "brand": brand,
+                    "mentioned": True,
+                    "organic": True,
+                    "position": m.get("position"),
+                    "sentiment": m.get("sentiment", "neutral"),
+                    "cross_validated": did_cross_validate,
+                    "extraction_disagreement": has_disagreement,
+                })
+            elif found_in_text:
+                pos = raw_lower.index(brand_lower)
+                total_len = len(raw_lower) or 1
+                estimated_position = max(1, round((pos / total_len) * 10))
+                local_obs.append({
+                    "query": query,
+                    "model": model_name,
+                    "sample": sample_idx,
+                    "mode": mode,
+                    "brand": brand,
+                    "mentioned": True,
+                    "organic": True,
+                    "position": estimated_position,
+                    "sentiment": "neutral",
+                    "cross_validated": did_cross_validate,
+                    "extraction_disagreement": has_disagreement,
+                })
+            else:
+                local_obs.append({
+                    "query": query,
+                    "model": model_name,
+                    "sample": sample_idx,
+                    "mode": mode,
+                    "brand": brand,
+                    "mentioned": False,
+                    "organic": True,
+                    "position": None,
+                    "sentiment": None,
+                    "cross_validated": did_cross_validate,
+                    "extraction_disagreement": has_disagreement,
+                })
 
-                try:
-                    raw = caller(prompt)
-                    log_entry["raw_response"] = raw
-                    data = _parse_json(raw)
-                    log_entry["parsed"] = data
-                    log_entry["status"] = "success" if data else "parse_error"
+        if has_disagreement:
+            log_entry["status"] = "extraction_conflict"
 
-                    # --- Pass 2: check for tracked brands ---
-                    # First check the structured JSON output
-                    mentioned_in_json = {}
-                    if data and "brands_mentioned" in data:
-                        for m in data["brands_mentioned"]:
-                            name = m.get("brand", "")
-                            mentioned_in_json[name.lower()] = m
+    except Exception as e:
+        log_entry["status"] = "error"
+        log_entry["error"] = str(e)
+        print(f"  ERROR [{model_name}]: {e}")
 
-                    # Then also do case-insensitive string matching on raw text
-                    raw_lower = (raw or "").lower()
-
-                    # --- Pass 3 (optional): cross-validate with a different model ---
-                    independent_brands = {}
-                    did_cross_validate = False
-                    has_disagreement = False
-
-                    if cross_validate_extraction and raw:
-                        # Verify at the configured rate (e.g., 50% of calls)
-                        import hashlib
-                        call_hash = int(hashlib.md5(f"{query}{model_name}{sample_idx}".encode()).hexdigest()[:8], 16)
-                        should_verify = (call_hash % 100) < (cross_validate_rate * 100)
-
-                        if should_verify:
-                            ind_data, verifier = independent_extract(raw, model_name)
-                            did_cross_validate = True
-                            log_entry["verifier_model"] = verifier
-
-                            if ind_data and "brands_found" in ind_data:
-                                for m in ind_data["brands_found"]:
-                                    name = m.get("brand", "")
-                                    independent_brands[name.lower()] = m
-
-                    # --- Build observations for tracked brands ---
-                    for brand in brands:
-                        brand_lower = brand.lower()
-
-                        found_in_json = brand_lower in mentioned_in_json
-                        found_in_text = brand_lower in raw_lower
-
-                        # If cross-validated, only count as mentioned if BOTH agree
-                        if did_cross_validate:
-                            found_in_independent = brand_lower in independent_brands
-                            if found_in_json and not found_in_independent:
-                                has_disagreement = True
-                                # Primary says yes, verifier says no -> don't count (conservative)
-                                found_in_json = False
-                            elif not found_in_json and found_in_independent:
-                                has_disagreement = True
-                                # Primary missed it, verifier found it -> count it
-                                found_in_json = True
-                                mentioned_in_json[brand_lower] = independent_brands[brand_lower]
-
-                        if found_in_json:
-                            m = mentioned_in_json[brand_lower]
-                            observations.append({
-                                "query": query,
-                                "model": model_name,
-                                "sample": sample_idx,
-                                "brand": brand,
-                                "mentioned": True,
-                                "organic": True,
-                                "position": m.get("position"),
-                                "sentiment": m.get("sentiment", "neutral"),
-                                "cross_validated": did_cross_validate,
-                                "extraction_disagreement": has_disagreement,
-                            })
-                        elif found_in_text:
-                            pos = raw_lower.index(brand_lower)
-                            total_len = len(raw_lower) or 1
-                            estimated_position = max(1, round((pos / total_len) * 10))
-                            observations.append({
-                                "query": query,
-                                "model": model_name,
-                                "sample": sample_idx,
-                                "brand": brand,
-                                "mentioned": True,
-                                "organic": True,
-                                "position": estimated_position,
-                                "sentiment": "neutral",
-                                "cross_validated": did_cross_validate,
-                                "extraction_disagreement": has_disagreement,
-                            })
-                        else:
-                            observations.append({
-                                "query": query,
-                                "model": model_name,
-                                "sample": sample_idx,
-                                "brand": brand,
-                                "mentioned": False,
-                                "organic": True,
-                                "position": None,
-                                "sentiment": None,
-                                "cross_validated": did_cross_validate,
-                                "extraction_disagreement": has_disagreement,
-                            })
-
-                    if has_disagreement:
-                        log_entry["status"] = "extraction_conflict"
-
-                except Exception as e:
-                    log_entry["status"] = "error"
-                    log_entry["error"] = str(e)
-                    print(f"  ERROR [{model_name}]: {e}")
-
-                api_logs.append(log_entry)
-
-    return observations, api_logs
+    return log_entry, local_obs
 
 
 # ═══════════════════════════════════════════════════════════════════════════

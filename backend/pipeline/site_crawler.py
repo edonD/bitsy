@@ -315,7 +315,15 @@ def _crawl_via_cloudflare(
         markdown = item.get("markdown") or item.get("content") or ""
         html = item.get("html") or ""
         title = _page_title(item)
-        status = int(item.get("status") or item.get("statusCode") or 200)
+        # Per-record `status` is a lifecycle string ("completed"/"failed"),
+        # not an HTTP status. Actual HTTP comes from metadata.statusCode or
+        # similar. If we have content we assume 200, otherwise 0.
+        raw_status = item.get("statusCode") or item.get("httpStatus")
+        try:
+            status = int(raw_status) if raw_status is not None else (200 if (markdown or html) else 0)
+        except (TypeError, ValueError):
+            status = 200 if (markdown or html) else 0
+        record_state = item.get("status")  # "completed" / "failed" / ...
 
         # Prefer HTML analysis when present (gets structured-data signals);
         # otherwise treat markdown as text.

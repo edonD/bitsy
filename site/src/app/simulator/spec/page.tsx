@@ -263,12 +263,12 @@ export default function SimulatorPage() {
               ["positive_rate", "% positive sentiment across mentions", "Onely: sentiment and reviews matter materially in recommendations"],
               ["negative_rate", "% negative sentiment across mentions", "EMNLP 2025 recommendation-bias work"],
               ["net_sentiment", "(positive - negative) / total", "Sellm-style structured extraction"],
-              ["competitor_avg_rate", "Competitors' mean mention rate", "Absent brands get substituted out"],
+              ["competitor_avg_rate", "Mean mention rate of all other tracked brands", "Computed against every other tracked brand, not just named competitors"],
               ["vs_best_competitor", "Our rate divided by the best competitor", "Only a few brands fit in each answer"],
               ["model_agreement", "min(model_rates) / max(model_rates)", "Yext: no single AI optimization strategy"],
               ["model_spread", "Range between best and worst model rates", "Claude/Gemini source preference divergence"],
               ["query_coverage", "% of buyer questions where the brand appears", "Profound: fan-out queries drive a large share of citations"],
-              ["share_of_mentions", "Brand mentions divided by total mentions in the sample set", "Position-adjusted share metric from GEO research"],
+              ["share_of_mentions", "Brand mentions divided by total tracked-brand mentions in the sample set", "Different denominator from mention_rate: one response can contribute multiple tracked-brand mentions"],
               ["brands_ahead", "Count of competitors with a higher mention rate", "Competitive displacement tracking"],
             ]}
           />

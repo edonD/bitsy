@@ -12,6 +12,7 @@ import os
 import json
 import math
 import random
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -64,17 +65,75 @@ ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-opus-4-7")
 GOOGLE_MODEL = os.getenv("GOOGLE_MODEL", "gemini-2.5-pro")
 
 
+def _get_field(obj, *names):
+    for name in names:
+        if isinstance(obj, dict) and name in obj:
+            return obj[name]
+        if hasattr(obj, name):
+            return getattr(obj, name)
+    return None
+
+
+def _safe_model_dump(obj) -> dict | None:
+    if isinstance(obj, dict):
+        return obj
+    model_dump = getattr(obj, "model_dump", None)
+    if callable(model_dump):
+        try:
+            dumped = model_dump()
+            return dumped if isinstance(dumped, dict) else None
+        except Exception:
+            return None
+    return None
+
+
+def _collect_query_candidates(obj) -> list[str]:
+    candidates: list[str] = []
+    seen = set()
+
+    def _add(value):
+        if not isinstance(value, str):
+            return
+        text = value.strip()
+        if text and text not in seen:
+            seen.add(text)
+            candidates.append(text)
+
+    dumped = _safe_model_dump(obj)
+    for key in ("query", "search_query", "queries", "search_queries", "original_query"):
+        value = _get_field(obj, key)
+        if isinstance(value, list):
+            for item in value:
+                _add(item)
+        else:
+            _add(value)
+        if dumped and key in dumped:
+            raw = dumped[key]
+            if isinstance(raw, list):
+                for item in raw:
+                    _add(item)
+            else:
+                _add(raw)
+    return candidates
+
+
 def _call_openai(prompt: str) -> str:
+    # GPT-5 and Claude Opus 4.7 both reject `temperature=0` on current
+    # flagship models — GPT-5 only accepts the default, Claude deprecated
+    # it. So we omit it and take multiple samples to detect variance.
     r = _get_openai().chat.completions.create(
-        model=OPENAI_MODEL, temperature=0,
+        model=OPENAI_MODEL,
         messages=[{"role": "user", "content": prompt}],
     )
     return r.choices[0].message.content or ""
 
 
 def _call_anthropic(prompt: str) -> str:
+    # 4096 tokens so the JSON block at the end of the organic prompt
+    # doesn't get truncated (that caused "Unterminated string" parse
+    # errors on longer responses).
     r = _get_anthropic().messages.create(
-        model=ANTHROPIC_MODEL, max_tokens=1024, temperature=0,
+        model=ANTHROPIC_MODEL, max_tokens=4096,
         messages=[{"role": "user", "content": prompt}],
     )
     block = r.content[0]
@@ -98,7 +157,7 @@ def _call_google(prompt: str) -> str:
 # get responses produced this way, so comparing memory-mode vs search-mode is
 # how we actually measure visibility.
 
-def _call_openai_with_search(prompt: str) -> tuple[str, list[str]]:
+def _call_openai_with_search(prompt: str) -> dict:
     # Responses API is the surface that exposes web_search; plain chat
     # completions don't support it.
     r = _get_openai().responses.create(
@@ -108,22 +167,41 @@ def _call_openai_with_search(prompt: str) -> tuple[str, list[str]]:
     )
     text = getattr(r, "output_text", "") or ""
     sources: list[str] = []
+    search_calls: list[dict] = []
     for item in getattr(r, "output", []) or []:
-        if getattr(item, "type", None) == "message":
+        item_type = _get_field(item, "type")
+        if item_type == "web_search_call":
+            search_calls.append({
+                "type": "web_search_call",
+                "status": _get_field(item, "status"),
+                "queries": _collect_query_candidates(item),
+            })
+        elif item_type == "message":
             for content in getattr(item, "content", []) or []:
                 for ann in getattr(content, "annotations", []) or []:
                     url = getattr(ann, "url", None)
                     if url and url not in sources:
                         sources.append(url)
-    return text, sources
+    return {
+        "text": text,
+        "sources": sources,
+        "search_used": bool(search_calls or sources),
+        "tool_trace": {
+            "provider": "openai",
+            "tool_name": "web_search",
+            "search_call_count": len(search_calls),
+            "search_calls": search_calls[:5],
+            "source_count": len(sources),
+        },
+    }
 
 
-def _call_anthropic_with_search(prompt: str) -> tuple[str, list[str]]:
-    # Claude Opus 4.7 rejects `temperature` — it's deprecated on newer models.
-    # Omit it here so the web_search tool call doesn't 400.
+def _call_anthropic_with_search(prompt: str) -> dict:
+    # Claude Opus 4.7 rejects `temperature`; use generous max_tokens because
+    # search responses include the searched content + summary + JSON block.
     r = _get_anthropic().messages.create(
         model=ANTHROPIC_MODEL,
-        max_tokens=1024,
+        max_tokens=4096,
         tools=[{
             "type": "web_search_20250305",
             "name": "web_search",
@@ -133,6 +211,7 @@ def _call_anthropic_with_search(prompt: str) -> tuple[str, list[str]]:
     )
     text_parts: list[str] = []
     sources: list[str] = []
+    search_calls: list[dict] = []
     for block in r.content:
         btype = getattr(block, "type", None)
         if btype == "text":
@@ -144,14 +223,34 @@ def _call_anthropic_with_search(prompt: str) -> tuple[str, list[str]]:
         elif btype == "web_search_tool_result":
             # Raw search hits — keep them even if the model didn't cite them,
             # so we can see what it *saw*.
+            hits = []
             for hit in getattr(block, "content", []) or []:
                 url = getattr(hit, "url", None)
                 if url and url not in sources:
                     sources.append(url)
-    return "\n".join(text_parts), sources
+                if url:
+                    hits.append(url)
+            search_calls.append({
+                "type": "web_search_tool_result",
+                "queries": _collect_query_candidates(block),
+                "hit_count": len(hits),
+                "hits": hits[:5],
+            })
+    return {
+        "text": "\n".join(text_parts),
+        "sources": sources,
+        "search_used": bool(search_calls or sources),
+        "tool_trace": {
+            "provider": "anthropic",
+            "tool_name": "web_search_20250305",
+            "search_call_count": len(search_calls),
+            "search_calls": search_calls[:5],
+            "source_count": len(sources),
+        },
+    }
 
 
-def _call_google_with_search(prompt: str) -> tuple[str, list[str]]:
+def _call_google_with_search(prompt: str) -> dict:
     from google.genai import types
     r = _get_google().models.generate_content(
         model=GOOGLE_MODEL,
@@ -163,17 +262,33 @@ def _call_google_with_search(prompt: str) -> tuple[str, list[str]]:
     )
     text = r.text or ""
     sources: list[str] = []
+    grounding_chunk_count = 0
     for cand in getattr(r, "candidates", []) or []:
         gm = getattr(cand, "grounding_metadata", None)
         if not gm:
             continue
         for chunk in getattr(gm, "grounding_chunks", []) or []:
+            grounding_chunk_count += 1
             web = getattr(chunk, "web", None)
             if web:
                 url = getattr(web, "uri", None)
                 if url and url not in sources:
                     sources.append(url)
-    return text, sources
+    return {
+        "text": text,
+        "sources": sources,
+        "search_used": bool(grounding_chunk_count or sources),
+        "tool_trace": {
+            "provider": "google",
+            "tool_name": "google_search",
+            "search_call_count": 1 if grounding_chunk_count else 0,
+            "search_calls": [{
+                "type": "grounding_metadata",
+                "grounding_chunk_count": grounding_chunk_count,
+            }] if grounding_chunk_count else [],
+            "source_count": len(sources),
+        },
+    }
 
 
 CALLERS = {
@@ -189,16 +304,83 @@ SEARCH_CALLERS = {
 }
 
 
-def _parse_json(text: str) -> dict | None:
+def _parse_json_with_meta(text: str) -> tuple[dict | None, dict]:
+    """Best-effort JSON extractor. Tries several strategies so a stray
+    character or truncated fence doesn't drop the whole response."""
+    if not text:
+        return None, {"strategy": "none"}
+
+    candidates: list[tuple[str, str]] = []
+
+    # 1. Fenced ```json block
     start = text.find("```json")
     if start != -1:
-        end = text.find("```", start + 7)
-        return json.loads(text[start + 7:end].strip())
-    start = text.find("{")
-    end = text.rfind("}") + 1
-    if start != -1 and end > start:
-        return json.loads(text[start:end])
-    return None
+        after = start + len("```json")
+        end = text.find("```", after)
+        candidates.append((text[after:end if end != -1 else len(text)].strip(), "fenced_json"))
+
+    # 2. Any fenced code block (some models omit the "json" tag)
+    if not candidates:
+        start = text.find("```")
+        if start != -1:
+            after = start + 3
+            # Skip language tag line if present
+            nl = text.find("\n", after)
+            if nl != -1 and nl - after < 20:
+                after = nl + 1
+            end = text.find("```", after)
+            candidates.append((text[after:end if end != -1 else len(text)].strip(), "generic_code_fence"))
+
+    # 3. Outermost {...}
+    first_brace = text.find("{")
+    last_brace = text.rfind("}")
+    if first_brace != -1 and last_brace > first_brace:
+        candidates.append((text[first_brace:last_brace + 1], "outer_object"))
+
+    # 4. If everything else fails, try the first {...} that looks
+    # balanced (handles cases with prose BEFORE and AFTER the JSON).
+    if first_brace != -1:
+        depth = 0
+        for i in range(first_brace, len(text)):
+            c = text[i]
+            if c == "{":
+                depth += 1
+            elif c == "}":
+                depth -= 1
+                if depth == 0:
+                    candidates.append((text[first_brace:i + 1], "balanced_object"))
+                    break
+
+    for cand, strategy in candidates:
+        try:
+            return json.loads(cand), {"strategy": strategy}
+        except json.JSONDecodeError:
+            continue
+
+    # Final fallback: manual recovery of brands_mentioned array when the
+    # outer JSON is truncated. This is common with search responses that
+    # run long and get cut off mid-object.
+    import re
+    match = re.search(r'"brands_mentioned"\s*:\s*\[(.*?)(?:\]|$)', text, re.DOTALL)
+    if match:
+        entries = re.findall(
+            r'\{\s*"brand"\s*:\s*"([^"]+)"\s*,\s*"position"\s*:\s*(\d+)\s*,\s*"sentiment"\s*:\s*"([^"]*)"',
+            match.group(1),
+        )
+        if entries:
+            return ({
+                "brands_mentioned": [
+                    {"brand": b, "position": int(p), "sentiment": s}
+                    for b, p, s in entries
+                ]
+            }, {"strategy": "regex_brands_recovery"})
+
+    return None, {"strategy": "none"}
+
+
+def _parse_json(text: str) -> dict | None:
+    data, _ = _parse_json_with_meta(text)
+    return data
 
 
 # ── Dedup helper ─────────────────────────────────────────────────────────────
@@ -512,10 +694,12 @@ def collect(
     api_logs: list[dict] = []
 
     # Fan out LLM calls across a thread pool so they run in parallel instead
-    # of one-after-another. Each provider (OpenAI/Anthropic/Google) uses a
-    # blocking SDK so threads are the right concurrency primitive here.
+    # of one-after-another. Each call is pure I/O (blocking HTTP to OpenAI,
+    # Anthropic, Google) so we can run a lot of threads cheaply. Sizing the
+    # pool to match the work list means every call starts immediately
+    # instead of queuing behind a batch.
     import concurrent.futures
-    max_workers = min(total, 10)  # cap so we don't flood rate limits
+    max_workers = min(total, 32)
 
     def _one(work):
         query, prompt, model_name, caller, sample_idx, mode = work
@@ -532,22 +716,32 @@ def collect(
         )
 
     done = 0
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as pool:
-        futures = {pool.submit(_one, w): w for w in work_items}
-        for future in concurrent.futures.as_completed(futures):
-            log_entry, local_obs = future.result()
-            api_logs.append(log_entry)
-            observations.extend(local_obs)
-            done += 1
-            if on_progress:
-                on_progress(done, total, log_entry["model"], log_entry["query"])
-            if on_log_complete:
-                try:
-                    on_log_complete(log_entry)
-                except Exception as cb_err:
-                    print(f"  WARN on_log_complete: {cb_err}")
+    # Separate pool for Convex log writes so they don't block the main loop
+    # from picking up the next completed LLM future.
+    log_pool = concurrent.futures.ThreadPoolExecutor(max_workers=4)
+    try:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as pool:
+            futures = {pool.submit(_one, w): w for w in work_items}
+            for future in concurrent.futures.as_completed(futures):
+                log_entry, local_obs = future.result()
+                api_logs.append(log_entry)
+                observations.extend(local_obs)
+                done += 1
+                if on_progress:
+                    on_progress(done, total, log_entry["model"], log_entry["query"])
+                if on_log_complete:
+                    log_pool.submit(_safe_log_complete, on_log_complete, log_entry)
+    finally:
+        log_pool.shutdown(wait=True)
 
     return observations, api_logs
+
+
+def _safe_log_complete(cb, log_entry):
+    try:
+        cb(log_entry)
+    except Exception as e:
+        print(f"  WARN on_log_complete: {e}")
 
 
 def _process_one_call(
@@ -563,6 +757,7 @@ def _process_one_call(
     cross_validate_rate: float,
 ) -> tuple[dict, list[dict]]:
     """Run one LLM call + brand extraction. Returns (log_entry, observations)."""
+    started_at = time.perf_counter()
     log_entry = {
         "query": query,
         "model": model_name,
@@ -572,6 +767,12 @@ def _process_one_call(
         "raw_response": None,
         "parsed": None,
         "sources": [],
+        "search_used": False,
+        "tool_trace": None,
+        "latency_ms": None,
+        "parser_status": "pending",
+        "parse_strategy": "none",
+        "tracked_brands": [],
         "status": "pending",
         "error": None,
     }
@@ -579,15 +780,23 @@ def _process_one_call(
 
     try:
         result = caller(prompt)
-        # Memory callers return str; search callers return (str, list[str])
-        if isinstance(result, tuple):
+        # Memory callers return str; legacy search callers return (str, list[str]);
+        # richer search callers return a dict with metadata.
+        if isinstance(result, dict):
+            raw = result.get("text") or ""
+            log_entry["sources"] = result.get("sources") or []
+            log_entry["search_used"] = bool(result.get("search_used"))
+            log_entry["tool_trace"] = result.get("tool_trace")
+        elif isinstance(result, tuple):
             raw, sources = result
             log_entry["sources"] = sources
+            log_entry["search_used"] = bool(sources) if mode == "search" else False
         else:
             raw = result
         log_entry["raw_response"] = raw
-        data = _parse_json(raw)
+        data, parse_meta = _parse_json_with_meta(raw)
         log_entry["parsed"] = data
+        log_entry["parse_strategy"] = parse_meta.get("strategy", "none")
         log_entry["status"] = "success" if data else "parse_error"
 
         # Pass 2: check for tracked brands — both structured JSON and raw text.
@@ -598,6 +807,8 @@ def _process_one_call(
                 mentioned_in_json[name.lower()] = m
 
         raw_lower = (raw or "").lower()
+        saw_text_fallback = False
+        tracked_brands: list[dict] = []
 
         # Pass 3 (optional): cross-validate with a second extraction model.
         independent_brands = {}
@@ -636,6 +847,8 @@ def _process_one_call(
 
             if found_in_json:
                 m = mentioned_in_json[brand_lower]
+                position = m.get("position")
+                sentiment = m.get("sentiment", "neutral")
                 local_obs.append({
                     "query": query,
                     "model": model_name,
@@ -644,15 +857,25 @@ def _process_one_call(
                     "brand": brand,
                     "mentioned": True,
                     "organic": True,
-                    "position": m.get("position"),
-                    "sentiment": m.get("sentiment", "neutral"),
+                    "position": position,
+                    "sentiment": sentiment,
                     "cross_validated": did_cross_validate,
                     "extraction_disagreement": has_disagreement,
+                })
+                tracked_brands.append({
+                    "brand": brand,
+                    "mentioned": True,
+                    "position": position,
+                    "sentiment": sentiment,
+                    "detection_source": "json",
+                    "position_source": "model_json",
+                    "position_confidence": "high",
                 })
             elif found_in_text:
                 pos = raw_lower.index(brand_lower)
                 total_len = len(raw_lower) or 1
                 estimated_position = max(1, round((pos / total_len) * 10))
+                saw_text_fallback = True
                 local_obs.append({
                     "query": query,
                     "model": model_name,
@@ -665,6 +888,15 @@ def _process_one_call(
                     "sentiment": "neutral",
                     "cross_validated": did_cross_validate,
                     "extraction_disagreement": has_disagreement,
+                })
+                tracked_brands.append({
+                    "brand": brand,
+                    "mentioned": True,
+                    "position": estimated_position,
+                    "sentiment": "neutral",
+                    "detection_source": "text",
+                    "position_source": "text_estimate",
+                    "position_confidence": "estimated",
                 })
             else:
                 local_obs.append({
@@ -680,15 +912,41 @@ def _process_one_call(
                     "cross_validated": did_cross_validate,
                     "extraction_disagreement": has_disagreement,
                 })
+                tracked_brands.append({
+                    "brand": brand,
+                    "mentioned": False,
+                    "position": None,
+                    "sentiment": None,
+                    "detection_source": "none",
+                    "position_source": "none",
+                    "position_confidence": "none",
+                })
+
+        log_entry["tracked_brands"] = tracked_brands
 
         if has_disagreement:
             log_entry["status"] = "extraction_conflict"
 
+        if log_entry["status"] == "error":
+            log_entry["parser_status"] = "call_error"
+        elif has_disagreement:
+            log_entry["parser_status"] = "extraction_conflict"
+        elif data and log_entry["parse_strategy"] == "regex_brands_recovery":
+            log_entry["parser_status"] = "partial_recovery"
+        elif data:
+            log_entry["parser_status"] = "structured_json"
+        elif saw_text_fallback:
+            log_entry["parser_status"] = "text_fallback"
+        else:
+            log_entry["parser_status"] = "parse_error"
+
     except Exception as e:
         log_entry["status"] = "error"
+        log_entry["parser_status"] = "call_error"
         log_entry["error"] = str(e)
         print(f"  ERROR [{model_name}]: {e}")
 
+    log_entry["latency_ms"] = round((time.perf_counter() - started_at) * 1000)
     return log_entry, local_obs
 
 
@@ -721,14 +979,16 @@ def extract(
     rate = len(mentioned) / total if total > 0 else 0
 
     positions = [o["position"] for o in mentioned if o["position"] is not None]
-    avg_pos = sum(positions) / len(positions) if positions else 10
+    # Use 0 to represent "never mentioned" in user-facing aggregates.
+    avg_pos = sum(positions) / len(positions) if positions else 0
     top1 = sum(1 for p in positions if p == 1) / len(positions) if positions else 0
     top3 = sum(1 for p in positions if p <= 3) / len(positions) if positions else 0
     pos_std = (sum((p - avg_pos) ** 2 for p in positions) / len(positions)) ** 0.5 if len(positions) >= 2 else 0
 
     sents = [o["sentiment"] for o in mentioned if o["sentiment"]]
     n_sent = len(sents)
-    pos_rate = sents.count("positive") / n_sent if n_sent > 0 else 0.5
+    # No mentions means no positive signal, not a synthetic 50% neutral default.
+    pos_rate = sents.count("positive") / n_sent if n_sent > 0 else 0
     neg_rate = sents.count("negative") / n_sent if n_sent > 0 else 0
     net_sent = (sents.count("positive") - sents.count("negative")) / n_sent if n_sent > 0 else 0
 
@@ -811,14 +1071,16 @@ def extract_per_model(
     rate = len(mentioned) / total if total > 0 else 0
 
     positions = [o["position"] for o in mentioned if o["position"] is not None]
-    avg_pos = sum(positions) / len(positions) if positions else 10
+    # Use 0 to represent "never mentioned" in user-facing aggregates.
+    avg_pos = sum(positions) / len(positions) if positions else 0
     top1 = sum(1 for p in positions if p == 1) / len(positions) if positions else 0
     top3 = sum(1 for p in positions if p <= 3) / len(positions) if positions else 0
     pos_std = (sum((p - avg_pos) ** 2 for p in positions) / len(positions)) ** 0.5 if len(positions) >= 2 else 0
 
     sents = [o["sentiment"] for o in mentioned if o["sentiment"]]
     n_sent = len(sents)
-    pos_rate = sents.count("positive") / n_sent if n_sent > 0 else 0.5
+    # No mentions means no positive signal, not a synthetic 50% neutral default.
+    pos_rate = sents.count("positive") / n_sent if n_sent > 0 else 0
     neg_rate = sents.count("negative") / n_sent if n_sent > 0 else 0
     net_sent = (sents.count("positive") - sents.count("negative")) / n_sent if n_sent > 0 else 0
 
@@ -892,6 +1154,160 @@ CONTENT_FEATURE_NAMES = [
 
 LAG_FEATURE_NAME = "lagged_mention_rate"
 
+SURROGATE_XGB_PARAMS = {
+    "n_estimators": 100,
+    "max_depth": 4,
+    "learning_rate": 0.1,
+    "subsample": 0.8,
+    "colsample_bytree": 0.8,
+    "random_state": 42,
+    "objective": "reg:squarederror",
+    "verbosity": 0,
+}
+
+
+def prepare_temporal_training_rows(rows: list[dict]) -> pd.DataFrame | None:
+    """Build a brand-date frame for next-period forecasting validation."""
+    df = pd.DataFrame(rows).copy()
+    if df.empty or "date" not in df.columns or "brand" not in df.columns:
+        return None
+
+    df["date"] = pd.to_datetime(df["date"], errors="coerce")
+    df = df.dropna(subset=["date"]).sort_values(["brand", "date"])
+    if df.empty or df["date"].nunique() < 2:
+        return None
+
+    # Keep the latest row per brand/day so one noisy rerun does not create multiple targets.
+    df = df.drop_duplicates(subset=["brand", "date"], keep="last").copy()
+    df[LAG_FEATURE_NAME] = df["mention_rate"]
+    df["target_mention_rate"] = df.groupby("brand")["mention_rate"].shift(-1)
+    df["target_date"] = df.groupby("brand")["date"].shift(-1)
+    df = df.dropna(subset=["target_mention_rate", "target_date"]).copy()
+
+    if len(df) < 4 or df["date"].nunique() < 2:
+        return None
+    return df
+
+
+def summarize_training_rows(rows: list[dict]) -> dict:
+    """Summarize the current training corpus for admin diagnostics."""
+    df = pd.DataFrame(rows).copy()
+    if df.empty:
+        return {
+            "sample_count": 0,
+            "brand_count": 0,
+            "unique_dates": 0,
+            "date_start": None,
+            "date_end": None,
+            "latest_row_count": 0,
+            "duplicate_brand_date_rows": 0,
+            "temporal_pair_count": 0,
+            "rows_by_date": [],
+            "top_brands_by_rows": [],
+            "mention_rate_summary": {"min": 0.0, "median": 0.0, "mean": 0.0, "max": 0.0},
+            "brand_row_summary": {"min": 0, "median": 0.0, "max": 0},
+        }
+
+    brand_count = int(df["brand"].nunique()) if "brand" in df.columns else 0
+    latest_row_count = int(df.drop_duplicates(subset=["brand"], keep="last")["brand"].nunique()) if "brand" in df.columns else 0
+
+    rows_by_date: list[dict] = []
+    top_brands_by_rows: list[dict] = []
+    unique_dates = 0
+    date_start = None
+    date_end = None
+    duplicate_brand_date_rows = 0
+
+    if "date" in df.columns:
+        dated = df.copy()
+        dated["date"] = pd.to_datetime(dated["date"], errors="coerce")
+        dated = dated.dropna(subset=["date"])
+        if not dated.empty:
+            unique_dates = int(dated["date"].nunique())
+            date_start = dated["date"].min().date().isoformat()
+            date_end = dated["date"].max().date().isoformat()
+            rows_by_date_df = (
+                dated.groupby("date")
+                .agg(rows=("brand", "size"), brands=("brand", "nunique"))
+                .reset_index()
+                .sort_values("date", ascending=False)
+            )
+            rows_by_date = [
+                {
+                    "date": row["date"].date().isoformat(),
+                    "rows": int(row["rows"]),
+                    "brands": int(row["brands"]),
+                }
+                for _, row in rows_by_date_df.iterrows()
+            ]
+            duplicate_brand_date_rows = int(
+                dated.duplicated(subset=["brand", "date"], keep="last").sum()
+            )
+            brand_rows_df = (
+                dated.groupby("brand")
+                .agg(rows=("brand", "size"), dates=("date", "nunique"))
+                .reset_index()
+                .sort_values(["rows", "dates", "brand"], ascending=[False, False, True])
+            )
+        else:
+            brand_rows_df = (
+                df.groupby("brand")
+                .size()
+                .reset_index(name="rows")
+                .assign(dates=0)
+                .sort_values(["rows", "brand"], ascending=[False, True])
+            )
+    else:
+        brand_rows_df = (
+            df.groupby("brand")
+            .size()
+            .reset_index(name="rows")
+            .assign(dates=0)
+            .sort_values(["rows", "brand"], ascending=[False, True])
+        )
+
+    if not brand_rows_df.empty:
+        top_brands_by_rows = [
+            {
+                "brand": str(row["brand"]),
+                "rows": int(row["rows"]),
+                "dates": int(row["dates"]),
+            }
+            for _, row in brand_rows_df.head(12).iterrows()
+        ]
+        brand_row_counts = brand_rows_df["rows"].tolist()
+    else:
+        brand_row_counts = []
+
+    mention_rates = pd.to_numeric(df.get("mention_rate"), errors="coerce").dropna()
+    mention_rate_summary = {
+        "min": float(mention_rates.min()) if not mention_rates.empty else 0.0,
+        "median": float(mention_rates.median()) if not mention_rates.empty else 0.0,
+        "mean": float(mention_rates.mean()) if not mention_rates.empty else 0.0,
+        "max": float(mention_rates.max()) if not mention_rates.empty else 0.0,
+    }
+
+    temporal_df = prepare_temporal_training_rows(rows)
+
+    return {
+        "sample_count": int(len(df)),
+        "brand_count": brand_count,
+        "unique_dates": unique_dates,
+        "date_start": date_start,
+        "date_end": date_end,
+        "latest_row_count": latest_row_count,
+        "duplicate_brand_date_rows": duplicate_brand_date_rows,
+        "temporal_pair_count": int(len(temporal_df)) if temporal_df is not None else 0,
+        "rows_by_date": rows_by_date,
+        "top_brands_by_rows": top_brands_by_rows,
+        "mention_rate_summary": mention_rate_summary,
+        "brand_row_summary": {
+            "min": int(min(brand_row_counts)) if brand_row_counts else 0,
+            "median": float(np.median(brand_row_counts)) if brand_row_counts else 0.0,
+            "max": int(max(brand_row_counts)) if brand_row_counts else 0,
+        },
+    }
+
 
 def merge_content_features(rows: list[dict], content_analysis: dict | None) -> list[dict]:
     """Merge content analysis features into training rows."""
@@ -953,34 +1369,12 @@ class SurrogateModel:
         self.training_mode: str = "same_day"
 
     def _fit_one(self, X: pd.DataFrame, y: pd.Series) -> xgb.XGBRegressor:
-        model = xgb.XGBRegressor(
-            n_estimators=100, max_depth=4, learning_rate=0.1,
-            subsample=0.8, colsample_bytree=0.8,
-            random_state=42, objective="reg:squarederror", verbosity=0,
-        )
+        model = xgb.XGBRegressor(**SURROGATE_XGB_PARAMS)
         model.fit(X, y)
         return model
 
     def _prepare_temporal_rows(self, rows: list[dict]) -> pd.DataFrame | None:
-        df = pd.DataFrame(rows).copy()
-        if df.empty or "date" not in df.columns or "brand" not in df.columns:
-            return None
-
-        df["date"] = pd.to_datetime(df["date"], errors="coerce")
-        df = df.dropna(subset=["date"]).sort_values(["brand", "date"])
-        if df.empty or df["date"].nunique() < 2:
-            return None
-
-        # Keep the latest row per brand/day so one noisy rerun does not create multiple targets.
-        df = df.drop_duplicates(subset=["brand", "date"], keep="last").copy()
-        df[LAG_FEATURE_NAME] = df["mention_rate"]
-        df["target_mention_rate"] = df.groupby("brand")["mention_rate"].shift(-1)
-        df["target_date"] = df.groupby("brand")["date"].shift(-1)
-        df = df.dropna(subset=["target_mention_rate", "target_date"]).copy()
-
-        if len(df) < 4 or df["date"].nunique() < 2:
-            return None
-        return df
+        return prepare_temporal_training_rows(rows)
 
     def _walk_forward_metrics(
         self,

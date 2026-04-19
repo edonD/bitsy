@@ -132,6 +132,7 @@ export default function BenchmarkPage() {
 
       <div className="mt-12 border-t border-[color:var(--line)] pt-8 flex justify-center gap-6">
         <Link href="/simulator" className="ink-link text-sm">Engine</Link>
+        <Link href="/admin/model" className="ink-link text-sm">Model</Link>
         <Link href="/admin/logs" className="ink-link text-sm">API Logs</Link>
         <Link href="/admin/improvements" className="ink-link text-sm">Improvements</Link>
       </div>

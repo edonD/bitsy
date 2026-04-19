@@ -67,6 +67,57 @@ export interface StatusResponse {
   feature_names: string[];
 }
 
+export interface ModelDiagnosticsResponse {
+  model_trained: boolean;
+  training_sample_count: number;
+  brand_count: number;
+  unique_dates: number;
+  date_start: string | null;
+  date_end: string | null;
+  latest_row_count: number;
+  duplicate_brand_date_rows: number;
+  temporal_pair_count: number;
+  rows_by_date: { date: string; rows: number; brands: number }[];
+  top_brands_by_rows: { brand: string; rows: number; dates: number }[];
+  mention_rate_summary: { min: number; median: number; mean: number; max: number };
+  brand_row_summary: { min: number; median: number; max: number };
+  use_content_features: boolean;
+  feature_count: number;
+  base_feature_names: string[];
+  active_feature_names: string[];
+  xgb_params: Record<string, string | number | boolean>;
+  metrics: {
+    rmse: number;
+    mae: number;
+    r2: number;
+    interval_radius: number;
+    training_mode: string;
+    validation_mode: string;
+    lag_feature_enabled: boolean;
+    target_column: string;
+  } | null;
+  importance: { feature: string; importance: number }[];
+  per_model_metrics: Record<
+    string,
+    { rmse: number; mae: number; r2: number; validation_mode: string }
+  >;
+  latest_training_run: {
+    date?: string;
+    r2_score?: number;
+    rmse?: number;
+    mae?: number;
+    num_samples?: number;
+    status?: string;
+  } | null;
+  config?: {
+    target?: string;
+    competitors?: string[];
+    queries?: string[];
+    models?: string[];
+    website_url?: string;
+  } | null;
+}
+
 export interface Recommendation {
   action: string;
   feature: string;
@@ -92,6 +143,9 @@ export async function runCollection(params: {
   website_url?: string;
   models?: string[];
   samples_per_query?: number;
+  fan_out?: boolean;
+  enable_memory?: boolean;
+  enable_search?: boolean;
   multi_generator_fanout?: boolean;
   intent_fanout?: boolean;
   cross_validate_extraction?: boolean;
@@ -107,6 +161,9 @@ export async function runCollection(params: {
       website_url: params.website_url,
       models: params.models ?? ["chatgpt", "claude", "gemini"],
       samples_per_query: params.samples_per_query ?? 2,
+      fan_out: params.fan_out ?? true,
+      enable_memory: params.enable_memory ?? true,
+      enable_search: params.enable_search ?? false,
       multi_generator_fanout: params.multi_generator_fanout ?? false,
       intent_fanout: params.intent_fanout ?? false,
       cross_validate_extraction: params.cross_validate_extraction ?? false,
@@ -146,6 +203,12 @@ export async function getFeatures(): Promise<{ features: Record<string, number>[
 export async function getImportance(): Promise<{ importance: Record<string, number>; r2: number }> {
   const res = await fetch(`${API}/api/simulations/importance`);
   if (!res.ok) throw new Error(`Importance failed: ${res.status}`);
+  return res.json();
+}
+
+export async function getModelDiagnostics(): Promise<ModelDiagnosticsResponse> {
+  const res = await fetch(`${API}/api/simulations/model-diagnostics`);
+  if (!res.ok) throw new Error(`Model diagnostics failed: ${res.status}`);
   return res.json();
 }
 

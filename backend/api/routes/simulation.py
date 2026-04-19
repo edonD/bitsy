@@ -34,6 +34,7 @@ from pipeline.engine import (
 )
 from pipeline.content_analyzer import analyze_url, analyze_text, rate_features, compute_overall_score, generate_summary
 from pipeline.site_crawler import crawl_domain, result_to_dict, _cloudflare_available
+from pipeline.scripted_crawler import scripted_crawl_domain, crawl_with_fallback
 from pipeline import convex_client as cx
 
 router = APIRouter()
@@ -1228,19 +1229,33 @@ class CrawlDomainRequest(BaseModel):
     url: str
     max_pages: int = Field(default=5, ge=1, le=25)
     depth: int = Field(default=2, ge=1, le=4)
+    # "auto"    — Cloudflare /crawl first, scripted fallback on empty
+    # "fast"    — /crawl only (tier 1)
+    # "scripted"— Playwright over Cloudflare Browser Run CDP (tier 2)
+    mode: str = Field(default="auto", pattern="^(auto|fast|scripted)$")
 
 
 @router.post("/crawl-domain")
 def crawl_domain_endpoint(req: CrawlDomainRequest):
     """
-    Crawl a domain via Cloudflare Browser Rendering (falls back to a
-    direct fetch if no Cloudflare token is configured) and return the
-    GEO-relevant content features — per-page and aggregated.
+    Crawl a domain and return GEO-relevant content features, per-page and
+    aggregated. Three modes:
+      - auto:     tier 1 (fast, high-level) then tier 2 (scripted browser) on empty
+      - fast:     tier 1 only — Cloudflare /crawl or direct HTTP
+      - scripted: tier 2 only — Playwright driving Cloudflare Browser Run via CDP,
+                  with cookie dismissal and scroll-for-lazy-load
 
-    Intended as a playground: pass any URL and see exactly what the
-    nightly competitor crawler would extract for that brand.
+    Intended as a playground: submit any URL and see exactly what the
+    engine would extract for that brand on a given tier.
     """
-    result = crawl_domain(req.url, max_pages=req.max_pages, depth=req.depth)
+    if req.mode == "scripted":
+        result = scripted_crawl_domain(req.url, max_pages=req.max_pages)
+    elif req.mode == "fast":
+        result = crawl_domain(req.url, max_pages=req.max_pages, depth=req.depth)
+    else:  # auto
+        result = crawl_with_fallback(req.url, max_pages=req.max_pages, depth=req.depth)
+
     payload = result_to_dict(result)
     payload["cloudflare_configured"] = _cloudflare_available()
+    payload["mode_requested"] = req.mode
     return payload

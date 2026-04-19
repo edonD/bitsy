@@ -41,7 +41,8 @@ from pipeline.content_analyzer import (
 
 
 CLOUDFLARE_API_BASE = "https://api.cloudflare.com/client/v4"
-CRAWL_TIMEOUT_S = 90  # Cloudflare crawl can be slow on large sites.
+CRAWL_POLL_TIMEOUT_S = 120   # how long to wait for an async /crawl job
+CRAWL_POLL_INTERVAL_S = 2    # polling cadence
 FALLBACK_TIMEOUT_S = 15
 
 
@@ -84,48 +85,96 @@ def _cloudflare_available() -> bool:
 
 def _cloudflare_crawl(url: str, max_pages: int, depth: int) -> dict[str, Any]:
     """
-    Calls https://api.cloudflare.com/client/v4/accounts/{id}/browser-rendering/crawl.
-    Raises requests.HTTPError on non-2xx. Returns the parsed JSON payload.
+    Cloudflare /crawl is async: submit a job, get a UUID back, then poll
+    GET /crawl/{job_id} until status == "completed". We block the caller
+    for up to CRAWL_POLL_TIMEOUT_S, then return the final poll payload.
+
+    Request schema (per Cloudflare docs): `limit` (not maxPages), `formats`
+    (array, not format), `crawlPurposes` declares intent.
+
+    Raises requests.HTTPError on non-2xx. Returns the parsed JSON payload
+    shape used by _extract_pages_from_cf_response.
     """
     token, account_id = _cloudflare_credentials()
     if not (token and account_id):
         raise RuntimeError("Cloudflare API token / account id not configured")
 
-    endpoint = f"{CLOUDFLARE_API_BASE}/accounts/{account_id}/browser-rendering/crawl"
+    base = f"{CLOUDFLARE_API_BASE}/accounts/{account_id}/browser-rendering/crawl"
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+    }
     body = {
         "url": url,
-        "maxPages": max_pages,
+        "limit": max_pages,
         "depth": depth,
-        "format": "markdown",
+        "formats": ["markdown", "html"],
+        "crawlPurposes": ["ai-input"],
     }
-    resp = requests.post(
-        endpoint,
-        headers={
-            "Authorization": f"Bearer {token}",
-            "Content-Type": "application/json",
-        },
-        json=body,
-        timeout=CRAWL_TIMEOUT_S,
-    )
-    resp.raise_for_status()
-    return resp.json()
+
+    # 1. Submit
+    submit = requests.post(base, headers=headers, json=body, timeout=30)
+    submit.raise_for_status()
+    submit_payload = submit.json()
+    job_id = submit_payload.get("result")
+    if not isinstance(job_id, str):
+        # Unexpected shape — return what we got and let the caller deal.
+        return submit_payload
+
+    # 2. Poll until completed or timeout
+    poll_url = f"{base}/{job_id}"
+    deadline = time.time() + CRAWL_POLL_TIMEOUT_S
+    last_payload: dict[str, Any] = {}
+    while time.time() < deadline:
+        poll = requests.get(poll_url, headers=headers, timeout=30)
+        poll.raise_for_status()
+        last_payload = poll.json()
+        result = last_payload.get("result") or {}
+        status = result.get("status") if isinstance(result, dict) else None
+        if status in ("completed", "failed", "cancelled", "error"):
+            return last_payload
+        time.sleep(CRAWL_POLL_INTERVAL_S)
+
+    # Timed out — return whatever partial state we have. _extract_pages
+    # will still surface any records the job produced before the timeout.
+    return last_payload or submit_payload
 
 
 def _extract_pages_from_cf_response(payload: dict) -> list[dict]:
-    """Defensive parser: Cloudflare's response shape may evolve. Try known paths."""
+    """
+    Real shape (per observed poll response): {
+      success, result: { id, status, total, finished, records: [...] }
+    }
+    Each record: { url, status, metadata: {title,...}, markdown, html }.
+
+    Kept defensive so a future rename doesn't drop the whole pipeline.
+    """
     if not isinstance(payload, dict):
         return []
-    # API v4 convention: { success, result, errors, messages }
     result = payload.get("result") if "result" in payload else payload
     if not result:
         return []
-    # Seen variants: result.pages, result.results, result.data, direct list
-    for key in ("pages", "results", "data", "items"):
-        if isinstance(result, dict) and key in result and isinstance(result[key], list):
-            return result[key]
+    if isinstance(result, dict):
+        for key in ("records", "pages", "results", "data", "items"):
+            value = result.get(key)
+            if isinstance(value, list):
+                return value
     if isinstance(result, list):
         return result
     return []
+
+
+def _page_title(item: dict) -> Optional[str]:
+    """Title lives under metadata.title in Cloudflare's response."""
+    if not isinstance(item, dict):
+        return None
+    meta = item.get("metadata")
+    if isinstance(meta, dict):
+        t = meta.get("title") or meta.get("ogTitle")
+        if isinstance(t, str):
+            return t
+    t = item.get("title")
+    return t if isinstance(t, str) else None
 
 
 # ── Direct fallback ─────────────────────────────────────────────────────────
@@ -265,7 +314,7 @@ def _crawl_via_cloudflare(
         page_url = item.get("url") or item.get("link") or url
         markdown = item.get("markdown") or item.get("content") or ""
         html = item.get("html") or ""
-        title = item.get("title")
+        title = _page_title(item)
         status = int(item.get("status") or item.get("statusCode") or 200)
 
         # Prefer HTML analysis when present (gets structured-data signals);

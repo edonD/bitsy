@@ -1,10 +1,15 @@
 "use client";
 
 // Execute playbook — the "what to ship, where, when, with what evidence"
-// page. Input: one gap (brand + feature + peers). Output: a five-section
-// playbook where every recommendation carries a research-backed citation.
+// page. Input: one gap (brand + feature + peers). Output: a playbook
+// where every recommendation carries a research-backed citation.
+//
+// Deep-linkable: /admin/execute?brand=X&feature=Y&user_value=0&leader_value=14
+//   &leader_brand=Z&peers=A,B,C&autorun=1 pre-fills the form and runs the
+//   playbook automatically. Used from /admin/gap cards.
 
-import { useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -94,6 +99,17 @@ const FEATURE_OPTIONS = [
 ];
 
 export default function ExecutePage() {
+  // useSearchParams requires a Suspense boundary during SSR/static build.
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[var(--paper)]" />}>
+      <ExecutePageInner />
+    </Suspense>
+  );
+}
+
+function ExecutePageInner() {
+  const searchParams = useSearchParams();
+
   const [brand, setBrand] = useState("Bitsy");
   const [feature, setFeature] = useState("citation_count");
   const [peers, setPeers] = useState("Profound, Peec AI, Otterly.AI, AthenaHQ");
@@ -107,9 +123,20 @@ export default function ExecutePage() {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<Playbook | null>(null);
   const [copied, setCopied] = useState(false);
+  const autoRanRef = useRef(false);
 
-  async function run() {
-    if (running) return;
+  // Shared fetch helper so both the button and the deep-link auto-run
+  // path can pass explicit values (state batching won't bite us).
+  async function runWith(values: {
+    brand: string;
+    feature: string;
+    peers: string;
+    userValue: number;
+    leaderValue: number;
+    leaderBrand: string;
+    query: string;
+    category: string;
+  }) {
     setRunning(true);
     setError(null);
     setResult(null);
@@ -119,14 +146,14 @@ export default function ExecutePage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          brand,
-          feature,
-          user_value: userValue,
-          leader_value: leaderValue,
-          leader_brand: leaderBrand,
-          peer_brands: peers.split(",").map((p) => p.trim()).filter(Boolean),
-          query,
-          category,
+          brand: values.brand,
+          feature: values.feature,
+          user_value: values.userValue,
+          leader_value: values.leaderValue,
+          leader_brand: values.leaderBrand,
+          peer_brands: values.peers.split(",").map((p) => p.trim()).filter(Boolean),
+          query: values.query,
+          category: values.category,
         }),
       });
       const data = await res.json();
@@ -138,6 +165,54 @@ export default function ExecutePage() {
       setRunning(false);
     }
   }
+
+  async function run() {
+    if (running) return;
+    await runWith({ brand, feature, peers, userValue, leaderValue, leaderBrand, query, category });
+  }
+
+  // Deep-link hydration: pull gap context from the URL once on mount,
+  // prefill the form, optionally auto-run. Driven by /admin/gap cards.
+  useEffect(() => {
+    if (autoRanRef.current) return;
+    if (!searchParams) return;
+
+    const p = (key: string) => searchParams.get(key);
+
+    const nextBrand = p("brand") ?? brand;
+    const nextFeature = p("feature") ?? feature;
+    const nextPeers = p("peers") ?? peers;
+    const nextUserValue = p("user_value") != null ? parseFloat(p("user_value")!) : userValue;
+    const nextLeaderValue = p("leader_value") != null ? parseFloat(p("leader_value")!) : leaderValue;
+    const nextLeaderBrand = p("leader_brand") ?? leaderBrand;
+    const nextQuery = p("query") ?? query;
+    const nextCategory = p("category") ?? category;
+
+    if (p("brand")) setBrand(nextBrand);
+    if (p("feature")) setFeature(nextFeature);
+    if (p("peers")) setPeers(nextPeers);
+    if (p("user_value")) setUserValue(nextUserValue);
+    if (p("leader_value")) setLeaderValue(nextLeaderValue);
+    if (p("leader_brand")) setLeaderBrand(nextLeaderBrand);
+    if (p("query")) setQuery(nextQuery);
+    if (p("category")) setCategory(nextCategory);
+
+    if (p("autorun") === "1") {
+      autoRanRef.current = true;
+      // Use the URL values directly — React state update hasn't flushed yet.
+      runWith({
+        brand: nextBrand,
+        feature: nextFeature,
+        peers: nextPeers,
+        userValue: nextUserValue,
+        leaderValue: nextLeaderValue,
+        leaderBrand: nextLeaderBrand,
+        query: nextQuery,
+        category: nextCategory,
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   async function copyPatch() {
     if (!result) return;

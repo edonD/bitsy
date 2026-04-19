@@ -255,6 +255,7 @@ export default function GapPage() {
                       gap={gap}
                       rank={i + 1}
                       targetBrand={result.target.brand}
+                      peerBrands={result.peers.map((p) => p.brand)}
                     />
                   ))}
                 </div>
@@ -332,10 +333,12 @@ function GapCard({
   gap,
   rank,
   targetBrand,
+  peerBrands,
 }: {
   gap: Gap;
   rank: number;
   targetBrand: string;
+  peerBrands: string[];
 }) {
   // Normalize peer values for the bar chart: scale to the leader.
   const maxValue = Math.max(
@@ -345,6 +348,21 @@ function GapCard({
     0.0001
   );
   const impactPct = Math.round(gap.research_coef * 100);
+
+  // Deep link: carry the full gap context into the Execute playbook so the
+  // user hits one button instead of re-entering every field.
+  const executeHref = (() => {
+    const params = new URLSearchParams({
+      brand: targetBrand,
+      feature: gap.feature,
+      user_value: String(gap.user_value),
+      leader_value: String(gap.leader_value),
+      leader_brand: gap.leader_brand,
+      peers: peerBrands.join(","),
+      autorun: "1",
+    });
+    return `/admin/execute?${params.toString()}`;
+  })();
 
   return (
     <div className="paper-panel rounded-2xl p-5">
@@ -388,6 +406,17 @@ function GapCard({
       {/* Evidence */}
       <div className="mt-4 rounded-xl border border-[color:var(--line)] bg-white/60 p-3 text-sm text-[var(--ink)]">
         {gap.evidence}
+      </div>
+
+      {/* Deep-link to Execute playbook */}
+      <div className="mt-4 flex items-center justify-end">
+        <Link
+          href={executeHref}
+          className="inline-flex items-center gap-1.5 rounded-full bg-[var(--ink)] px-4 py-1.5 text-xs font-semibold text-[var(--paper)] hover:opacity-90 transition-opacity"
+        >
+          Build playbook
+          <span aria-hidden="true">→</span>
+        </Link>
       </div>
     </div>
   );

@@ -22,6 +22,7 @@ class ExecutePlaybookRequest(BaseModel):
     leader_brand: Optional[str] = None
     peer_brands: list[str] = Field(default_factory=list)
     query: Optional[str] = None  # the buyer query this playbook targets
+    category: Optional[str] = None  # e.g. "AI search visibility tools"
 
 
 @router.post("/execute/playbook")
@@ -44,6 +45,7 @@ def execute_playbook(req: ExecutePlaybookRequest):
         leader_brand=req.leader_brand,
         peer_brands=req.peer_brands,
         query=req.query,
+        category=req.category,
     )
 
 

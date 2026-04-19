@@ -14,5 +14,12 @@ so the user can click through to the research that backs each suggestion.
 
 from .evidence import EVIDENCE, find_evidence
 from .playbook import build_playbook
+from .blog_templates import TEMPLATES as BLOG_TEMPLATES, templates_for_feature
 
-__all__ = ["EVIDENCE", "find_evidence", "build_playbook"]
+__all__ = [
+    "EVIDENCE",
+    "find_evidence",
+    "build_playbook",
+    "BLOG_TEMPLATES",
+    "templates_for_feature",
+]

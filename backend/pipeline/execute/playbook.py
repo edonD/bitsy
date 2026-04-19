@@ -20,6 +20,7 @@ from typing import Optional
 from pipeline import convex_client as cx
 from pipeline.engine import _get_openai, OPENAI_MODEL
 from .evidence import EVIDENCE, find_evidence
+from .blog_templates import templates_for_feature, render_template
 
 
 # ── Channel defaults per gap type ──────────────────────────────────────────
@@ -345,9 +346,10 @@ def build_playbook(
     leader_brand: Optional[str],
     peer_brands: list[str],
     query: Optional[str] = None,
+    category: Optional[str] = None,
 ) -> dict:
     """
-    Produce the five-section playbook. `feature` is a gap-analysis key
+    Produce the six-section playbook. `feature` is a gap-analysis key
     like 'citation_count', 'quotation_count', etc.
     """
 
@@ -391,12 +393,29 @@ def build_playbook(
         "evidence": find_evidence(*timing_spec["evidence_tags"], limit=2),
     }
 
+    # Blog templates a company can publish as a whole new post.
+    # Each template is research-backed: evidence attached from the
+    # same library as the other sections.
+    blog_templates_spec = templates_for_feature(feature, limit=3)
+    blog_templates = []
+    for spec in blog_templates_spec:
+        rendered = render_template(
+            spec,
+            brand=brand,
+            leader=leader_brand,
+            category=category or "your category",
+        )
+        rendered["evidence"] = find_evidence(*spec["evidence_tags"], limit=2)
+        blog_templates.append(rendered)
+
     summary = (
         f"Gap: {feature.replace('_', ' ')} — you {user_value:.0f}, "
         f"{leader_brand or 'leader'} {leader_value:.0f}. "
         f"Ship the content patch to {channels[0]['where'].lower() if channels else 'your highest-traffic page'}, "
         f"then pursue {len(amplification)} amplification targets over "
-        f"the next {timing['refresh_cadence_days']} days."
+        f"the next {timing['refresh_cadence_days']} days. "
+        f"Alternative path: publish one of the {len(blog_templates)} "
+        f"research-backed blog formats below."
     )
 
     return {
@@ -414,6 +433,7 @@ def build_playbook(
         "channels": channels,
         "amplification": amplification,
         "content_pairing": pairings,
+        "blog_templates": blog_templates,
         "timing": timing,
         "summary": summary,
         "evidence_library_size": len(EVIDENCE),

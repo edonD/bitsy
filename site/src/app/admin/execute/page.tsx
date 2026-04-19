@@ -47,6 +47,23 @@ interface TimingItem {
   evidence: EvidenceItem[];
 }
 
+interface BlogOutlineRow {
+  heading: string;
+  wordcount: number;
+  note?: string | null;
+}
+
+interface BlogTemplate {
+  id: string;
+  title: string;
+  premise: string;
+  why_this_works: string;
+  outline: BlogOutlineRow[];
+  target_word_count: number;
+  effort_hours: number;
+  evidence: EvidenceItem[];
+}
+
 interface Playbook {
   brand: string;
   feature: string;
@@ -58,6 +75,7 @@ interface Playbook {
   channels: ChannelItem[];
   amplification: AmpRow[];
   content_pairing: PairingItem[];
+  blog_templates: BlogTemplate[];
   timing: TimingItem;
   summary: string;
   evidence_library_size: number;
@@ -83,6 +101,7 @@ export default function ExecutePage() {
   const [leaderValue, setLeaderValue] = useState(14);
   const [leaderBrand, setLeaderBrand] = useState("Profound");
   const [query, setQuery] = useState("best AI search visibility tool");
+  const [category, setCategory] = useState("AI search visibility tools");
 
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -107,6 +126,7 @@ export default function ExecutePage() {
           leader_brand: leaderBrand,
           peer_brands: peers.split(",").map((p) => p.trim()).filter(Boolean),
           query,
+          category,
         }),
       });
       const data = await res.json();
@@ -199,6 +219,13 @@ export default function ExecutePage() {
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
+                className="input"
+              />
+            </Field>
+            <Field label="Category (fills blog template slots)">
+              <input
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
                 className="input"
               />
             </Field>
@@ -415,8 +442,27 @@ function PlaybookView({
         )}
       </Section>
 
-      {/* 5 · Timing */}
-      <Section number="05" title="Timing — when to ship and refresh">
+      {/* 5 · Blog templates */}
+      <Section number="05" title="Publish — research-backed blog templates">
+        <p className="text-sm text-[var(--muted)] mb-3">
+          Alternative path: publish a full post on your blog. Each template
+          is research-backed, the outline is ready, {playbook.blog_templates.length > 0 ? `${playbook.blog_templates[0].effort_hours}–${Math.max(...playbook.blog_templates.map((t) => t.effort_hours))}h of work to ship` : "low-effort"}.
+        </p>
+        {playbook.blog_templates.length === 0 ? (
+          <p className="text-sm italic text-[var(--muted)]">
+            No templates matched this feature yet.
+          </p>
+        ) : (
+          <div className="space-y-4">
+            {playbook.blog_templates.map((t) => (
+              <BlogTemplateCard key={t.id} template={t} />
+            ))}
+          </div>
+        )}
+      </Section>
+
+      {/* 6 · Timing */}
+      <Section number="06" title="Timing — when to ship and refresh">
         <div className="rounded-xl border border-[color:var(--line)] bg-white/70 p-4">
           <div className="grid gap-3 md:grid-cols-3">
             <Stat label="Ship by" value={playbook.timing.ship_by} />
@@ -458,6 +504,80 @@ function Stat({ label, value }: { label: string; value: string }) {
     <div className="metric-card">
       <p className="text-xs uppercase tracking-[0.16em] text-[var(--muted)]">{label}</p>
       <p className="mt-1 text-base font-mono text-[var(--ink)]">{value}</p>
+    </div>
+  );
+}
+
+function BlogTemplateCard({ template }: { template: BlogTemplate }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="rounded-xl border border-[color:var(--line)] bg-white/80">
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full text-left px-5 py-4"
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]">
+              Blog template · {template.id}
+            </p>
+            <h4 className="mt-1 text-lg font-semibold text-[var(--ink)] leading-snug">
+              {template.title}
+            </h4>
+          </div>
+          <div className="shrink-0 text-right">
+            <p className="text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]">effort</p>
+            <p className="font-mono text-sm text-[var(--ink)]">
+              ~{template.effort_hours}h
+            </p>
+            <p className="mt-1 text-[10px] text-[var(--muted)]">
+              {template.target_word_count.toLocaleString()} words
+            </p>
+          </div>
+        </div>
+        <p className="mt-3 text-sm text-[var(--ink-soft)] leading-relaxed">
+          {template.premise}
+        </p>
+        <p className="mt-2 text-xs italic text-[var(--muted)]">
+          {template.why_this_works}
+        </p>
+      </button>
+
+      {open && (
+        <div className="border-t border-[color:var(--line)] px-5 py-4 space-y-3 bg-white/50">
+          <p className="text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]">
+            Outline
+          </p>
+          <div className="rounded-lg border border-[color:var(--line)] bg-white/80">
+            {template.outline.map((row, i) => (
+              <div
+                key={i}
+                className="flex items-start justify-between gap-3 border-b border-[color:var(--line)] px-4 py-2.5 text-sm last:border-b-0"
+              >
+                <div className="flex-1">
+                  <p className="text-[var(--ink)]">{row.heading}</p>
+                  {row.note && (
+                    <p className="mt-0.5 text-[11px] italic text-[var(--muted)]">
+                      {row.note}
+                    </p>
+                  )}
+                </div>
+                <span className="shrink-0 font-mono text-xs text-[var(--muted)]">
+                  {row.wordcount > 0 ? `${row.wordcount} w` : "—"}
+                </span>
+              </div>
+            ))}
+          </div>
+          <EvidenceList items={template.evidence} compact />
+        </div>
+      )}
+
+      {!open && (
+        <div className="border-t border-[color:var(--line)] px-5 py-2 flex items-center justify-between text-[11px] text-[var(--muted)]">
+          <span>{template.outline.length} sections · research-backed</span>
+          <span className="font-mono">expand ↓</span>
+        </div>
+      )}
     </div>
   );
 }

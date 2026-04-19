@@ -1,12 +1,27 @@
+// HowItWorks — the four-step product loop:
+//   1. Target   — set your brand + competitors + buyer queries
+//   2. Observe  — nightly measurement across every major LLM
+//   3. Simulate — predict the mention-rate lift from content changes
+//   4. Verify   — log the change, watch the real-world lift 14 days later
+//
+// Everything else on the homepage echoes this order. Same order in the app.
+
 const panels = [
   {
-    title: "Add your product and competitors",
-    text: "Set the brand you want to test and the alternatives buyers compare you against.",
+    step: "01",
+    title: "Target",
+    headline: "Point Bitsy at the brand and the buyer queries that matter.",
+    text: "Your product, your three to five real competitors, and the questions people actually ask AI about your category. No generic keyword lists.",
     preview: (
       <div className="grid h-full grid-cols-[0.95fr,1.05fr]">
         <div className="border-r border-[color:var(--line)] bg-[rgba(245,241,234,0.72)] p-4">
-          <div className="space-y-2">
-            {["Bitsy", "Scope", "Profound"].map((item) => (
+          <p className="muted-label text-[10px]">Brand</p>
+          <div className="mt-3 border border-[color:var(--line)] bg-[rgba(255,255,255,0.85)] px-3 py-2 text-sm text-[var(--ink)]">
+            Bitsy
+          </div>
+          <p className="muted-label mt-4 text-[10px]">Competitors</p>
+          <div className="mt-3 space-y-2">
+            {["Profound", "Peec AI", "AthenaHQ"].map((item) => (
               <div
                 key={item}
                 className="border border-[color:var(--line)] bg-[rgba(255,255,255,0.78)] px-3 py-2 text-sm text-[var(--ink)]"
@@ -17,36 +32,18 @@ const panels = [
           </div>
         </div>
         <div className="p-4">
-          <div className="h-full border border-[color:var(--line)] bg-[rgba(255,255,255,0.76)] p-4">
-            <p className="muted-label text-[10px]">Scenario</p>
-            <div className="mt-4 space-y-3">
-              <div className="h-3 w-20 bg-[rgba(25,22,18,0.14)]" />
-              <div className="h-10 border border-[color:var(--line)] bg-[rgba(247,243,236,0.7)]" />
-              <div className="h-10 border border-[color:var(--line)] bg-[rgba(247,243,236,0.7)]" />
-            </div>
-          </div>
-        </div>
-      </div>
-    ),
-  },
-  {
-    title: "Pick the buyer prompts that matter",
-    text: "Use real questions from your market instead of a generic keyword list.",
-    preview: (
-      <div className="p-4">
-        <div className="border border-[color:var(--line)] bg-[rgba(255,255,255,0.8)]">
-          <div className="border-b border-[color:var(--line)] px-4 py-3 text-xs uppercase tracking-[0.16em] text-[var(--muted)]">
-            Buyer prompts
-          </div>
-          <div className="divide-y divide-[color:var(--line)] text-sm text-[var(--ink)]">
+          <p className="muted-label text-[10px]">Buyer queries</p>
+          <div className="mt-3 space-y-2 text-sm text-[var(--ink-soft)]">
             {[
-              "best AI search testing tools",
-              "Scope alternatives",
-              "tools for GEO testing",
-              "how to test AI search visibility",
-            ].map((item) => (
-              <div key={item} className="px-4 py-3">
-                {item}
+              "best AI search visibility tool",
+              "how to rank in ChatGPT answers",
+              "GEO tools for SaaS brands",
+            ].map((q) => (
+              <div
+                key={q}
+                className="border border-[color:var(--line)] bg-[rgba(255,255,255,0.76)] px-3 py-2"
+              >
+                {q}
               </div>
             ))}
           </div>
@@ -55,52 +52,89 @@ const panels = [
     ),
   },
   {
-    title: "Run the same prompts across AI tools",
-    text: "Test ChatGPT, Claude, Gemini, and Perplexity in one clean run.",
+    step: "02",
+    title: "Observe",
+    headline: "See exactly how each model ranks you every night.",
+    text: "Same queries, every model, 5x samples each. Mention rate, position, sentiment, cited sources — with the raw LLM responses always one click away.",
     preview: (
-      <div className="grid h-full grid-cols-2">
-        {["ChatGPT", "Claude", "Gemini", "Perplexity"].map((tool, index) => (
-          <div
-            key={tool}
-            className={`flex flex-col justify-between p-4 ${
-              index % 2 === 0 ? "border-r" : ""
-            } ${index < 2 ? "border-b" : ""} border-[color:var(--line)]`}
-          >
-            <p className="text-sm text-[var(--ink)]">{tool}</p>
-            <div className="space-y-2">
-              <div className="h-2 w-12 bg-[rgba(25,22,18,0.16)]" />
-              <div className="h-2 w-20 bg-[rgba(25,22,18,0.1)]" />
-            </div>
+      <div className="p-4">
+        <div className="border border-[color:var(--line)] bg-[rgba(255,255,255,0.82)]">
+          <div className="grid grid-cols-[1.1fr,0.6fr,0.9fr] border-b border-[color:var(--line)] px-4 py-3 text-xs uppercase tracking-[0.16em] text-[var(--muted)]">
+            <span>Model</span>
+            <span className="text-right">Rate</span>
+            <span className="text-right">Position</span>
           </div>
-        ))}
+          <div className="divide-y divide-[color:var(--line)] text-sm">
+            {[
+              ["ChatGPT", "44%", "#2"],
+              ["Claude", "12%", "—"],
+              ["Gemini", "39%", "#3"],
+              ["Perplexity", "18%", "#5"],
+            ].map(([name, rate, pos]) => (
+              <div
+                key={name}
+                className="grid grid-cols-[1.1fr,0.6fr,0.9fr] px-4 py-3"
+              >
+                <span className="text-[var(--ink)]">{name}</span>
+                <span className="text-right font-mono text-[var(--ink)]">{rate}</span>
+                <span className="text-right font-mono text-[var(--muted)]">{pos}</span>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     ),
   },
   {
-    title: "Read the result in one report",
-    text: "See mention rate, best position, and which model ignored you.",
+    step: "03",
+    title: "Simulate",
+    headline: "Test the change before you ship it.",
+    text: "What happens if you add 10 more citations? Improve readability? Refresh the page weekly? The surrogate model answers in milliseconds, grounded in data from every competitor in your category.",
     preview: (
       <div className="p-4">
-        <div className="border border-[color:var(--line)] bg-[rgba(255,255,255,0.82)]">
-          <div className="grid grid-cols-2 border-b border-[color:var(--line)]">
-            <div className="border-r border-[color:var(--line)] p-4">
-              <p className="muted-label text-[10px]">Mention rate</p>
-              <p className="mt-2 text-3xl text-[var(--ink)]">34%</p>
+        <div className="border border-[color:var(--line)] bg-[rgba(255,255,255,0.84)] p-4">
+          <p className="muted-label text-[10px]">Scenario</p>
+          <p className="mt-2 text-sm text-[var(--ink)]">Add 12 stats + 5 citations to homepage</p>
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <div className="rounded-[0.3rem] border border-[color:var(--line)] bg-[rgba(247,243,236,0.6)] p-3">
+              <p className="muted-label text-[10px]">Base</p>
+              <p className="mt-1 text-2xl text-[var(--ink)]">22%</p>
             </div>
-            <div className="p-4">
-              <p className="muted-label text-[10px]">Best position</p>
-              <p className="mt-2 text-3xl text-[var(--ink)]">#2</p>
+            <div className="rounded-[0.3rem] border border-emerald-200 bg-emerald-50/70 p-3">
+              <p className="muted-label text-[10px]">Predicted</p>
+              <p className="mt-1 text-2xl text-emerald-800">34%</p>
             </div>
+          </div>
+          <p className="mt-3 font-mono text-xs text-[var(--muted)]">
+            +12pp &middot; 95% CI [30%, 38%]
+          </p>
+        </div>
+      </div>
+    ),
+  },
+  {
+    step: "04",
+    title: "Verify",
+    headline: "Ship the change, watch the real lift.",
+    text: "Log what you changed and when. Two weeks later Bitsy shows the actual mention-rate delta on the queries most affected by that feature — honest, even when the prediction missed.",
+    preview: (
+      <div className="p-4">
+        <div className="border border-[color:var(--line)] bg-[rgba(255,255,255,0.84)]">
+          <div className="border-b border-[color:var(--line)] px-4 py-3 text-xs uppercase tracking-[0.16em] text-[var(--muted)]">
+            Apr 5 &middot; added 12 stats + 5 citations
           </div>
           <div className="divide-y divide-[color:var(--line)] text-sm">
             {[
-              ["ChatGPT", "Mentioned #2"],
-              ["Claude", "Not mentioned"],
-              ["Gemini", "Mentioned"],
-            ].map(([name, result]) => (
-              <div key={name} className="flex items-center justify-between px-4 py-3">
-                <span className="text-[var(--ink)]">{name}</span>
-                <span className="font-mono text-[var(--muted)]">{result}</span>
+              ["Predicted lift", "+12pp"],
+              ["Actual lift (14d)", "+11pp"],
+              ["Calibration", "✓ within CI"],
+            ].map(([label, value]) => (
+              <div
+                key={label}
+                className="grid grid-cols-[1.3fr,0.7fr] px-4 py-3"
+              >
+                <span className="text-[var(--ink-soft)]">{label}</span>
+                <span className="text-right font-mono text-[var(--ink)]">{value}</span>
               </div>
             ))}
           </div>
@@ -115,13 +149,14 @@ export function HowItWorks() {
     <section id="how-it-works">
       <div className="mx-auto max-w-6xl px-6 py-16 md:py-20">
         <div className="max-w-3xl">
-          <p className="muted-label text-xs">How it works</p>
+          <p className="muted-label text-xs">The loop</p>
           <h2 className="mt-4 text-4xl leading-tight text-[var(--ink)]">
-            Four steps from setup to report.
+            Four steps. One closed feedback loop.
           </h2>
           <p className="mt-4 max-w-2xl text-base leading-relaxed text-[var(--ink-soft)]">
-            The structure should be obvious at a glance: set the scenario, run the prompts,
-            compare the models, read the result.
+            Target what to measure. Observe your standing. Simulate your change.
+            Verify the lift. Then do it again. Every step grounded in data from
+            your own competitors — not generic best-practice.
           </p>
         </div>
         <div className="mt-10 grid gap-6 lg:grid-cols-4">
@@ -130,9 +165,10 @@ export function HowItWorks() {
               <div className="paper-panel aspect-square overflow-hidden rounded-[0.3rem]">
                 {panel.preview}
               </div>
-              <div className="px-1 pt-4 text-center">
-                <h3 className="text-2xl leading-tight text-[var(--ink)]">{panel.title}</h3>
-                <p className="mx-auto mt-3 max-w-xs text-base leading-relaxed text-[var(--ink-soft)]">
+              <div className="px-1 pt-4">
+                <p className="muted-label text-[10px]">{panel.step} &middot; {panel.title}</p>
+                <h3 className="mt-2 text-2xl leading-tight text-[var(--ink)]">{panel.headline}</h3>
+                <p className="mt-3 text-base leading-relaxed text-[var(--ink-soft)]">
                   {panel.text}
                 </p>
               </div>

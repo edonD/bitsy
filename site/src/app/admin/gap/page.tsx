@@ -207,8 +207,11 @@ export default function GapPage() {
               <div className="grid gap-3 md:grid-cols-3">
                 <TargetStat
                   label="Your mention rate"
-                  value={result.target.mention_rate}
-                  format={(v) => (v == null ? "—" : `${(v * 100).toFixed(1)}%`)}
+                  value={
+                    result.target.mention_rate == null
+                      ? "—"
+                      : `${(result.target.mention_rate * 100).toFixed(1)}%`
+                  }
                   note={result.target.mention_rate == null ? "run /collect to populate" : undefined}
                 />
                 <TargetStat
@@ -217,15 +220,17 @@ export default function GapPage() {
                     result.peers.reduce<BrandEntry | null>((best, p) => {
                       if (!best || (p.mention_rate ?? 0) > (best.mention_rate ?? 0)) return p;
                       return best;
-                    }, null) ?? null
+                    }, null)?.brand ?? "—"
                   }
-                  format={(v) => (v ? `${v.brand}` : "—")}
                 />
                 <TargetStat
                   label="Content source"
-                  value={result.target.content_source ?? null}
-                  format={(v) => (v ?? "store")}
-                  note={result.target.crawler ? `${result.target.crawler} · ${result.target.pages_crawled} pages` : undefined}
+                  value={result.target.content_source ?? "store"}
+                  note={
+                    result.target.crawler
+                      ? `${result.target.crawler} · ${result.target.pages_crawled} pages`
+                      : undefined
+                  }
                 />
               </div>
             </section>
@@ -308,18 +313,16 @@ function ModeCard({
 function TargetStat({
   label,
   value,
-  format,
   note,
 }: {
   label: string;
-  value: unknown;
-  format: (v: unknown) => string;
+  value: string;
   note?: string;
 }) {
   return (
     <div className="metric-card">
       <p className="text-xs uppercase tracking-[0.16em] text-[var(--muted)]">{label}</p>
-      <p className="mt-1 text-2xl text-[var(--ink)] font-mono">{format(value)}</p>
+      <p className="mt-1 text-2xl text-[var(--ink)] font-mono">{value}</p>
       {note && <p className="mt-1 text-[11px] text-[var(--muted)]">{note}</p>}
     </div>
   );

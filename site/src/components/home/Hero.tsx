@@ -7,18 +7,21 @@ export function Hero() {
     <section id="top" className="section-wash">
       <div className="mx-auto max-w-6xl px-6 pb-16 pt-16 md:pb-20 md:pt-20">
         <div className="mx-auto max-w-4xl text-center">
-          <p className="muted-label text-xs">AI visibility engine</p>
+          <p className="muted-label text-xs">AI search visibility, end to end</p>
           <h1 className="mx-auto mt-6 max-w-4xl text-5xl font-semibold leading-[0.94] tracking-[-0.055em] text-[var(--ink)] sm:text-6xl md:text-7xl">
-            See how AI
+            Close the gap between
             <br />
             <span className="font-[family:var(--font-display)] text-[1.02em] font-medium italic tracking-[-0.035em]">
-              talks about
+              where you are
             </span>{" "}
-            your brand
+            and where AI recommends you
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-[var(--ink-soft)]">
-            Find out if {tools.join(", ")} recommend you or your competitors.
-            Simulate content changes and measure the impact before you publish.
+            Everyone else shows you the gap. Bitsy walks the four-step loop to
+            close it: <strong className="text-[var(--ink)]">Target</strong> your
+            buyer queries, <strong className="text-[var(--ink)]">Observe</strong> how
+            {" "}{tools.join(", ")} rank you, <strong className="text-[var(--ink)]">Simulate</strong>{" "}
+            what to change, <strong className="text-[var(--ink)]">Verify</strong> the lift.
           </p>
 
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
@@ -29,15 +32,15 @@ export function Hero() {
               Join waitlist
             </Link>
             <Link
-              href="/#sample-report"
+              href="/#how-it-works"
               className="btn-secondary rounded-full px-8 py-3.5 font-mono text-sm font-semibold uppercase tracking-[0.08em]"
             >
-              View sample report
+              See the loop
             </Link>
           </div>
 
           <p className="mt-6 text-sm text-[var(--muted)]">
-            Coming soon &middot; 50% off for waitlist &middot; Tests {tools.join(", ")}
+            Coming soon &middot; 50% off for waitlist &middot; Tracks {tools.join(", ")}
           </p>
         </div>
 

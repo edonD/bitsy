@@ -1,10 +1,10 @@
 const features = [
   {
     id: "sample-report",
-    label: "Sample report",
-    title: "One clean report for every buyer prompt.",
-    text: "The first read should tell you where you showed up, where you missed, and where a competitor won.",
-    points: ["Mentioned in ChatGPT", "Missing from Claude", "Competitor leads in Perplexity"],
+    label: "02 · Observe",
+    title: "See your standing across every model, every night.",
+    text: "A live panel of buyer queries runs against ChatGPT, Claude, Gemini, and Perplexity on a schedule. One dashboard shows where you appear, where you missed, and which competitor won.",
+    points: ["Nightly automated measurement", "Mention rate, position, sentiment", "Raw LLM responses on demand"],
     tone: "bg-[#ece8f7]",
     accent: "bg-[#f7f5fd]",
     preview: (
@@ -59,10 +59,10 @@ const features = [
   },
   {
     id: "compare-models",
-    label: "Model comparison",
-    title: "Compare models, not just one average score.",
-    text: "The useful question is not only whether you appear. It is which model mentions you, which one ignores you, and where the gap is worth fixing.",
-    points: ["Mention rate by model", "Position spread", "Competitor overlap"],
+    label: "03 · Simulate",
+    title: "Test a content change before you publish it.",
+    text: "The what-if engine predicts mention-rate lift from any content tweak — more citations, better readability, a fresher page — grounded in live data from your own competitors, not generic best-practice.",
+    points: ["Predicted lift with 95% CI", "Per-model forecasts", "Gap-sorted action list"],
     tone: "bg-[#e8f1f7]",
     accent: "bg-[#f5fafc]",
     preview: (
@@ -101,10 +101,10 @@ const features = [
   },
   {
     id: "rerun",
-    label: "Before and after",
-    title: "Rerun the same setup after a page change.",
-    text: "The product should make it obvious whether a new page, rewrite, or comparison article improved your visibility or changed nothing.",
-    points: ["Baseline run", "New page variant", "Net lift by model"],
+    label: "04 · Verify",
+    title: "Log the change. See if it actually worked.",
+    text: "Bitsy records what you changed and when. Two weeks later it shows the actual mention-rate delta — per-query, per-model — on the features your change touched. Predictions are held honest against reality.",
+    points: ["Predicted vs actual lift", "14-day attribution window", "Calibration tracked over time"],
     tone: "bg-[#f4eadc]",
     accent: "bg-[#fbf6ee]",
     preview: (

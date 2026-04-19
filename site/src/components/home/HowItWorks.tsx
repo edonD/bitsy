@@ -1,8 +1,9 @@
-// HowItWorks — the four-step product loop:
+// HowItWorks — the five-step product loop:
 //   1. Target   — set your brand + competitors + buyer queries
 //   2. Observe  — nightly measurement across every major LLM
 //   3. Simulate — predict the mention-rate lift from content changes
-//   4. Verify   — log the change, watch the real-world lift 14 days later
+//   4. Execute  — ship the change with ready-to-use copy, briefs, schema
+//   5. Verify   — log the change, watch the real-world lift 14 days later
 //
 // Everything else on the homepage echoes this order. Same order in the app.
 
@@ -114,9 +115,33 @@ const panels = [
   },
   {
     step: "04",
+    title: "Execute",
+    headline: "Ship the change — paste, don't guess.",
+    text: "Bitsy turns every recommendation into something you can actually use: a ready-to-paste paragraph, a writer brief for your content team, a JSON-LD schema block, a short list of authority sites worth pitching.",
+    preview: (
+      <div className="p-4">
+        <div className="border border-[color:var(--line)] bg-[rgba(255,255,255,0.84)]">
+          <div className="border-b border-[color:var(--line)] px-4 py-3 text-xs uppercase tracking-[0.16em] text-[var(--muted)]">
+            Paste into homepage hero
+          </div>
+          <div className="px-4 py-3 text-sm leading-relaxed text-[var(--ink)]">
+            &ldquo;Bitsy customers reach the top-3 on 73% of buyer queries
+            within 14 days — 3.4× the category average, per our April 2026
+            benchmark of 50 brands.&rdquo;
+          </div>
+          <div className="flex items-center justify-between border-t border-[color:var(--line)] bg-[rgba(247,243,236,0.62)] px-4 py-2 text-xs text-[var(--muted)]">
+            <span>+3 stats &middot; +1 citation</span>
+            <span className="font-mono">copy ↗</span>
+          </div>
+        </div>
+      </div>
+    ),
+  },
+  {
+    step: "05",
     title: "Verify",
-    headline: "Ship the change, watch the real lift.",
-    text: "Log what you changed and when. Two weeks later Bitsy shows the actual mention-rate delta on the queries most affected by that feature — honest, even when the prediction missed.",
+    headline: "Watch the real lift two weeks later.",
+    text: "Log what you changed and when. Bitsy shows the actual mention-rate delta on the queries most affected by that feature — honest, even when the prediction missed. Calibration tracked over time.",
     preview: (
       <div className="p-4">
         <div className="border border-[color:var(--line)] bg-[rgba(255,255,255,0.84)]">
@@ -151,15 +176,16 @@ export function HowItWorks() {
         <div className="max-w-3xl">
           <p className="muted-label text-xs">The loop</p>
           <h2 className="mt-4 text-4xl leading-tight text-[var(--ink)]">
-            Four steps. One closed feedback loop.
+            Five steps. One closed feedback loop.
           </h2>
           <p className="mt-4 max-w-2xl text-base leading-relaxed text-[var(--ink-soft)]">
-            Target what to measure. Observe your standing. Simulate your change.
-            Verify the lift. Then do it again. Every step grounded in data from
-            your own competitors — not generic best-practice.
+            Target what to measure. Observe your standing. Simulate your
+            change. Execute with ready-to-ship copy. Verify the lift. Then do
+            it again. Every step grounded in data from your own competitors —
+            not generic best-practice.
           </p>
         </div>
-        <div className="mt-10 grid gap-6 lg:grid-cols-4">
+        <div className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-5">
           {panels.map((panel) => (
             <div key={panel.title}>
               <div className="paper-panel aspect-square overflow-hidden rounded-[0.3rem]">

@@ -100,13 +100,58 @@ const features = [
     ),
   },
   {
+    id: "execute",
+    label: "04 · Execute",
+    title: "Ship the change — paste, don't guess.",
+    text: "Every recommendation becomes something your team can actually use: a ready-to-paste paragraph, a writer brief, a JSON-LD schema block, a short list of authority sites worth pitching. Execute is where Bitsy stops being a dashboard and starts being a workflow.",
+    points: ["Copy-paste content patches", "One-page writer briefs", "Authority outreach hit list"],
+    tone: "bg-[#f4eadc]",
+    accent: "bg-[#fbf6ee]",
+    preview: (
+      <div className="paper-panel overflow-hidden rounded-[0.45rem]">
+        <div className="flex items-center justify-between border-b border-[color:var(--line)] px-5 py-4">
+          <div className="flex gap-2">
+            <span className="surface-chip px-3 py-1 text-xs text-[var(--muted)]">Preview 03</span>
+            <span className="surface-chip px-3 py-1 text-xs text-[var(--muted)]">Patch</span>
+          </div>
+          <span className="text-xs uppercase tracking-[0.16em] text-[var(--muted)]">
+            Ready to ship
+          </span>
+        </div>
+        <div className="p-5 space-y-4">
+          <div className="rounded-[0.35rem] border border-[color:var(--line)] bg-[rgba(255,255,255,0.82)]">
+            <p className="border-b border-[color:var(--line)] px-4 py-2 text-xs uppercase tracking-[0.16em] text-[var(--muted)]">
+              Paste into homepage hero
+            </p>
+            <p className="px-4 py-3 text-sm leading-relaxed text-[var(--ink)]">
+              &ldquo;Bitsy customers reach the top-3 on 73% of buyer queries within 14 days — 3.4× the category average, per our April 2026 benchmark of 50 brands.&rdquo;
+            </p>
+            <div className="flex items-center justify-between border-t border-[color:var(--line)] bg-[rgba(247,243,236,0.62)] px-4 py-2 text-xs text-[var(--muted)]">
+              <span>+3 stats &middot; +1 citation</span>
+              <span className="font-mono">copy ↗</span>
+            </div>
+          </div>
+          <div className="rounded-[0.35rem] border border-[color:var(--line)] bg-[rgba(255,255,255,0.82)]">
+            <p className="border-b border-[color:var(--line)] px-4 py-2 text-xs uppercase tracking-[0.16em] text-[var(--muted)]">
+              FAQPage schema &middot; drop in &lt;head&gt;
+            </p>
+            <pre className="px-4 py-3 font-mono text-[11px] leading-relaxed text-[var(--ink)] overflow-x-auto">
+{`{ "@type": "FAQPage",
+  "mainEntity": [...] }`}
+            </pre>
+          </div>
+        </div>
+      </div>
+    ),
+  },
+  {
     id: "rerun",
-    label: "04 · Verify",
+    label: "05 · Verify",
     title: "Log the change. See if it actually worked.",
     text: "Bitsy records what you changed and when. Two weeks later it shows the actual mention-rate delta — per-query, per-model — on the features your change touched. Predictions are held honest against reality.",
     points: ["Predicted vs actual lift", "14-day attribution window", "Calibration tracked over time"],
-    tone: "bg-[#f4eadc]",
-    accent: "bg-[#fbf6ee]",
+    tone: "bg-[#eaf2e4]",
+    accent: "bg-[#f5f9f1]",
     preview: (
       <div className="paper-panel overflow-hidden rounded-[0.45rem]">
         <div className="flex items-center justify-between border-b border-[color:var(--line)] px-5 py-4">

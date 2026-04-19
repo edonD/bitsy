@@ -17,11 +17,12 @@ export function Hero() {
             and where AI recommends you
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-[var(--ink-soft)]">
-            Everyone else shows you the gap. Bitsy walks the four-step loop to
-            close it: <strong className="text-[var(--ink)]">Target</strong> your
+            Everyone else shows you the gap. Bitsy walks the five-step loop to
+            close it: <strong className="text-[var(--ink)]">Target</strong> the
             buyer queries, <strong className="text-[var(--ink)]">Observe</strong> how
             {" "}{tools.join(", ")} rank you, <strong className="text-[var(--ink)]">Simulate</strong>{" "}
-            what to change, <strong className="text-[var(--ink)]">Verify</strong> the lift.
+            the change, <strong className="text-[var(--ink)]">Execute</strong> with
+            ready-to-ship copy, <strong className="text-[var(--ink)]">Verify</strong> the lift.
           </p>
 
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">

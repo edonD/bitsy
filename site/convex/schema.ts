@@ -127,6 +127,41 @@ export default defineSchema({
     .index("by_date", ["date"])
     .index("by_model", ["model"]),
 
+  // Verify — change log. One row per content change a user ships; used to
+  // compute predicted-vs-actual 14+ days later.
+  change_log: defineTable({
+    date: v.string(),                       // YYYY-MM-DD the change shipped
+    brand: v.string(),
+    feature: v.string(),                    // gap-analysis feature key
+    description: v.string(),                // human-readable: "added 12 stats to homepage"
+    shipped_at: v.number(),                 // Unix ms
+    predicted_lift: v.optional(v.number()), // pp (from the playbook), optional
+    baseline_rate: v.optional(v.number()),  // mention_rate at shipped_at, for later attribution
+    context: v.optional(v.any()),           // URL, word count, before/after snippet, etc.
+    createdAt: v.number(),
+  })
+    .index("by_brand", ["brand"])
+    .index("by_date", ["date"]),
+
+  // Saved Execute playbooks per brand. So users can ship-then-review.
+  playbook_artifacts: defineTable({
+    date: v.string(),
+    brand: v.string(),
+    feature: v.string(),
+    payload: v.any(),  // full playbook JSON at save time
+    createdAt: v.number(),
+  })
+    .index("by_brand", ["brand"])
+    .index("by_date", ["date"]),
+
+  // Daily Cloudflare Browser Run usage tracker — enforces the $5/mo budget.
+  browser_usage_daily: defineTable({
+    date: v.string(),                       // YYYY-MM-DD
+    seconds_used: v.number(),
+    request_count: v.number(),
+    last_updated: v.number(),
+  }).index("by_date", ["date"]),
+
   // Waitlist signups
   waitlist: defineTable({
     email: v.string(),

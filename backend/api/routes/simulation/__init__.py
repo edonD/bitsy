@@ -34,6 +34,9 @@ from . import (
     crawl,
     gap,
     execute,
+    verify,
+    alerts,
+    budget,
 )
 
 
@@ -48,6 +51,9 @@ router.include_router(analytics.router)
 router.include_router(crawl.router)
 router.include_router(gap.router)
 router.include_router(execute.router)
+router.include_router(verify.router)
+router.include_router(alerts.router)
+router.include_router(budget.router)
 
 
 # Rehydrate the surrogate from Convex on module import (matches previous

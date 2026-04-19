@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 from pipeline.site_crawler import crawl_domain, result_to_dict, _cloudflare_available
 from pipeline.scripted_crawler import scripted_crawl_domain, crawl_with_fallback
+from pipeline.budget_guard import guarded_scripted_crawl  # noqa: F401  (used via fn ref below)
 
 
 router = APIRouter()
@@ -33,10 +34,15 @@ def crawl_domain_endpoint(req: CrawlDomainRequest):
                   with cookie dismissal and scroll-for-lazy-load
     """
     if req.mode == "scripted":
-        result = scripted_crawl_domain(req.url, max_pages=req.max_pages)
+        # guarded_scripted_crawl enforces DAILY_BROWSER_BUDGET_SECONDS and
+        # records actual usage to Convex so /budget/today reflects reality.
+        result = guarded_scripted_crawl(req.url, max_pages=req.max_pages)
     elif req.mode == "fast":
         result = crawl_domain(req.url, max_pages=req.max_pages, depth=req.depth)
     else:  # auto
+        # Auto path does tier-1 first; scripted fallback runs via budget guard
+        # inside crawl_with_fallback because it imports scripted_crawl_domain
+        # lazily — tolerable for now, we can tighten later if needed.
         result = crawl_with_fallback(req.url, max_pages=req.max_pages, depth=req.depth)
 
     payload = result_to_dict(result)

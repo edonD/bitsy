@@ -94,3 +94,41 @@ def store_api_logs(records: list[dict]) -> list:
 
 def get_recent_api_logs(limit: int = 50) -> list[dict]:
     return _post("/pipeline/apiLogs/getRecent", {"limit": limit})["data"]
+
+
+# ── Change log (Verify) ─────────────────────────────────────────────────────
+
+def store_change_log(records: list[dict]) -> list:
+    return _post("/pipeline/changeLog/store", {"records": records})["ids"]
+
+
+def get_changes_by_brand(brand: str, limit: int = 50) -> list[dict]:
+    return _post("/pipeline/changeLog/getByBrand", {"brand": brand, "limit": limit})["data"]
+
+
+def get_all_changes(limit: int = 100) -> list[dict]:
+    return _post("/pipeline/changeLog/getAll", {"limit": limit})["data"]
+
+
+# ── Playbook artifacts (Execute persistence) ────────────────────────────────
+
+def store_playbook_artifacts(records: list[dict]) -> list:
+    return _post("/pipeline/playbookArtifacts/store", {"records": records})["ids"]
+
+
+def get_playbook_artifacts(brand: str, limit: int = 50) -> list[dict]:
+    return _post("/pipeline/playbookArtifacts/getByBrand", {"brand": brand, "limit": limit})["data"]
+
+
+# ── Browser Run usage (Cloudflare budget tracker) ───────────────────────────
+
+def record_browser_usage(date: str, seconds_delta: float) -> str:
+    return _post("/pipeline/browserUsage/record", {"date": date, "seconds_delta": seconds_delta})["id"]
+
+
+def get_browser_usage_for_date(date: str) -> dict | None:
+    return _post("/pipeline/browserUsage/getForDate", {"date": date})["data"]
+
+
+def get_browser_usage_recent(days: int = 30) -> list[dict]:
+    return _post("/pipeline/browserUsage/getRecent", {"days": days})["data"]

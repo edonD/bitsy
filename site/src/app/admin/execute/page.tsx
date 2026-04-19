@@ -124,6 +124,7 @@ function ExecutePageInner() {
   const [result, setResult] = useState<Playbook | null>(null);
   const [copied, setCopied] = useState(false);
   const autoRanRef = useRef(false);
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
 
   // Shared fetch helper so both the button and the deep-link auto-run
   // path can pass explicit values (state batching won't bite us).
@@ -221,6 +222,30 @@ function ExecutePageInner() {
       setCopied(true);
       setTimeout(() => setCopied(false), 1800);
     } catch {}
+  }
+
+  async function savePlaybook() {
+    if (!result || saveState === "saving") return;
+    setSaveState("saving");
+    try {
+      const r = await fetch(`${API}/api/simulations/execute/save-playbook`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          brand: result.brand,
+          feature: result.feature,
+          payload: result,
+        }),
+      });
+      if (r.ok) {
+        setSaveState("saved");
+        setTimeout(() => setSaveState("idle"), 2400);
+      } else {
+        setSaveState("idle");
+      }
+    } catch {
+      setSaveState("idle");
+    }
   }
 
   return (
@@ -333,7 +358,15 @@ function ExecutePageInner() {
           )}
         </section>
 
-        {result && <PlaybookView playbook={result} copied={copied} onCopy={copyPatch} />}
+        {result && (
+          <PlaybookView
+            playbook={result}
+            copied={copied}
+            onCopy={copyPatch}
+            onSave={savePlaybook}
+            saveState={saveState}
+          />
+        )}
 
         <style jsx>{`
           .input {
@@ -369,22 +402,53 @@ function PlaybookView({
   playbook,
   copied,
   onCopy,
+  onSave,
+  saveState,
 }: {
   playbook: Playbook;
   copied: boolean;
   onCopy: () => void;
+  onSave: () => void;
+  saveState: "idle" | "saving" | "saved";
 }) {
+  const verifyHref = (() => {
+    const params = new URLSearchParams({
+      brand: playbook.brand,
+      feature: playbook.feature,
+    });
+    return `/admin/verify?${params.toString()}`;
+  })();
+
   return (
     <>
       {/* Summary */}
       <section className="paper-panel rounded-[1.6rem] p-6 mb-6">
-        <p className="muted-label text-xs">Playbook for {playbook.brand}</p>
-        <h2 className="mt-2 text-2xl text-[var(--ink)]">
-          {playbook.feature.replace(/_/g, " ")}
-          {playbook.query ? (
-            <span className="text-[var(--muted)] font-normal"> · “{playbook.query}”</span>
-          ) : null}
-        </h2>
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1 min-w-0">
+            <p className="muted-label text-xs">Playbook for {playbook.brand}</p>
+            <h2 className="mt-2 text-2xl text-[var(--ink)]">
+              {playbook.feature.replace(/_/g, " ")}
+              {playbook.query ? (
+                <span className="text-[var(--muted)] font-normal"> · “{playbook.query}”</span>
+              ) : null}
+            </h2>
+          </div>
+          <div className="shrink-0 flex flex-col gap-2">
+            <button
+              onClick={onSave}
+              disabled={saveState === "saving"}
+              className="rounded-full bg-[var(--ink)] text-[var(--paper)] px-4 py-1.5 text-xs font-semibold hover:opacity-90 transition-opacity disabled:opacity-60"
+            >
+              {saveState === "saving" ? "saving…" : saveState === "saved" ? "saved ✓" : "save playbook"}
+            </button>
+            <Link
+              href={verifyHref}
+              className="rounded-full border border-[color:var(--line)] px-4 py-1.5 text-xs text-[var(--ink-soft)] hover:text-[var(--ink)] hover:border-[var(--ink)] text-center transition-colors"
+            >
+              log as change →
+            </Link>
+          </div>
+        </div>
         <p className="mt-3 text-sm leading-relaxed text-[var(--ink-soft)]">
           {playbook.summary}
         </p>

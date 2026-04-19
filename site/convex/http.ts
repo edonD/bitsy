@@ -156,4 +156,106 @@ http.route({
   }),
 });
 
+// ── Verify: change log ────────────────────────────────────────────────────
+
+http.route({
+  path: "/pipeline/changeLog/store",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const body = await request.json();
+    const ids = await ctx.runMutation(api.changeLog.store, body);
+    return new Response(JSON.stringify({ ids }), {
+      headers: { "Content-Type": "application/json" },
+    });
+  }),
+});
+
+http.route({
+  path: "/pipeline/changeLog/getByBrand",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const body = await request.json();
+    const data = await ctx.runQuery(api.changeLog.getByBrand, body);
+    return new Response(JSON.stringify({ data }), {
+      headers: { "Content-Type": "application/json" },
+    });
+  }),
+});
+
+http.route({
+  path: "/pipeline/changeLog/getAll",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const body = await request.json();
+    const data = await ctx.runQuery(api.changeLog.getAll, body);
+    return new Response(JSON.stringify({ data }), {
+      headers: { "Content-Type": "application/json" },
+    });
+  }),
+});
+
+// ── Execute: saved playbook artifacts ─────────────────────────────────────
+
+http.route({
+  path: "/pipeline/playbookArtifacts/store",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const body = await request.json();
+    const ids = await ctx.runMutation(api.playbookArtifacts.store, body);
+    return new Response(JSON.stringify({ ids }), {
+      headers: { "Content-Type": "application/json" },
+    });
+  }),
+});
+
+http.route({
+  path: "/pipeline/playbookArtifacts/getByBrand",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const body = await request.json();
+    const data = await ctx.runQuery(api.playbookArtifacts.getByBrand, body);
+    return new Response(JSON.stringify({ data }), {
+      headers: { "Content-Type": "application/json" },
+    });
+  }),
+});
+
+// ── Browser Run daily usage tracker ───────────────────────────────────────
+
+http.route({
+  path: "/pipeline/browserUsage/record",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const body = await request.json();
+    const id = await ctx.runMutation(api.browserUsage.record, body);
+    return new Response(JSON.stringify({ id }), {
+      headers: { "Content-Type": "application/json" },
+    });
+  }),
+});
+
+http.route({
+  path: "/pipeline/browserUsage/getForDate",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const body = await request.json();
+    const data = await ctx.runQuery(api.browserUsage.getForDate, body);
+    return new Response(JSON.stringify({ data }), {
+      headers: { "Content-Type": "application/json" },
+    });
+  }),
+});
+
+http.route({
+  path: "/pipeline/browserUsage/getRecent",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const body = await request.json();
+    const data = await ctx.runQuery(api.browserUsage.getRecent, body);
+    return new Response(JSON.stringify({ data }), {
+      headers: { "Content-Type": "application/json" },
+    });
+  }),
+});
+
 export default http;

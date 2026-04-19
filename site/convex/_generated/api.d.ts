@@ -9,9 +9,12 @@
  */
 
 import type * as apiLogs from "../apiLogs.js";
+import type * as browserUsage from "../browserUsage.js";
+import type * as changeLog from "../changeLog.js";
 import type * as http from "../http.js";
 import type * as logs from "../logs.js";
 import type * as mentions from "../mentions.js";
+import type * as playbookArtifacts from "../playbookArtifacts.js";
 import type * as signals from "../signals.js";
 import type * as training from "../training.js";
 import type * as waitlist from "../waitlist.js";
@@ -24,9 +27,12 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   apiLogs: typeof apiLogs;
+  browserUsage: typeof browserUsage;
+  changeLog: typeof changeLog;
   http: typeof http;
   logs: typeof logs;
   mentions: typeof mentions;
+  playbookArtifacts: typeof playbookArtifacts;
   signals: typeof signals;
   training: typeof training;
   waitlist: typeof waitlist;

@@ -11,6 +11,7 @@ GET  /api/simulations/recommendations — actionable GEO recommendations
 """
 
 import asyncio
+import threading
 import time
 from datetime import date
 from typing import Optional
@@ -27,8 +28,12 @@ from pipeline.engine import (
     SurrogateModel,
     FEATURE_NAMES,
     CONTENT_FEATURE_NAMES,
+    LAG_FEATURE_NAME,
+    SURROGATE_XGB_PARAMS,
+    summarize_training_rows,
 )
 from pipeline.content_analyzer import analyze_url, analyze_text, rate_features, compute_overall_score, generate_summary
+from pipeline.site_crawler import crawl_domain, result_to_dict, _cloudflare_available
 from pipeline import convex_client as cx
 
 router = APIRouter()
@@ -39,7 +44,26 @@ _store: dict = {
     "features": [],
     "model": None,
     "config": None,
+    "api_logs": [],
+    "per_model_metrics": {},
 }
+
+_api_log_lock = threading.Lock()
+
+
+def _remember_api_log(log: dict) -> None:
+    created_at = int(time.time() * 1000)
+    entry = {
+        "_id": f"live-{created_at}-{log['model']}-{log['sample']}-{log.get('mode', 'memory')}",
+        "_creationTime": created_at,
+        "createdAt": created_at,
+        **log,
+    }
+    with _api_log_lock:
+        logs = _store.setdefault("api_logs", [])
+        logs.append(entry)
+        if len(logs) > 500:
+            del logs[:-500]
 
 # ── Request / Response models ───────────────────────────────────────────────
 
@@ -332,6 +356,13 @@ def _content_metrics(analysis) -> dict[str, float | int | None]:
         "heading_count": analysis.h1_count + analysis.h2_count + analysis.h3_count,
     }
 
+
+def _safe_latest_training_run() -> dict | None:
+    try:
+        return cx.get_latest_training_run()
+    except Exception:
+        return None
+
 # ── Startup: load from Convex ──────────────────────────────────────────────
 
 def _load_from_convex():
@@ -350,6 +381,7 @@ def _load_from_convex():
         metrics = model.train(clean)
         _store["model"] = model
         _store["features"] = latest
+        _store["per_model_metrics"] = {}
 
         brands = list({s["brand"] for s in clean})
         print(f"  Convex: loaded {len(clean)} training samples, {len(brands)} brands, R2={metrics['r2']:.4f}")
@@ -369,12 +401,34 @@ def run_collection(req: CollectRequest):
     """
     start = time.time()
     today = date.today().isoformat()
+    with _api_log_lock:
+        _store["api_logs"] = []
 
     cx.add_log("collect", f"Starting collection for {req.target}", "pending")
 
     # Stream each log to Convex immediately so the trace page can poll /logs
     # and show live progress instead of waiting for the full run to finish.
     def _store_log_live(log: dict) -> None:
+        rich_log = {
+            "date": today,
+            "query": log["query"],
+            "model": log["model"],
+            "sample": log["sample"],
+            "mode": log.get("mode") or "memory",
+            "prompt_sent": log["prompt_sent"],
+            "raw_response": log.get("raw_response") or "",
+            "parsed_brands": log.get("parsed"),
+            "sources": log.get("sources") or [],
+            "status": log["status"],
+            "error": log.get("error"),
+            "latency_ms": log.get("latency_ms"),
+            "parser_status": log.get("parser_status"),
+            "parse_strategy": log.get("parse_strategy"),
+            "search_used": log.get("search_used"),
+            "tool_trace": log.get("tool_trace"),
+            "tracked_brands": log.get("tracked_brands") or [],
+        }
+        _remember_api_log(rich_log)
         try:
             cx.store_api_logs([{
                 "date": today,
@@ -499,6 +553,7 @@ def run_collection(req: CollectRequest):
 
     _store["model"] = model
     _store["features"] = rows  # current day's features for what-if
+    _store["per_model_metrics"] = per_model_metrics
     _store["config"] = {
         "target": req.target,
         "competitors": req.competitors,
@@ -524,10 +579,12 @@ def run_collection(req: CollectRequest):
     # Build response
     brands_out = []
     for r in rows:
+        mention_rate = r["mention_rate"]
+        avg_position = r["avg_position"] if mention_rate > 0 and r["avg_position"] is not None else 0
         brands_out.append(BrandResult(
             brand=r["brand"],
-            mention_rate=r["mention_rate"],
-            avg_position=r["avg_position"],
+            mention_rate=mention_rate,
+            avg_position=avg_position,
             top1_rate=r["top1_rate"],
             top3_rate=r["top3_rate"],
             positive_rate=r["positive_rate"],
@@ -562,6 +619,7 @@ def retrain_model():
     metrics = model.train(clean)
     _store["model"] = model
     _store["features"] = latest
+    _store["per_model_metrics"] = {}
 
     today = date.today().isoformat()
     cx.store_training_run({
@@ -685,11 +743,85 @@ async def get_importance():
     return {"importance": _store["model"].importance, "r2": _store["model"].r2}
 
 
+@router.get("/model-diagnostics")
+async def get_model_diagnostics():
+    """Explain how the current surrogate is trained and how trustworthy it is."""
+    try:
+        samples = cx.get_all_training_samples()
+    except Exception:
+        samples = []
+
+    clean_samples = _clean_training_rows(samples)
+    summary = summarize_training_rows(clean_samples)
+    model = _store.get("model")
+    latest_run = _safe_latest_training_run()
+    per_model_metrics = _store.get("per_model_metrics", {})
+
+    metrics = None
+    active_feature_names: list[str] = []
+    base_feature_names = FEATURE_NAMES.copy()
+    if model and model.use_content_features:
+        base_feature_names = base_feature_names + CONTENT_FEATURE_NAMES
+
+    if model:
+        active_feature_names = list(model.feature_cols)
+        metrics = {
+            "rmse": model.rmse,
+            "mae": model.mae,
+            "r2": model.r2,
+            "interval_radius": model.interval_radius,
+            "training_mode": model.training_mode,
+            "validation_mode": model.validation_mode,
+            "lag_feature_enabled": LAG_FEATURE_NAME in model.feature_cols,
+            "target_column": (
+                "target_mention_rate"
+                if model.training_mode == "next_period_forecast"
+                else "mention_rate"
+            ),
+        }
+
+    return {
+        "model_trained": model is not None,
+        "training_sample_count": summary["sample_count"],
+        "brand_count": summary["brand_count"],
+        "unique_dates": summary["unique_dates"],
+        "date_start": summary["date_start"],
+        "date_end": summary["date_end"],
+        "latest_row_count": summary["latest_row_count"],
+        "duplicate_brand_date_rows": summary["duplicate_brand_date_rows"],
+        "temporal_pair_count": summary["temporal_pair_count"],
+        "rows_by_date": summary["rows_by_date"],
+        "top_brands_by_rows": summary["top_brands_by_rows"],
+        "mention_rate_summary": summary["mention_rate_summary"],
+        "brand_row_summary": summary["brand_row_summary"],
+        "use_content_features": bool(model.use_content_features) if model else False,
+        "feature_count": len(active_feature_names) if active_feature_names else len(base_feature_names),
+        "base_feature_names": base_feature_names,
+        "active_feature_names": active_feature_names,
+        "xgb_params": SURROGATE_XGB_PARAMS,
+        "metrics": metrics,
+        "importance": (
+            [{"feature": feature, "importance": score} for feature, score in model.importance.items()]
+            if model
+            else []
+        ),
+        "per_model_metrics": per_model_metrics,
+        "latest_training_run": latest_run,
+        "config": _store.get("config"),
+    }
+
+
 @router.get("/logs")
 async def get_api_logs(limit: int = 50):
     """Get recent raw API call logs (prompt sent, response received)."""
     try:
-        logs = cx.get_recent_api_logs(limit)
+        with _api_log_lock:
+            live_logs = list(_store.get("api_logs", []))
+        if live_logs:
+            live_logs.sort(key=lambda l: l.get("_creationTime", 0), reverse=True)
+            logs = live_logs[:limit]
+        else:
+            logs = cx.get_recent_api_logs(limit)
         return {"logs": logs, "count": len(logs)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -1088,3 +1220,27 @@ async def get_trends(brand: str, days: int = 30):
         "timeline": timeline,
         "days_of_data": len(timeline),
     }
+
+
+# ── Crawl playground ───────────────────────────────────────────────────────
+
+class CrawlDomainRequest(BaseModel):
+    url: str
+    max_pages: int = Field(default=5, ge=1, le=25)
+    depth: int = Field(default=2, ge=1, le=4)
+
+
+@router.post("/crawl-domain")
+def crawl_domain_endpoint(req: CrawlDomainRequest):
+    """
+    Crawl a domain via Cloudflare Browser Rendering (falls back to a
+    direct fetch if no Cloudflare token is configured) and return the
+    GEO-relevant content features — per-page and aggregated.
+
+    Intended as a playground: pass any URL and see exactly what the
+    nightly competitor crawler would extract for that brand.
+    """
+    result = crawl_domain(req.url, max_pages=req.max_pages, depth=req.depth)
+    payload = result_to_dict(result)
+    payload["cloudflare_configured"] = _cloudflare_available()
+    return payload

@@ -39,8 +39,8 @@ export default function CalculatorPage() {
             </p>
             <p>
               <strong>Polling frequency</strong> determines freshness. Parametric models (GPT, Claude, Gemini) only
-              change when retrained, so daily polling is sufficient. Search-augmented models (Perplexity Sonar) pull
-              live web data and can change hourly.
+              change when retrained, so daily polling is sufficient. Search-augmented modes (e.g. ChatGPT browsing,
+              Gemini grounding) pull live web data and can change hourly.
             </p>
           </Prose>
         </Section>
@@ -60,7 +60,6 @@ export default function CalculatorPage() {
             <p>
               <strong>Batch API (50% savings):</strong> OpenAI, Anthropic, and Google all offer 50% discounts for batch
               processing with 24-hour turnaround. Ideal for scheduled daily polls that don&apos;t need real-time results.
-              Perplexity does not offer batch pricing.
             </p>
             <p>
               <strong>Prompt Caching (50-90% on input tokens):</strong> The system prompt is identical across thousands
@@ -79,9 +78,8 @@ export default function CalculatorPage() {
           <Prose>
             <p>
               All pricing reflects published API rates as of April 2026. Token costs assume ~100 input tokens per query
-              (system prompt + question) and ~500 output tokens (response with brand recommendations). Perplexity Sonar
-              costs include both token pricing and per-request fees ($5-12 per 1,000 requests depending on context
-              depth). Batch API discounts are applied uniformly at 50% for OpenAI, Anthropic, and Google models.
+              (system prompt + question) and ~500 output tokens (response with brand recommendations). Batch API
+              discounts are applied uniformly at 50% for OpenAI, Anthropic, and Google models.
             </p>
           </Prose>
         </Section>
@@ -91,7 +89,6 @@ export default function CalculatorPage() {
             { label: "OpenAI API Pricing", url: "https://openai.com/api/pricing/" },
             { label: "Anthropic Models & Pricing", url: "https://platform.claude.com/docs/en/docs/about-claude/models" },
             { label: "Gemini API Pricing", url: "https://ai.google.dev/gemini-api/docs/pricing" },
-            { label: "Perplexity API Pricing", url: "https://docs.perplexity.ai/guides/pricing" },
             { label: "Sellm — AI Search API Pricing Guide", url: "https://sellm.io/post/ai-search-api-pricing-guide" },
             { label: "Redis — LLM Cost Optimization Guide", url: "https://redis.io/blog/large-language-model-operations-guide/" },
             { label: "Prem AI — LLM Cost Optimization Guide", url: "https://blog.premai.io/llm-cost-optimization-8-strategies-that-cut-api-spend-by-80-2026-guide/" },

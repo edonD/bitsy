@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-const tools = ["ChatGPT", "Claude", "Gemini", "Perplexity"];
+const tools = ["ChatGPT", "Claude", "Gemini"];
 
 export function Hero() {
   return (
@@ -131,7 +131,6 @@ export function Hero() {
                     ["ChatGPT", "Mentioned #2"],
                     ["Claude", "Not mentioned"],
                     ["Gemini", "Mentioned"],
-                    ["Perplexity", "Competitor won"],
                   ].map(([name, result]) => (
                     <div
                       key={name}

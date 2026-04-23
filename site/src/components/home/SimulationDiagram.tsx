@@ -36,7 +36,7 @@ const simulationOutputs = [
   },
   {
     label: "Visibility gap",
-    status: "Missing from Claude & Perplexity",
+    status: "Missing from Claude & Gemini",
     meta: "Spotted",
     tone: "bg-[#e5edf7]",
   },
@@ -124,7 +124,6 @@ const brands = [
   { src: "/brands/openai.svg", alt: "OpenAI", sizeClass: "max-h-20" },
   { src: "/brands/anthropic.svg", alt: "Anthropic", sizeClass: "max-h-6" },
   { src: "/brands/gemini.svg", alt: "Google Gemini", sizeClass: "max-h-6" },
-  { src: "/brands/perplexity.svg", alt: "Perplexity", sizeClass: "max-h-6" },
 ];
 
 function CenterNode() {

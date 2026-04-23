@@ -13,7 +13,7 @@ interface ModelInfo {
   tier: "budget" | "mid" | "flagship";
   batchDiscount: number; // multiplier (0.5 = 50% off)
   hasRequestFee: boolean;
-  requestFee: number; // per request, in dollars (for Perplexity)
+  requestFee: number; // per request, in dollars
   note: string;
 }
 
@@ -126,30 +126,6 @@ const MODELS: ModelInfo[] = [
     requestFee: 0,
     note: "Flagship Google model",
   },
-  {
-    name: "Perplexity Sonar",
-    provider: "Perplexity",
-    costPerQuery: 0.0006,
-    inputPer1M: 1.00,
-    outputPer1M: 1.00,
-    tier: "mid",
-    batchDiscount: 1, // no batch discount
-    hasRequestFee: true,
-    requestFee: 0.008, // ~$8 per 1K requests (medium context)
-    note: "Includes live web search + citations",
-  },
-  {
-    name: "Perplexity Sonar Pro",
-    provider: "Perplexity",
-    costPerQuery: 0.0078,
-    inputPer1M: 3.00,
-    outputPer1M: 15.00,
-    tier: "flagship",
-    batchDiscount: 1,
-    hasRequestFee: true,
-    requestFee: 0.014, // ~$14 per 1K requests
-    note: "Multi-step queries, 2x citations",
-  },
 ];
 
 const PRESETS: { label: string; brands: number; queries: number; samples: number; frequency: number }[] = [
@@ -177,7 +153,7 @@ export function CostCalculator({ compact = false }: CalculatorProps) {
   const [samplesPerQuery, setSamplesPerQuery] = useState(3);
   const [pollingFrequency, setPollingFrequency] = useState(1); // times per day
   const [selectedModels, setSelectedModels] = useState<Set<string>>(
-    new Set(["GPT-4.1-nano", "Gemini 2.5 Flash-Lite", "Claude Haiku 4.5", "Perplexity Sonar"])
+    new Set(["GPT-4.1-nano", "Gemini 2.5 Flash-Lite", "Claude Haiku 4.5"])
   );
   const [useBatchAPI, setUseBatchAPI] = useState(false);
   const [useTieredStrategy, setUseTieredStrategy] = useState(false);

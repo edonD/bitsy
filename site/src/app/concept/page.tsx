@@ -204,11 +204,11 @@ export default function ConceptPage() {
               single AI optimization strategy. Source mix for Gemini visibility does not equal
               source mix for Claude visibility.&rdquo; <a href="#ref-5" className="ink-link">[5]</a> Claude
               relies on user-generated content (reviews, social media) at rates 2&ndash;4x higher
-              than Gemini, which favors authoritative E-E-A-T signals. Perplexity cites
-              ~21 sources per response versus ChatGPT&apos;s ~7 — entirely different ecosystems.
+              than Gemini, which favors authoritative E-E-A-T signals. ChatGPT cites
+              ~7 sources per response versus Gemini&apos;s ~5 — noticeably different ecosystems.
             </p>
             <p>
-              Only 11% of domains are cited by both ChatGPT and Perplexity <a href="#ref-4" className="ink-link">[4]</a>.
+              Only a fraction of domains are cited by both ChatGPT and Gemini <a href="#ref-4" className="ink-link">[4]</a>.
               A strategy optimized for one model may be invisible on another. Our simulator
               tracks <code>model_agreement</code> (do all models mention you?) and <code>model_spread</code> (how
               much do they disagree?) as first-class features.
@@ -230,7 +230,6 @@ export default function ConceptPage() {
                   ["ChatGPT", "~7", "Parametric-first (79%); web search 21% of the time", "[4]"],
                   ["Claude", "varies", "2-4x higher user-generated content reliance", "[5]"],
                   ["Gemini", "~5", "Strongest E-E-A-T signals; rewards authority", "[5]"],
-                  ["Perplexity", "~21", "Search-first; returns native citation URLs", "[4]"],
                 ].map(([model, cit, behavior, src]) => (
                   <tr key={model} className="hover:bg-[rgba(255,255,255,0.28)]">
                     <td className="px-4 py-3 font-semibold text-[var(--ink)]">{model}</td>
@@ -253,7 +252,7 @@ export default function ConceptPage() {
               The GEO paper <a href="#ref-3" className="ink-link">[3]</a> tested 9 content optimization
               strategies on 10,000 queries across 25 domains. These are the strategies our
               simulator lets you toggle as what-if scenarios. The results were validated on
-              Perplexity.ai with real-world data.
+              live AI search engines with real-world data.
             </p>
           </div>
 
@@ -269,7 +268,7 @@ export default function ConceptPage() {
               <tbody className="divide-y divide-[color:var(--line)]">
                 {[
                   ["Add expert quotations", "+41%", "Largest single-strategy lift"],
-                  ["Add statistics & data", "+37%", "Validated on Perplexity.ai"],
+                  ["Add statistics & data", "+37%", "Validated against live AI search"],
                   ["Cite credible sources", "+30%", "Up to +115% for lower-ranked sites"],
                   ["Improve fluency", "+28%", "Active voice, short sentences, logical flow"],
                   ["Use technical terms", "+18%", "Domain-dependent"],

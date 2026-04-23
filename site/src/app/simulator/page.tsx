@@ -1215,11 +1215,11 @@ export default function SimulatorPage() {
             <div className="grid gap-4 md:grid-cols-3">
               <div className="paper-card rounded-[1.4rem] p-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <div className="h-3 w-3 rounded-full bg-[#6366f1]" />
-                  <p className="text-sm font-semibold text-[var(--ink)]">Perplexity (RAG)</p>
+                  <div className="h-3 w-3 rounded-full bg-[#4285f4]" />
+                  <p className="text-sm font-semibold text-[var(--ink)]">Gemini (grounding)</p>
                 </div>
                 <p className="text-2xl text-[var(--ink)] font-semibold">2-7 days</p>
-                <p className="text-xs text-[var(--muted)] mt-1">Real-time web search. New content typically indexed within 48h.</p>
+                <p className="text-xs text-[var(--muted)] mt-1">Live Google Search grounding. New content typically indexed within a week.</p>
               </div>
               <div className="paper-card rounded-[1.4rem] p-4">
                 <div className="flex items-center gap-2 mb-2">

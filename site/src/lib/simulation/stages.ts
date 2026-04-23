@@ -111,7 +111,7 @@ export interface RawSample {
  * Generate one RawSample per (query × model × sampleIndex) cell.
  *
  * Research basis:
- *   – ChatGPT cites ~3-4 brands; Perplexity ~13 (Research 2.1)
+ *   – ChatGPT cites ~3-4 brands; Gemini ~5 (Research 2.1)
  *   – 15% accuracy variance at temp=0 (Research 2.2)
  *
  * Pure: (scores, config) → raw samples.

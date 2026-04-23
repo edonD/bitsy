@@ -40,7 +40,7 @@ export default function SimulatorPage() {
         <Section id="problem" title="The problem we are solving">
           <Prose>
             <p>
-              AI search engines (ChatGPT, Claude, Gemini, Perplexity) now influence buying
+              AI search engines (ChatGPT, Claude, Gemini) now influence buying
               decisions for 58% of consumers. But the way they recommend brands is
               fundamentally different from traditional search&mdash;and fundamentally harder
               to optimize for.
@@ -51,7 +51,7 @@ export default function SimulatorPage() {
             <KeyStat value="62%" label="Brand mentions disagree across platforms (CMU LLM Whisperer)" />
             <KeyStat value="<1 in 100" label="Chance of getting the same recommendation list twice" />
             <KeyStat value="40-60%" label="Cited sources change month-to-month" />
-            <KeyStat value="3-4" label="Average brands cited per ChatGPT response (vs. 13 for Perplexity)" />
+            <KeyStat value="3-5" label="Average brands cited per response across ChatGPT, Claude, and Gemini" />
           </div>
 
           <SubSection title="Three core difficulties">

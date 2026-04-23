@@ -70,7 +70,6 @@ const panels = [
               ["ChatGPT", "44%", "#2"],
               ["Claude", "12%", "—"],
               ["Gemini", "39%", "#3"],
-              ["Perplexity", "18%", "#5"],
             ].map(([name, rate, pos]) => (
               <div
                 key={name}

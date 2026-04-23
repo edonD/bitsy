@@ -11,7 +11,7 @@ const faq = [
   },
   {
     question: "Which AI tools are supported?",
-    answer: "ChatGPT, Claude, Gemini, and Perplexity.",
+    answer: "ChatGPT, Claude, and Gemini.",
   },
   {
     question: "Can I compare competitors?",

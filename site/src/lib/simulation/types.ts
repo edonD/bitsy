@@ -4,7 +4,7 @@
  * Every stage imports from here — never from each other.
  */
 
-export type ModelId = "chatgpt" | "claude" | "gemini" | "perplexity";
+export type ModelId = "chatgpt" | "claude" | "gemini";
 
 export interface ModelMeta {
   id: ModelId;
@@ -35,13 +35,6 @@ export const MODEL_META: Record<ModelId, ModelMeta> = {
     provider: "Google",
     avgCitationsPerResponse: 5,
     color: "#4285f4",
-  },
-  perplexity: {
-    id: "perplexity",
-    label: "Perplexity Sonar Pro",
-    provider: "Perplexity",
-    avgCitationsPerResponse: 13,
-    color: "#6366f1",
   },
 };
 

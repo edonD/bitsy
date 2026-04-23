@@ -3,7 +3,7 @@ const features = [
     id: "sample-report",
     label: "02 · Observe",
     title: "See your standing across every model, every night.",
-    text: "A live panel of buyer queries runs against ChatGPT, Claude, Gemini, and Perplexity on a schedule. One dashboard shows where you appear, where you missed, and which competitor won.",
+    text: "A live panel of buyer queries runs against ChatGPT, Claude, and Gemini on a schedule. One dashboard shows where you appear, where you missed, and which competitor won.",
     points: ["Nightly automated measurement", "Mention rate, position, sentiment", "Raw LLM responses on demand"],
     tone: "bg-[#ece8f7]",
     accent: "bg-[#f7f5fd]",
@@ -44,7 +44,6 @@ const features = [
                 ["ChatGPT", "Mentioned #2"],
                 ["Claude", "Not mentioned"],
                 ["Gemini", "Mentioned"],
-                ["Perplexity", "Competitor won"],
               ].map(([name, result]) => (
                 <div key={name} className="grid grid-cols-[1.1fr,0.9fr] px-4 py-3 text-sm">
                   <span className="text-[var(--ink)]">{name}</span>
@@ -81,7 +80,6 @@ const features = [
             { name: "ChatGPT", score: "44%", note: "Mentioned #2" },
             { name: "Claude", score: "12%", note: "Rare mention" },
             { name: "Gemini", score: "39%", note: "Mentioned" },
-            { name: "Perplexity", score: "18%", note: "Competitor ahead" },
           ].map((item) => (
             <div key={item.name} className="surface-inset rounded-[0.35rem] p-5">
               <div className="flex items-start justify-between gap-3">

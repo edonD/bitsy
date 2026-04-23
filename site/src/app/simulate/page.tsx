@@ -9,7 +9,7 @@ import {
   INDUSTRY_PRESETS,
 } from "@/lib/simulation-engine";
 
-const ALL_MODELS: ModelId[] = ["chatgpt", "claude", "gemini", "perplexity"];
+const ALL_MODELS: ModelId[] = ["chatgpt", "claude", "gemini"];
 
 const DEFAULT_QUERY_SUGGESTIONS = [
   "Best option for a small team",

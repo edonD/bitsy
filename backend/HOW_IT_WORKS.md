@@ -103,34 +103,32 @@ Lift = 50.5% - 46.4% = +4.1 percentage points
 Relative lift = 4.1 / 46.4 × 100 = +8.8%
 ```
 
-### Step 5: Calculate Confidence Bounds
+### Step 5: Calculate Residual Bounds
 
-The model knows its own uncertainty from validation RMSE.
+The model estimates uncertainty from validation residuals when honest validation exists.
 
 ```
-Validation RMSE = 2.5pp
-95% confidence → Z-score = 1.96
-Margin of error = 1.96 × 2.5 = ±4.9pp
+Validation residual radius = 4.9pp
 
-Confidence interval:
+Residual interval:
   Lower bound = 50.5% - 4.9% = 45.6%
   Upper bound = 50.5% + 4.9% = 55.4%
   
 Confidence level:
-  R² = 0.85 > 0.85 → "HIGH" confidence
+  walk-forward validation + lift larger than residual radius → higher confidence
 ```
 
-**Why HIGH confidence?**
-- R² of 0.85 means model has strong predictive power
+**Why confidence may be higher?**
+- Walk-forward R² shows predictive power on future dates
 - The feature combination (fresh + authority + lists) was seen in training
 - Model is not extrapolating far beyond its training data
 
-### Step 6: Calculate Feature Contributions (SHAP)
+### Step 6: Calculate Feature Contribution Estimates
 
 For each feature that changed, how much did it contribute to the lift?
 
 ```
-SHAP explanation for scenario:
+Importance-weighted attribution for scenario:
   Base feature importance (XGBoost built-in):
     1. avg_source_freshness_months: importance = 0.24
     2. high_authority_source_count: importance = 0.18
@@ -158,7 +156,8 @@ Total: 2.1 + 1.6 + 0.4 = 4.1pp ✓ (matches lift)
   "lift_percentage": 8.8,
   "confidence_lower": 45.6,
   "confidence_upper": 55.4,
-  "confidence_level": "HIGH",
+  "confidence_level": "LOW",
+  "contribution_method": "importance_weighted_feature_delta",
   "shap_contributions": [
     {
       "feature": "avg_source_freshness_months",
@@ -188,8 +187,8 @@ Base Mention Rate:      46.4%
 ↓
 After your changes:     50.5%
 ↓
-Predicted Lift:         +4.1pp (HIGH confidence)
-Confidence Interval:    [45.6% - 55.4%]
+Predicted Lift:         +4.1pp (model confidence depends on validation mode)
+Residual Interval:      [45.6% - 55.4%]
 
 Key drivers:
 1. Fresh content       +2.1pp (51%)
@@ -206,23 +205,23 @@ Key drivers:
 - Not a toy or heuristic, but a real regression model
 - Trained on realistic synthetic data with proper time-series patterns
 
-### 2. **Validated with Real Metrics**
-- R² = 0.85 means model explains 85% of variance
-- RMSE = 2.5pp gives quantified uncertainty
-- Train/test split prevents overfitting
+### 2. **Validated with Explicit Metric Modes**
+- Walk-forward R² is the forecast-style score when enough dates exist
+- Same-day holdout is shown separately from in-sample fit
+- In-sample metrics are diagnostics, not proof of forecasting
 - Users can see the actual validation metrics in API response
 
 ### 3. **Uncertainty Quantified**
 - NOT: "You'll get +4.1pp" (false certainty)
-- YES: "You'll get +4.1pp (95% CI ±4.9pp, HIGH confidence)"
-- Confidence intervals bound the downside risk
+- YES: "Model predicts +4.1pp with residual bounds and validation mode shown"
+- Residual intervals communicate downside risk without pretending to be causal proof
 - Users understand the margin of error
 
 ### 4. **Explainability**
-- SHAP values are mathematically proven (Shapley theorem)
-- Feature contributions add up to total lift exactly
-- Users see EXACTLY why the prediction changed
-- No black box, transparent reasoning
+- Current attribution is importance-weighted feature deltas, not SHAP
+- Feature contribution estimates add up to total lift by construction
+- Users see which changed features the model weighted most
+- Less opaque than a black box, but not a causal decomposition
 
 ### 5. **Speed & Cost**
 - <100ms per prediction vs 3-5 seconds for real API calls
@@ -288,7 +287,7 @@ Result: Data-driven decision, measurable ROI
 
 1. **Real Problem:** Brands spend $50k+ on AI visibility strategies blind
 2. **Real Solution:** Model shows predicted impact before implementation
-3. **Real Metrics:** R², RMSE, confidence intervals, SHAP - not hand-wavy
+3. **Real Metrics:** validation-mode-aware R²/RMSE, residual bounds, and feature-importance attribution - not hand-wavy
 4. **Real Economics:** $0 incremental cost per simulation, $99/mo SaaS price
 5. **Real Outcomes:** Users can measure actual lift against predictions
 

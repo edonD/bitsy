@@ -40,12 +40,12 @@ class SimulationResponse(BaseModel):
     )
     predicted_lift: float = Field(..., description="Lift in percentage points")
     lift_percentage: float = Field(..., description="Relative lift %")
-    confidence_lower: float = Field(..., description="95% CI lower bound")
-    confidence_upper: float = Field(..., description="95% CI upper bound")
+    confidence_lower: float = Field(..., description="Residual-based interval lower bound")
+    confidence_upper: float = Field(..., description="Residual-based interval upper bound")
     confidence_level: str = Field(..., description="HIGH, MEDIUM, or LOW")
     shap_contributions: List[FeatureContributionResponse] = Field(
         ...,
-        description="Feature contribution estimate"
+        description="Legacy field name; contains importance-weighted feature contribution estimates, not SHAP values"
     )
     sensitivity_analysis: Optional[dict] = None
 

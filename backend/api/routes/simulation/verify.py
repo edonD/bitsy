@@ -4,7 +4,7 @@ Verify — predicted-vs-actual attribution for shipped changes.
 Loop:
   1. User logs a change via POST /verify/log-change
      (records baseline_rate from the current feature store)
-  2. At least 14 days pass, nightly benchmark collects new mentions
+  2. At least 14 days pass, scheduled or manual collection adds new mentions
   3. GET /verify/attribution?brand=X shows each logged change with
      actual_lift computed from the trend data
 
@@ -76,7 +76,7 @@ def log_change(req: LogChangeRequest):
         "shipped_at": shipped_at_ms,
         "note": (
             "Attribution will be available 14 days from now. In the meantime "
-            "the nightly benchmark will populate the comparison data."
+            "scheduled or manual collection must populate the comparison data."
         ),
     }
 

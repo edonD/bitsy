@@ -8,11 +8,9 @@ import os
 import requests
 from typing import Any
 
-# Convex site URL serves HTTP actions at the same origin
-CONVEX_SITE_URL = os.getenv(
-    "CONVEX_SITE_URL",
-    "https://savory-goldfish-122.convex.site",
-)
+# Convex site URL serves HTTP actions at the same origin.
+CONVEX_SITE_URL = os.getenv("CONVEX_SITE_URL")
+INTERNAL_TOKEN = os.getenv("BITSY_INTERNAL_API_TOKEN") or os.getenv("CONVEX_PIPELINE_TOKEN")
 
 
 def _strip_none(obj: Any) -> Any:
@@ -25,8 +23,15 @@ def _strip_none(obj: Any) -> Any:
 
 
 def _post(path: str, body: dict[str, Any] | None = None) -> Any:
+    if not CONVEX_SITE_URL:
+        raise RuntimeError("CONVEX_SITE_URL is not configured.")
+
     url = f"{CONVEX_SITE_URL}{path}"
-    resp = requests.post(url, json=_strip_none(body or {}), timeout=30)
+    headers = {}
+    if INTERNAL_TOKEN:
+        headers["Authorization"] = f"Bearer {INTERNAL_TOKEN}"
+
+    resp = requests.post(url, json=_strip_none(body or {}), headers=headers, timeout=30)
     resp.raise_for_status()
     return resp.json()
 

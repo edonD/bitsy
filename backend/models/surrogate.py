@@ -5,8 +5,7 @@ Surrogate Model: Lightweight XGBoost for predicting mention rates
 import numpy as np
 import pandas as pd
 import xgboost as xgb
-import shap
-from typing import Dict, List, Tuple
+from typing import Any, Dict, List, Tuple
 from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
 
 
@@ -25,7 +24,7 @@ class SurrogateModel:
         """
         self.feature_names = feature_names
         self.model: xgb.XGBRegressor = None
-        self.explainer: shap.TreeExplainer = None
+        self.explainer: Any = None
         self.validation_rmse: float = None
         self.validation_r2: float = None
         self.feature_importance: Dict[str, float] = {}
@@ -94,7 +93,7 @@ class SurrogateModel:
             print(f"Validation R²: {self.validation_r2:.3f}")
             print(f"Validation MAE: {mae:.3f}")
 
-        # Compute SHAP feature importance
+        # Compute XGBoost built-in feature importance.
         self._compute_feature_importance(X_val)
 
         return {
@@ -107,7 +106,6 @@ class SurrogateModel:
     def _compute_feature_importance(self, X_val: pd.DataFrame):
         """
         Compute feature importance using XGBoost built-in method.
-        SHAP is skipped due to encoding issues.
 
         Args:
             X_val: Validation feature matrix
@@ -180,7 +178,7 @@ class SurrogateModel:
     def explain_prediction(self, features: Dict[str, float]) -> Dict[str, float]:
         """
         Explain a prediction using feature importance.
-        Uses SHAP if available, falls back to XGBoost importance.
+        This is not a SHAP or causal decomposition.
 
         Args:
             features: Feature values

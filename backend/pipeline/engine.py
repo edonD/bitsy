@@ -1364,6 +1364,12 @@ class SurrogateModel:
         self.rmse: float = 0
         self.mae: float = 0
         self.r2: float = 0
+        self.in_sample_rmse: float = 0
+        self.in_sample_mae: float = 0
+        self.in_sample_r2: float = 0
+        self.evaluation_rmse: float = 0
+        self.evaluation_mae: float = 0
+        self.evaluation_r2: float = 0
         self.interval_radius: float = 0
         self.validation_mode: str = "in_sample"
         self.training_mode: str = "same_day"
@@ -1410,6 +1416,31 @@ class SurrogateModel:
             "validation_mode": "walk_forward",
         }
 
+    def _holdout_metrics(
+        self,
+        X: pd.DataFrame,
+        y: pd.Series,
+    ) -> dict | None:
+        """Evaluate same-day rows on a simple 80/20 holdout when temporal data is unavailable."""
+        if len(X) < 5:
+            return None
+
+        split = max(1, int(len(X) * 0.8))
+        if split >= len(X):
+            return None
+
+        fitted = self._fit_one(X.iloc[:split], y.iloc[:split])
+        preds = fitted.predict(X.iloc[split:])
+        errors = np.abs(np.array(y.iloc[split:]) - np.array(preds))
+
+        return {
+            "rmse": float(np.sqrt(mean_squared_error(y.iloc[split:], preds))),
+            "mae": float(mean_absolute_error(y.iloc[split:], preds)),
+            "r2": float(r2_score(y.iloc[split:], preds)) if len(y.iloc[split:]) > 1 else 0.0,
+            "interval_radius": float(np.quantile(errors, 0.95)) if len(errors) else 0.0,
+            "validation_mode": "same_day_holdout",
+        }
+
     def train(self, rows: list[dict]) -> dict:
         """Train aggregate model on feature rows."""
         temporal_df = self._prepare_temporal_rows(rows)
@@ -1431,20 +1462,30 @@ class SurrogateModel:
             metrics = None
             X = df[available]
             y = df["mention_rate"]
+            metrics = self._holdout_metrics(X, y)
 
         self.model = self._fit_one(X, y)
+        y_fit_pred = self.model.predict(X)
+        self.in_sample_rmse = float(np.sqrt(mean_squared_error(y, y_fit_pred)))
+        self.in_sample_mae = float(mean_absolute_error(y, y_fit_pred))
+        self.in_sample_r2 = float(r2_score(y, y_fit_pred)) if len(y) > 1 else 0
 
         if metrics:
-            self.rmse = metrics["rmse"]
-            self.mae = metrics["mae"]
-            self.r2 = metrics["r2"]
+            self.evaluation_rmse = metrics["rmse"]
+            self.evaluation_mae = metrics["mae"]
+            self.evaluation_r2 = metrics["r2"]
+            self.rmse = self.evaluation_rmse
+            self.mae = self.evaluation_mae
+            self.r2 = self.evaluation_r2
             self.interval_radius = metrics["interval_radius"]
             self.validation_mode = metrics["validation_mode"]
         else:
-            y_pred = self.model.predict(X)
-            self.rmse = float(np.sqrt(mean_squared_error(y, y_pred)))
-            self.mae = float(mean_absolute_error(y, y_pred))
-            self.r2 = float(r2_score(y, y_pred)) if len(y) > 1 else 0
+            self.evaluation_rmse = self.in_sample_rmse
+            self.evaluation_mae = self.in_sample_mae
+            self.evaluation_r2 = self.in_sample_r2
+            self.rmse = self.in_sample_rmse
+            self.mae = self.in_sample_mae
+            self.r2 = self.in_sample_r2
             self.interval_radius = 1.96 * max(self.rmse, 2.0)
             self.validation_mode = "in_sample"
 
@@ -1462,6 +1503,13 @@ class SurrogateModel:
             "interval_radius": self.interval_radius,
             "training_mode": self.training_mode,
             "validation_mode": self.validation_mode,
+            "in_sample_rmse": self.in_sample_rmse,
+            "in_sample_mae": self.in_sample_mae,
+            "in_sample_r2": self.in_sample_r2,
+            "evaluation_rmse": self.evaluation_rmse,
+            "evaluation_mae": self.evaluation_mae,
+            "evaluation_r2": self.evaluation_r2,
+            "contribution_method": "importance_weighted_feature_delta",
         }
 
     def train_per_model(self, per_model_rows: dict[str, list[dict]]) -> dict[str, dict]:
@@ -1550,7 +1598,16 @@ class SurrogateModel:
 
         contributions.sort(key=lambda x: abs(x.get("contribution", 0)), reverse=True)
 
-        confidence = "high" if abs(lift) > 5 else "medium" if abs(lift) > 1 else "low"
+        if self.validation_mode != "walk_forward":
+            confidence = "low"
+        else:
+            uncertainty = max(self.interval_radius, self.rmse, 2.0)
+            if abs(lift) > uncertainty and self.r2 >= 0.3:
+                confidence = "high"
+            elif abs(lift) > uncertainty * 0.5:
+                confidence = "medium"
+            else:
+                confidence = "low"
 
         return {
             "base_prediction": round(base_pred, 2),
@@ -1561,6 +1618,7 @@ class SurrogateModel:
             "ci_upper": round(ci_upper, 2),
             "confidence": confidence,
             "contributions": contributions,
+            "contribution_method": "importance_weighted_feature_delta",
         }
 
     def whatif_all_models(self, base_features: dict, changes: dict) -> dict:

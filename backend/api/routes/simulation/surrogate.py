@@ -39,6 +39,8 @@ from .feature_actions import FEATURE_ACTIONS
 
 router = APIRouter()
 
+CONTROLLABLE_RECOMMENDATION_FEATURES = set(CONTENT_FEATURE_NAMES) | {"query_coverage"}
+
 
 # ── Schemas ────────────────────────────────────────────────────────────────
 
@@ -64,6 +66,7 @@ class WhatIfResponse(BaseModel):
     ci_upper: float
     confidence: str
     contributions: list[ContributionItem]
+    contribution_method: str = "importance_weighted_feature_delta"
     per_model: Optional[dict] = None
     data_days: int = 0
     confidence_tier: str = "benchmark"  # "benchmark" | "emerging" | "established"
@@ -115,6 +118,15 @@ def retrain_model():
         "r2_score": metrics["r2"],
         "rmse": metrics["rmse"],
         "mae": metrics.get("mae", 0),
+        "in_sample_r2": metrics.get("in_sample_r2", 0),
+        "in_sample_rmse": metrics.get("in_sample_rmse", 0),
+        "in_sample_mae": metrics.get("in_sample_mae", 0),
+        "evaluation_r2": metrics.get("evaluation_r2", metrics["r2"]),
+        "evaluation_rmse": metrics.get("evaluation_rmse", metrics["rmse"]),
+        "evaluation_mae": metrics.get("evaluation_mae", metrics.get("mae", 0)),
+        "training_mode": metrics.get("training_mode", "same_day"),
+        "validation_mode": metrics.get("validation_mode", "in_sample"),
+        "contribution_method": metrics.get("contribution_method", "importance_weighted_feature_delta"),
         "num_samples": len(clean),
         "feature_importance": metrics["importance"],
         "model_version": 1,
@@ -139,16 +151,6 @@ def run_whatif(req: WhatIfRequest):
     if not brand_feats:
         raise HTTPException(status_code=404, detail=f"Brand '{req.brand}' not found.")
 
-    result = _store["model"].whatif(brand_feats, req.changes, req.model)
-
-    per_model = None
-    if not req.model and _store["model"].per_model_models:
-        pm_results = _store["model"].whatif_all_models(brand_feats, req.changes)
-        per_model = {
-            m: {"lift": r["lift"], "lift_pct": r["lift_pct"], "base": r["base_prediction"], "predicted": r["scenario_prediction"]}
-            for m, r in pm_results.items()
-        }
-
     # Confidence tier: how much history does this brand have?
     try:
         brand_signals = cx.get_signals_by_brand(req.brand, days=90)
@@ -164,6 +166,25 @@ def run_whatif(req: WhatIfRequest):
     else:
         confidence_tier = "benchmark"
 
+    result = _store["model"].whatif(brand_feats, req.changes, req.model)
+
+    per_model = None
+    # Per-model surrogates are intentionally not exposed until the aggregate
+    # model has enough history for forecast-style validation. The current
+    # per-model models are same-day/current-run fits and are too noisy for
+    # customer-facing lift breakdowns.
+    if (
+        not req.model
+        and confidence_tier == "established"
+        and _store["model"].validation_mode == "walk_forward"
+        and _store["model"].per_model_models
+    ):
+        pm_results = _store["model"].whatif_all_models(brand_feats, req.changes)
+        per_model = {
+            m: {"lift": r["lift"], "lift_pct": r["lift_pct"], "base": r["base_prediction"], "predicted": r["scenario_prediction"]}
+            for m, r in pm_results.items()
+        }
+
     return WhatIfResponse(
         brand=req.brand,
         base_prediction=result["base_prediction"],
@@ -173,6 +194,7 @@ def run_whatif(req: WhatIfRequest):
         ci_lower=result["ci_lower"],
         ci_upper=result["ci_upper"],
         confidence=result["confidence"],
+        contribution_method=result.get("contribution_method", "importance_weighted_feature_delta"),
         contributions=[
             ContributionItem(feature=c["feature"], contribution=round(c["contribution"], 2), pct=round(c["pct"], 1))
             for c in result["contributions"]
@@ -254,9 +276,16 @@ async def get_model_diagnostics():
             "rmse": model.rmse,
             "mae": model.mae,
             "r2": model.r2,
+            "in_sample_rmse": model.in_sample_rmse,
+            "in_sample_mae": model.in_sample_mae,
+            "in_sample_r2": model.in_sample_r2,
+            "evaluation_rmse": model.evaluation_rmse,
+            "evaluation_mae": model.evaluation_mae,
+            "evaluation_r2": model.evaluation_r2,
             "interval_radius": model.interval_radius,
             "training_mode": model.training_mode,
             "validation_mode": model.validation_mode,
+            "contribution_method": "importance_weighted_feature_delta",
             "lag_feature_enabled": LAG_FEATURE_NAME in model.feature_cols,
             "target_column": (
                 "target_mention_rate"
@@ -313,6 +342,8 @@ async def get_recommendations(brand: str):
 
     recommendations = []
     for feat, info in FEATURE_ACTIONS.items():
+        if feat not in CONTROLLABLE_RECOMMENDATION_FEATURES:
+            continue
         if feat not in brand_feats:
             continue
 

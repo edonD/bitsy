@@ -208,11 +208,11 @@ EVIDENCE: list[dict] = [
     {
         "id": "bitsy_benchmark_leaders",
         "claim": "Top-3 brands average 14+ citations vs 2 for bottom half",
-        "paper": "Bitsy nightly benchmark — ~50 brands across 10 verticals",
+        "paper": "Bitsy benchmark corpus — ~50 brands across 10 verticals",
         "venue": "In-house",
         "url": "https://bitsy.aisplash.me",
         "finding": (
-            "In Bitsy's nightly benchmark, brands ranked in the top-3 for their "
+            "In Bitsy's benchmark corpus, brands ranked in the top-3 for their "
             "category queries averaged 14+ external citations per homepage. The "
             "bottom half averaged fewer than 2. The citation-count gap is "
             "consistently the single biggest measurable difference."

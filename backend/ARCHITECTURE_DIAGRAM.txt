@@ -199,7 +199,8 @@ LAYER 6: RESPONSE (JSON)
     │   "lift_percentage": 25.6,                                 │
     │   "confidence_lower": 37.1,                                │
     │   "confidence_upper": 45.3,                                │
-    │   "confidence_level": "HIGH",                              │
+    │   "confidence_level": "LOW",                               │
+    │   "contribution_method": "importance_weighted_feature_delta",│
     │   "shap_contributions": [                                  │
     │     {                                                       │
     │       "feature": "freshness_days",                         │
@@ -227,8 +228,8 @@ LAYER 6: RESPONSE (JSON)
     │                                         │
     │  📊 Base: 32.8%                         │
     │  📈 Scenario: 41.2%                     │
-    │  ⬆️  Lift: +8.4pp (HIGH confidence)    │
-    │  📉 Range: [37.1% - 45.3%] (95% CI)   │
+    │  ⬆️  Lift: +8.4pp (model confidence)   │
+    │  📉 Range: [37.1% - 45.3%] (residual) │
     │                                         │
     │  Key Drivers:                           │
     │  1. Freshness    +3.8pp (████░)        │
@@ -246,7 +247,7 @@ KEY FACTS
 ✓ Single XGBoost model trained daily
 ✓ Validated with proper train/test split
 ✓ Predictions: <100ms, $0 incremental cost
-✓ Confidence intervals from validation RMSE
+✓ Residual bounds from validation RMSE
 ✓ Feature importance from XGBoost
 
 COSTS

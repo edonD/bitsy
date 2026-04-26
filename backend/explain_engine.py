@@ -54,14 +54,14 @@ Why XGBoost?
   - Fast predictions (<100ms) vs real API calls (3+ seconds)
   - Captures non-linear relationships (freshness impact changes at 6mo)
   - Feature importance built-in
-  - Interpretable with SHAP
+  - Inspectable with feature importance
 
 Model Validation Results:
   - R² Score: {metrics['r2']:.3f}  (explains {metrics['r2']*100:.1f}% of variance)
   - RMSE: {metrics['rmse']:.2f}pp  (typical prediction error)
   - MAE: {metrics['mae']:.2f}pp   (average absolute error)
 
-This means: Model predictions are accurate within ±{metrics['rmse']*1.96:.1f}pp 95% of the time
+This means: this synthetic demo's residual band is roughly ±{metrics['rmse']*1.96:.1f}pp on its validation split
 """)
 
 # Step 3: Run a simulation
@@ -99,7 +99,7 @@ PREDICTED LIFT: {result['predicted_lift']:+.1f}pp ({result['lift_percentage']:+.
 """)
 
 # Step 4: Confidence bounds
-print("\n[STEP 4] Calculate Confidence Intervals (95%)")
+print("\n[STEP 4] Calculate Residual Bounds")
 print("-" * 80)
 
 margin = result['confidence_upper'] - result['scenario_prediction']
@@ -108,41 +108,41 @@ The model knows its own uncertainty from validation.
 Using validation RMSE as standard error:
 
 Predicted: {result['scenario_prediction']:.1f}%
-95% CI: [{result['confidence_lower']:.1f}% to {result['confidence_upper']:.1f}%]
+Residual interval: [{result['confidence_lower']:.1f}% to {result['confidence_upper']:.1f}%]
 Margin of error: ±{margin:.1f}pp
 
-Confidence Level: {result['confidence_level']}
+Demo confidence label: {result['confidence_level']}
 
 Why {result['confidence_level']}?
 - Model saw similar feature combinations in training
-- R² of {metrics['r2']:.2f} means high predictive power
+- R² of {metrics['r2']:.2f} means predictive power on this synthetic split
 - New scenario is within training data range
 """)
 
-# Step 5: SHAP explanation
-print("\n[STEP 5] Feature Attribution (SHAP Values)")
+# Step 5: feature attribution
+print("\n[STEP 5] Feature Attribution (Importance-Weighted)")
 print("-" * 80)
 
 print("""
-SHAP answers: "Which features drove the predicted lift?"
+Current attribution estimates: "Which changed features did the model weight most?"
 
 Top 5 contributors to your +{:.1f}pp lift:
 """.format(result['predicted_lift']))
 
 for i, contrib in enumerate(result['shap_contributions'][:5], 1):
-    bar = "=" * int(contrib.percentage / 2)
-    print(f"  {i}. {contrib.feature:35s} +{contrib.contribution:5.2f}pp ({contrib.percentage:5.1f}%) {bar}")
+    bar = "=" * int(contrib["percentage"] / 2)
+    print(f"  {i}. {contrib['feature']:35s} +{contrib['contribution']:5.2f}pp ({contrib['percentage']:5.1f}%) {bar}")
 
 print("""
-SHAP values are mathematically proven correct (Shapley theorem).
-Users see EXACTLY why each prediction changed.
+This is not SHAP and not causal proof. It is an importance-weighted
+allocation of modeled lift across changed features.
 """)
 
-# Step 6: Why users believe this
-print("\n[STEP 6] Why Brands Trust This")
+# Step 6: What the demo proves
+print("\n[STEP 6] What This Demo Actually Shows")
 print("-" * 80)
 
-print("""
+print(f"""
 1. GROUNDED IN REALITY
    ✓ Model trained on realistic feature relationships
    ✓ 21 features match what brands actually control
@@ -150,18 +150,18 @@ print("""
 
 2. UNCERTAINTY QUANTIFIED
    ✓ Not a magic black box
-   ✓ Confidence intervals show model's margin of error
+   ✓ Residual intervals show model's margin of error
    ✓ Users know ±range of predictions, not just point estimates
 
 3. EXPLAINABILITY
-   ✓ SHAP shows exactly which features matter (feature importance)
-   ✓ Causality is clear: "Freshness contributes +2.1pp"
+   ✓ Feature importance shows which changed features matter most
+   ✓ Causality is not claimed: "Freshness is associated with +2.1pp in this model"
    ✓ Transparent reasoning, not a hidden neural network
 
 4. VALIDATED METRICS
-   ✓ R² = {metrics['r2']:.2f} means model captures real patterns
-   ✓ Confidence intervals based on actual validation RMSE
-   ✓ Edge cases tested to show robustness
+   ✓ R² = {metrics['r2']:.2f} means model captures synthetic demo patterns
+   ✓ Residual intervals based on actual validation RMSE
+   ✓ Edge cases are smoke tests, not proof of production reliability
 
 5. BENCHMARKED AGAINST RESEARCH
    ✓ Freshness impact matches academic papers on LLM recency bias
@@ -187,13 +187,13 @@ BEFORE (without Bitsy):
 
 AFTER (with Bitsy):
   Q: "What's the impact of fresh content?"
-  A: "+{result['predicted_lift']:.1f}pp mention lift in {result['confidence_level']} confidence"
+  A: "+{result['predicted_lift']:.1f}pp modeled lift; confidence is forecast-grade only after walk-forward validation"
 
   Q: "What's each authority source worth?"
   A: "+3-4pp per source (based on model training)"
 
   Q: "What's our expected ROI?"
-  A: "+{result['predicted_lift']:.0f}pp lift at 95% CI [{result['confidence_lower']:.0f}% to {result['confidence_upper']:.0f}%]"
+  A: "+{result['predicted_lift']:.0f}pp modeled lift with residual interval [{result['confidence_lower']:.0f}% to {result['confidence_upper']:.0f}%]"
 
   All in < 100ms with zero additional API costs
 """)
@@ -206,14 +206,14 @@ TECHNICAL FOUNDATION:
 ✓ Real XGBoost model trained on {X.shape[0]} synthetic samples
 ✓ Validated: R² = {metrics['r2']:.3f}, RMSE = {metrics['rmse']:.2f}pp
 ✓ Predictions < 100ms (2000x faster than real API calls)
-✓ Explainable: SHAP values show feature contributions
-✓ Quantified uncertainty: 95% CI from validation RMSE
+✓ Inspectable: feature importance shows contribution estimates
+✓ Quantified uncertainty: residual bounds from validation RMSE
 
 BUSINESS VALUE:
 ✓ Brands can test strategies BEFORE implementation
-✓ Confidence intervals show downside risk
+✓ Residual intervals show downside risk
 ✓ Feature importance shows ROI for each lever
-✓ Edge cases show robustness of strategy
+✓ Edge cases show how scenario assumptions change model output
 ✓ Scenarios can be saved and compared
 
 PRICING MODEL:
@@ -223,6 +223,6 @@ PRICING MODEL:
 ✓ No database costs, no compute costs
 ✓ Pure SaaS margin play
 
-This is NOT a toy demo. This is a production-grade ML system
-that brands can confidently use to guide real budget decisions.
+This is a prototype demo. The production system should only present
+forecast-grade confidence after enough real walk-forward validation.
 """)

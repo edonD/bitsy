@@ -260,10 +260,11 @@ result = predictor.simulate(baseline, scenario_features)
 #   "base_case_prediction": 32.8,  # Current rate
 #   "scenario_prediction": 41.2,   # After changes
 #   "predicted_lift": 8.4,         # Difference
-#   "confidence_lower": 37.1,      # 95% CI
+#   "confidence_lower": 37.1,      # residual interval lower bound
 #   "confidence_upper": 45.3,
-#   "confidence_level": "HIGH",
-#   "shap_contributions": [         # Feature breakdown
+#   "confidence_level": "LOW",
+#   "contribution_method": "importance_weighted_feature_delta",
+#   "shap_contributions": [         # Legacy field name; not SHAP
 #     {feature: "freshness_days", contribution: 3.8, percentage: 45.2},
 #     {feature: "authority_count", contribution: 3.2, percentage: 38.1},
 #     ...
@@ -297,7 +298,8 @@ result = predictor.simulate(baseline, scenario_features)
   "lift_percentage": 25.6,
   "confidence_lower": 37.1,
   "confidence_upper": 45.3,
-  "confidence_level": "HIGH",
+  "confidence_level": "LOW",
+  "contribution_method": "importance_weighted_feature_delta",
   "shap_contributions": [
     {
       "feature": "freshness_days",

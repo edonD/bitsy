@@ -54,11 +54,11 @@ def pretty_print_result(result: Dict[str, Any]):
     print(f"   Current state:     {base:.1f}% mention rate")
     print(f"   After changes:     {scenario:.1f}% mention rate")
     print(f"   Expected lift:     +{lift:.1f}pp ({lift_pct:+.1f}%)")
-    print(f"   95% Confidence:    [{lower:.1f}% - {upper:.1f}%]")
+    print(f"   Residual range:    [{lower:.1f}% - {upper:.1f}%]")
     print(f"   Confidence Level:  {confidence}")
 
-    # SHAP breakdown
-    print(f"\n[SHAP BREAKDOWN] What's Driving the Lift?")
+    # Importance-weighted breakdown. Legacy API field is not SHAP.
+    print(f"\n[FEATURE-CHANGE BREAKDOWN] What's Driving the Lift?")
     for i, contrib in enumerate(result['shap_contributions'][:5], 1):
         feature = contrib['feature']
         contribution = contrib['contribution']

@@ -80,6 +80,8 @@ class ScenarioSimulator:
             "confidence_lower": float(confidence_lower),
             "confidence_upper": float(confidence_upper),
             "confidence_level": confidence_level,
+            "contribution_method": "importance_weighted_feature_delta",
+            # Legacy field name retained for API compatibility; these are not SHAP values.
             "shap_contributions": contributions[:10],
         }
 

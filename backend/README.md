@@ -13,7 +13,7 @@ Feature Input (40-60 features)
     ↓
 Prediction (mention rate 0-100%)
     ↓
-SHAP Explanation + Uncertainty Bounds
+Feature-importance attribution + residual bounds
     ↓
 Sensitivity Analysis (edge cases)
 ```
@@ -23,15 +23,15 @@ Sensitivity Analysis (edge cases)
 ### 1. **Surrogate Model** (`models/surrogate.py`)
 - Trains on 90 days of historical data
 - Outputs: Mention rate predictions (0-100%)
-- Validation: R² > 0.85, RMSE < 4%
+- Validation: walk-forward when enough dates exist; same-day holdout or in-sample diagnostics otherwise
 - Interpretable via feature-importance proxy today; true explainability path still to be finalized
 
 ### 2. **Scenario Simulator** (`simulation/simulator.py`)
 - Runs what-if scenarios instantly
 - Returns:
   - Predicted lift (in percentage points)
-  - Confidence interval (95%)
-  - SHAP feature contributions
+  - Residual-based uncertainty range
+  - Importance-weighted feature contribution estimates
   - Edge case scenarios
   - Sensitivity analysis
 
@@ -91,7 +91,8 @@ curl -X POST http://localhost:8000/api/simulations/simulate \
   "lift_percentage": 25.7,
   "confidence_lower": 41.2,
   "confidence_upper": 46.8,
-  "confidence_level": "HIGH",
+  "confidence_level": "LOW",
+  "contribution_method": "importance_weighted_feature_delta",
   "shap_contributions": [
     {
       "feature": "avg_source_freshness_months",
@@ -156,9 +157,9 @@ curl -X POST http://localhost:8000/api/simulations/simulate \
 
 The current surrogate prototype is assessed by:
 
-1. **Ground truth**: Comparing predicted mention rates to actual next-day data
-   - Target: RMSE < 4% (±4 percentage points)
-   - Target: R² > 0.85
+1. **Ground truth**: Comparing predicted mention rates to actual next-day data when enough temporal history exists
+   - Target: walk-forward RMSE < 4pp
+   - Target: walk-forward R² > 0.70
 
 2. **Sensitivity**: When users take action, tracking actual vs predicted lift
    - Example: "Predicted +9pp lift" vs actual "+8pp" = validated
@@ -171,7 +172,7 @@ The current surrogate prototype is assessed by:
 
 ### Phase 1 (This week) ✅
 - [x] Surrogate model training
-- [x] SHAP explanations
+- [x] Feature-importance attribution
 - [x] Scenario simulator
 - [x] Mock data generation
 - [x] FastAPI endpoints

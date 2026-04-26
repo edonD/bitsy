@@ -54,12 +54,12 @@ result1 = simulator.simulate(baseline, scenario1)
 print(f"Base mention rate:     {result1['base_case_prediction']:.1f}%")
 print(f"After publishing:      {result1['scenario_prediction']:.1f}%")
 print(f"Predicted lift:        +{result1['predicted_lift']:.1f}pp")
-print(f"Confidence interval:   [{result1['confidence_lower']:.1f}% - {result1['confidence_upper']:.1f}%]")
+print(f"Residual range:        [{result1['confidence_lower']:.1f}% - {result1['confidence_upper']:.1f}%]")
 print(f"Confidence level:      {result1['confidence_level']}")
 
-print("\nWhat's driving the lift (top 3 factors):")
+print("\nImportance-weighted feature changes (top 3):")
 for i, contrib in enumerate(result1['shap_contributions'][:3], 1):
-    print(f"  {i}. {contrib.feature:45s} {contrib.contribution:+6.2f}pp")
+    print(f"  {i}. {contrib['feature']:45s} {contrib['contribution']:+6.2f}pp")
 
 # ============================================================================
 # Scenario 2
@@ -79,12 +79,12 @@ result2 = simulator.simulate(baseline, scenario2)
 print(f"Base mention rate:     {result2['base_case_prediction']:.1f}%")
 print(f"After lists:           {result2['scenario_prediction']:.1f}%")
 print(f"Predicted lift:        +{result2['predicted_lift']:.1f}pp")
-print(f"Confidence interval:   [{result2['confidence_lower']:.1f}% - {result2['confidence_upper']:.1f}%]")
+print(f"Residual range:        [{result2['confidence_lower']:.1f}% - {result2['confidence_upper']:.1f}%]")
 print(f"Confidence level:      {result2['confidence_level']}")
 
-print("\nWhat's driving the lift (top 3 factors):")
+print("\nImportance-weighted feature changes (top 3):")
 for i, contrib in enumerate(result2['shap_contributions'][:3], 1):
-    print(f"  {i}. {contrib.feature:45s} {contrib.contribution:+6.2f}pp")
+    print(f"  {i}. {contrib['feature']:45s} {contrib['contribution']:+6.2f}pp")
 
 # ============================================================================
 # Scenario 3
@@ -106,13 +106,13 @@ result3 = simulator.simulate(baseline, scenario3)
 
 print(f"Base mention rate:     {result3['base_case_prediction']:.1f}%")
 print(f"After full push:       {result3['scenario_prediction']:.1f}%")
-print(f"Predicted lift:        +{result3['predicted_lift']:.1f}pp (cumulative!)")
-print(f"Confidence interval:   [{result3['confidence_lower']:.1f}% - {result3['confidence_upper']:.1f}%]")
+print(f"Predicted lift:        +{result3['predicted_lift']:.1f}pp")
+print(f"Residual range:        [{result3['confidence_lower']:.1f}% - {result3['confidence_upper']:.1f}%]")
 print(f"Confidence level:      {result3['confidence_level']}")
 
-print("\nWhat's driving the lift (all factors):")
+print("\nImportance-weighted feature changes (all factors):")
 for i, contrib in enumerate(result3['shap_contributions'][:8], 1):
-    print(f"  {i}. {contrib.feature:45s} {contrib.contribution:+6.2f}pp")
+    print(f"  {i}. {contrib['feature']:45s} {contrib['contribution']:+6.2f}pp")
 
 # ============================================================================
 # Scenario 4: Edge cases
@@ -136,29 +136,27 @@ print("SUMMARY: What the Simulation Shows")
 print("="*80)
 
 print("""
-KEY INSIGHTS:
+DEMO NOTES:
 
-1. FRESHNESS MATTERS
-   Fresh content (< 1 month) boosts mentions by 4-6pp
-   This is due to LLM recency bias (65% of AI hits cite < 1 year old content)
+1. FRESHNESS CAN MATTER
+   In this synthetic demo, fresh content moves the model upward.
+   Treat this as a model behavior check, not field evidence.
 
-2. AUTHORITY IS POWERFUL
-   High-authority sources (G2, Gartner, etc.) provide 3-4pp per source
-   This is the single biggest lever for AI visibility
+2. AUTHORITY IS A MODELED LEVER
+   High-authority source features carry weight in the demo model.
+   Real lift still needs collection history and verification.
 
-3. CUMULATIVE EFFECTS
-   Strategy combining fresh content + authority + lists = 15-20pp total
-   Each lever amplifies the others (synergistic effect)
+3. COMBINED CHANGES ARE DIRECTIONAL
+   Multiple changes can move the prediction together.
+   The attribution is importance-weighted, not causal decomposition.
 
-4. ROBUSTNESS MATTERS
-   Edge cases show predictions are solid even if execution isn't perfect
-   If only 1 authority source picks it up, you still get +6pp instead of +9pp
+4. ROBUSTNESS NEEDS REAL VALIDATION
+   Edge cases are useful smoke tests.
+   They do not prove production reliability.
 
-5. WHAT TO DO
-   Priority 1: Get into major best-of lists (G2, Capterra, Gartner, etc.)
-   Priority 2: Publish fresh, detailed content
-   Priority 3: Implement schema markup
-   Priority 4: Monitor competitor moves and respond quickly
+5. WHAT TO DO WITH THIS SCRIPT
+   Use it to confirm the simulator runs end to end.
+   Use collected multi-day data before presenting forecast-grade confidence.
 
 EXAMPLE PLAYBOOK:
   Week 1: Pitch to analyst firms + major review sites
@@ -167,9 +165,9 @@ EXAMPLE PLAYBOOK:
   Week 4: Publish content + track results
   Week 5: Respond to competitor moves
 
-Expected outcome: +10-20pp improvement in AI search mentions over 2 months
+Expected outcome: a working local smoke test, not a customer promise.
 """)
 
 print("\n" + "="*80)
-print("SIMULATION ENGINE WORKING PERFECTLY!")
+print("SIMULATION ENGINE SMOKE TEST COMPLETE")
 print("="*80)

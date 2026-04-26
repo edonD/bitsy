@@ -39,7 +39,7 @@ async def simulate_scenario(request: SimulationRequest, db: Session = Depends(ge
         "confidence_lower": 37.1,
         "confidence_upper": 45.3,
         "confidence_level": "HIGH",
-        "shap_contributions": [...]
+        "shap_contributions": [...]  # legacy name; not SHAP
     }
     """
 
@@ -70,7 +70,8 @@ async def simulate_scenario(request: SimulationRequest, db: Session = Depends(ge
         # Run simulation
         result = predictor.simulate(baseline_features, request.scenario_features)
 
-        # Convert feature contributions to response format
+        # Convert importance-weighted feature contributions to response format.
+        # The response field keeps its legacy name for compatibility.
         contributions = [
             FeatureContributionResponse(
                 feature=c.feature,

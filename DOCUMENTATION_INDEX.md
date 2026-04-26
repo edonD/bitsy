@@ -7,7 +7,7 @@
 2. **[IMPLEMENTATION_CHECKLIST.md](IMPLEMENTATION_CHECKLIST.md)** - Week-by-week implementation plan with validation metrics
 
 ### Deep Dives
-3. **[Memory: Simulation Engine Architecture](../../../.claude/projects/C--Users-DD-OneDrive-Programming-bitsy/memory/simulation_engine_architecture.md)** - Complete 4-layer architecture, daily retraining workflow, drift detection
+3. **[Memory: Simulation Engine Architecture](../../../.claude/projects/C--Users-DD-OneDrive-Programming-bitsy/memory/simulation_engine_architecture.md)** - Complete 4-layer architecture, retraining workflow, drift detection
 4. **[Memory: Technical Implementation Guide](../../../.claude/projects/C--Users-DD-OneDrive-Programming-bitsy/memory/technical_implementation_guide.md)** - Code-level details, database schema, API design, MLOps
 
 ### Research Foundation
@@ -23,15 +23,15 @@
 
 ### Product Architecture
 - **4-layer digital twin**: Device (real LLMs) → Communication (monitoring) → Proxy (surrogate model) → Application (UI)
-- **Daily workflow**: Collection (50 samples/day) → Features (40-60) → Training (5 min XGBoost) → Deployment
-- **What-if engine**: Modify features → predict → explain with SHAP → sensitivity analysis
+- **Collection workflow**: Collection runs add samples → Features (40-60) → XGBoost refit → Deployment
+- **What-if engine**: Modify features → predict → explain with feature-importance attribution → sensitivity analysis
 - **Cost model**: ~$0.30/brand/day API costs, 95% gross margin at $199/mo SaaS pricing
 
 ### Technical Implementation
 - **Data collection**: OpenAI, Anthropic, Google, Perplexity clients with structured response parsing
 - **Feature engineering**: 40-60 features spanning time-series, competitors, content quality, mechanisms
 - **Model**: XGBoost trained on 90 days of history, validated with walk-forward CV
-- **Interpretability**: SHAP values for global + local explanations, feature importance ranking
+- **Interpretability**: XGBoost feature importance and importance-weighted attribution today; SHAP is planned, not currently active
 - **Drift detection**: Data drift (z-score > 2) + concept drift (feature importance changes)
 - **Validation**: Daily ground truth checks, weekly sensitivity checks, monthly aggregation
 
@@ -41,13 +41,13 @@
 3. **Parametric vs RAG detection** - Test with/without web search
 4. **XGBoost over neural networks** - Fast training (5 min), interpretable, time-series friendly
 5. **Walk-forward validation** - Time-series specific, prevents lookahead bias
-6. **SHAP for explainability** - Game-theoretic, works with any model
+6. **Feature-importance attribution now, TreeSHAP later** - Honest current explanations with a planned stronger method
 
 ### Database Schema
 - **collection_results**: Raw API call results (200 rows/brand/day)
 - **daily_aggregates**: Daily summaries (mention rate, sources, freshness)
 - **engineered_features**: 40-60 computed features per brand/day
-- **models_meta**: Trained model + SHAP importance
+- **models_meta**: Trained model + feature importance
 - **drift_alerts**: Detected anomalies with explanations
 - **simulations**: User-created what-if scenarios with outcomes
 
@@ -65,7 +65,7 @@
 Week 1-2:  Foundation (DB, API clients, feature engineering)
 Week 3-4:  Model training & validation
 Week 5:    Drift detection
-Week 6:    What-if simulator + SHAP
+Week 6:    What-if simulator + feature-importance attribution
 Week 7:    FastAPI + frontend MVP
 Week 8:    Daily orchestration + tests
 
@@ -127,7 +127,7 @@ Total: 8 weeks to MVP
 - Need 50+ samples to detect signal from noise (justified by CMU research)
 - Surrogate model is 1000x faster than real API
 - Can train daily with statistical sampling + lightweight model
-- Explainability (SHAP) shows why predictions change (drift detection)
+- Explainability uses feature-importance attribution today; SHAP-style methods are future work
 
 **Why margins are possible:**
 - $0.30/day API costs (statistical sampling)

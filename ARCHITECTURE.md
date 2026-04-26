@@ -384,7 +384,7 @@
     │  Current mention rate:    32.8%                     │
     │  Predicted after changes: 41.2%                     │
     │                                                     │
-    │  📈 Predicted Lift: +8.4pp (HIGH confidence)        │
+    │  📈 Predicted Lift: +8.4pp (model confidence shown) │
     │                                                     │
     │  Confidence Interval: [37.1% ─── 45.3%]            │
     │                         ↑              ↑            │
@@ -441,7 +441,7 @@ Display: Results to user (<100ms total)
 ✓ LLM API calls (real data)
 ✓ Brand signal scraping (real features)
 ✓ Training data assembly (join signals + mentions)
-✓ XGBoost model training (single model, daily refresh)
+✓ XGBoost model training (single model, refit on accumulated rows when collection/retrain runs)
 ✓ Validation metrics (R², RMSE, for confidence)
 ✓ Feature importance (show what matters)
 ✓ User prediction API (two predictions + bounds)

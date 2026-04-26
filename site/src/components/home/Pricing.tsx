@@ -29,11 +29,11 @@ export function Pricing() {
         <div className="max-w-3xl">
           <p className="muted-label text-xs">Early access</p>
           <h2 className="mt-4 text-4xl leading-tight text-[var(--ink)]">
-            Coming soon.
+            Get the first reports.
           </h2>
           <p className="mt-4 max-w-2xl text-base leading-relaxed text-[var(--ink-soft)]">
-            We&apos;re building the first A/B testing engine for AI search visibility.
-            Join the waitlist and lock in 50% off when we launch.
+            Join early access for a simple AI visibility report: where you show up,
+            who beats you, what to fix, and what changed after you fix it.
           </p>
         </div>
 
@@ -43,13 +43,13 @@ export function Pricing() {
             <p className="muted-label text-xs mb-4">What&apos;s included</p>
             <ul className="space-y-3">
               {[
-                "Check your brand's visibility across ChatGPT, Claude, and Gemini",
-                "See who gets recommended when buyers ask — and who doesn't",
-                "Simulate content changes before publishing",
-                "A/B test: measure real before/after impact",
-                "Ranked recommendations grounded in GEO research",
-                "Per-model breakdowns (each AI behaves differently)",
-                "Content analysis with actionable GEO scores",
+                "Check your brand across ChatGPT, Claude, and Gemini",
+                "See which competitors get recommended instead",
+                "Get a short list of pages and edits to make",
+                "Save before and after runs",
+                "Review the raw AI answers behind every score",
+                "Track progress over time",
+                "See why each recommendation was made",
               ].map((f) => (
                 <li
                   key={f}
@@ -72,8 +72,8 @@ export function Pricing() {
                 </div>
                 <h3 className="text-2xl text-[var(--ink)]">Join the waitlist</h3>
                 <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
-                  Be the first to test your AI visibility. Waitlist members get
-                  50% off for the first 6 months.
+                  Get early access when the first customer reports are ready.
+                  Waitlist members get 50% off for the first 6 months.
                 </p>
                 <form onSubmit={handleSubmit} className="mt-5">
                   <input

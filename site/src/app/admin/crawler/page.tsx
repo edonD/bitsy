@@ -5,8 +5,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+import { API_BASE_URL as API, apiFetch } from "@/lib/config";
 
 type Mode = "auto" | "fast" | "scripted";
 
@@ -74,7 +73,7 @@ export default function CrawlerPage() {
     const t0 = Date.now();
     const timer = setInterval(() => setElapsedMs(Date.now() - t0), 200);
     try {
-      const res = await fetch(`${API}/api/simulations/crawl-domain`, {
+      const res = await apiFetch("/api/simulations/crawl-domain", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

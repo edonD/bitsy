@@ -9,10 +9,10 @@
 
 A **digital twin simulation engine** that:
 1. **Monitors** real LLM citation behavior (50 samples/day across 4 models)
-2. **Trains** lightweight surrogate model (XGBoost, daily, 5 minutes)
+2. **Trains** lightweight surrogate model (XGBoost refit when collection or retraining runs)
 3. **Simulates** instant what-if scenarios without expensive API calls
-4. **Explains** why predictions changed using SHAP + drift detection
-5. **Validates** predictions against ground truth daily
+4. **Explains** why predictions changed using feature-importance attribution + drift detection
+5. **Validates** predictions against held-out or future data when enough history exists
 
 **Core insight**: Use statistical sampling + cheap proxy model to give users instant, explainable AI search visibility insights at 95% gross margin.
 
@@ -26,11 +26,11 @@ Real LLMs (ChatGPT, Claude, Gemini, Perplexity)
 Collection Pipeline
     ↓ [Feature Engineering]
 40-60 Engineered Features
-    ↓ [Daily Training, 5 min]
+    ↓ [Refit when collection/retraining runs]
 XGBoost Surrogate Model (10 MB)
     ↓
 What-If Simulations (instant)
-    ↓ [SHAP Decomposition]
+    ↓ [Importance-weighted attribution]
 User Dashboard
     ├─ Current mention rate
     ├─ What-if scenarios
@@ -63,7 +63,7 @@ User Dashboard
 - Output: mention_rate prediction (0-100%)
 - Training: 90 days of history, walk-forward validation
 - Performance: R² > 0.85, RMSE < ±4%
-- Stored as: 10 MB serialized model + SHAP feature importance
+- Stored as: 10 MB serialized model + XGBoost feature importance
 
 ### 4. Drift Detection
 - **Data drift**: Input distributions change (z-score > 2)
@@ -149,8 +149,8 @@ LLM responses are **stochastic** (same input → different output). Need 50+ sam
 
 ### Phase 2: Simulation Engine (2 weeks)
 - [ ] What-if builder
-- [ ] SHAP explanations
-- [ ] Confidence intervals
+- [ ] Importance-weighted feature-change explanations
+- [ ] Residual-based uncertainty ranges
 - [ ] Sensitivity analysis
 
 ### Phase 3: Intelligence Layer (2 weeks)
@@ -171,7 +171,7 @@ LLM responses are **stochastic** (same input → different output). Need 50+ sam
 | Component | Choice | Why |
 |-----------|--------|-----|
 | **Surrogate Model** | XGBoost | Fast, interpretable, handles time-series well |
-| **Interpretability** | SHAP | Game-theoretic, explains why predictions changed |
+| **Interpretability** | Feature importance now; TreeSHAP planned | Current explanations are directional, not causal |
 | **Drift Detection** | Incremental PFI | Shows which features changed |
 | **Validation** | Walk-forward CV | Time-series specific, prevents lookahead |
 | **API Query** | temperature=0 | Reproducible, fewer samples needed |
@@ -219,12 +219,12 @@ See `technical_implementation_guide.md` for full schema.
 
 ## What Makes This Different From Tryscope
 
-1. **Same core idea**: Surrogate model + daily retraining
+1. **Same core idea**: Surrogate model + repeated retraining on accumulated observations
 2. **Focus**: We could differentiate by:
    - Better UI/UX for non-technical users
    - Cheaper pricing (if we accept lower accuracy)
    - Vertical specialization (e.g., SaaS-only vs Tryscope's all categories)
-   - Open-source components (publish SHAP analysis, feature importance research)
+   - Open-source components (publish feature importance research; SHAP later)
    - API-first design (build into marketplaces)
 
 ---
@@ -235,7 +235,7 @@ See `technical_implementation_guide.md` for full schema.
 2. Implement data collection pipeline (start with 1 brand, 1 query)
 3. Build feature engineering module (test on 30 days of sample data)
 4. Train first XGBoost model (validate on hold-out data)
-5. Implement SHAP explanations
+5. Implement feature-importance explanations; add SHAP only after encoding/calibration is fixed
 6. Build what-if simulator
 7. Add drift detection
 8. Deploy MVP dashboard

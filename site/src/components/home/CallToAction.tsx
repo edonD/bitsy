@@ -9,7 +9,8 @@ export function CallToAction() {
           Be first to test your AI visibility
         </h2>
         <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-[var(--ink-soft)]">
-          Join the waitlist and lock in 50% off when we launch.
+          Get a clear report on where AI recommends you, where competitors win,
+          and what to fix first.
         </p>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
           <Link
@@ -22,7 +23,7 @@ export function CallToAction() {
             href="/concept"
             className="btn-secondary rounded-full px-8 py-3.5 font-mono text-sm font-semibold uppercase tracking-[0.08em]"
           >
-            How it works
+            See the details
           </Link>
         </div>
       </div>

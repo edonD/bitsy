@@ -114,6 +114,25 @@ const SECTIONS: {
 ];
 
 export default function AdminIndex() {
+  const sections =
+    process.env.NODE_ENV === "development"
+      ? [
+          ...SECTIONS,
+          {
+            number: "DEV",
+            step: "Local notes",
+            tagline: "Clarify internals while building.",
+            pages: [
+              {
+                href: "/dev/model-training",
+                name: "Model training explainer",
+                desc: "Plain-language local page for how the XGBoost surrogate is trained.",
+              },
+            ],
+          },
+        ]
+      : SECTIONS;
+
   return (
     <div className="min-h-screen bg-[var(--paper)]">
       <div className="mx-auto max-w-5xl px-6 py-12">
@@ -126,7 +145,7 @@ export default function AdminIndex() {
         </div>
 
         <div className="space-y-8">
-          {SECTIONS.map((section) => (
+          {sections.map((section) => (
             <section key={section.number} className="paper-panel rounded-[1.6rem] p-6">
               <div className="flex items-baseline gap-3 mb-4">
                 <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--ink)] text-[10px] font-semibold text-[var(--paper)]">

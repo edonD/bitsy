@@ -5,8 +5,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+import { apiFetch } from "@/lib/config";
 
 interface DropRow {
   brand: string;
@@ -40,8 +39,8 @@ export default function AlertsPage() {
   async function load() {
     setLoading(true);
     try {
-      const r = await fetch(
-        `${API}/api/simulations/alerts/summary?days=${windowDays}&threshold_pp=${threshold}`
+      const r = await apiFetch(
+        `/api/simulations/alerts/summary?days=${windowDays}&threshold_pp=${threshold}`
       );
       const d = await r.json();
       setData(d as Summary);

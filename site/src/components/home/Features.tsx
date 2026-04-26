@@ -1,10 +1,10 @@
 const features = [
   {
     id: "sample-report",
-    label: "02 · Observe",
-    title: "See your standing across every model, every night.",
-    text: "A live panel of buyer queries runs against ChatGPT, Claude, and Gemini on a schedule. One dashboard shows where you appear, where you missed, and which competitor won.",
-    points: ["Nightly automated measurement", "Mention rate, position, sentiment", "Raw LLM responses on demand"],
+    label: "02 · Measure",
+    title: "See who AI recommends.",
+    text: "Run your buyer questions through ChatGPT, Claude, and Gemini. See where you appear, where you are missing, and which competitor wins.",
+    points: ["Real buyer questions", "Rank, position, and sentiment", "Raw AI answers included"],
     tone: "bg-[#ece8f7]",
     accent: "bg-[#f7f5fd]",
     preview: (
@@ -12,16 +12,16 @@ const features = [
         <div className="flex items-center justify-between border-b border-[color:var(--line)] px-5 py-4">
           <div className="flex gap-2">
             <span className="surface-chip px-3 py-1 text-xs text-[var(--muted)]">Preview 01</span>
-            <span className="surface-chip px-3 py-1 text-xs text-[var(--muted)]">Report</span>
+            <span className="surface-chip px-3 py-1 text-xs text-[var(--muted)]">Results</span>
           </div>
           <span className="text-xs uppercase tracking-[0.16em] text-[var(--muted)]">
-            Buyer prompt
+            Buyer question
           </span>
         </div>
         <div className="grid gap-4 p-5 lg:grid-cols-[1.2fr,0.8fr]">
           <div className="space-y-4">
             <div className="surface-inset rounded-[0.35rem] p-5">
-              <p className="muted-label text-xs">Prompt</p>
+              <p className="muted-label text-xs">Question</p>
               <h3 className="mt-3 text-2xl leading-tight text-[var(--ink)]">
                 Best AI search testing tools for SaaS teams
               </h3>
@@ -58,10 +58,10 @@ const features = [
   },
   {
     id: "compare-models",
-    label: "03 · Simulate",
-    title: "Test a content change before you publish it.",
-    text: "The what-if engine predicts mention-rate lift from any content tweak — more citations, better readability, a fresher page — grounded in live data from your own competitors, not generic best-practice.",
-    points: ["Predicted lift with 95% CI", "Per-model forecasts", "Gap-sorted action list"],
+    label: "03 · Decide",
+    title: "Know what to fix next.",
+    text: "Bitsy turns the results into a short list of actions: pages to write, claims to add, sources to pitch, and competitors to watch.",
+    points: ["Clear fix list", "Competitor gaps", "Confidence shown plainly"],
     tone: "bg-[#e8f1f7]",
     accent: "bg-[#f5fafc]",
     preview: (
@@ -69,17 +69,17 @@ const features = [
         <div className="flex items-center justify-between border-b border-[color:var(--line)] px-5 py-4">
           <div className="flex gap-2">
             <span className="surface-chip px-3 py-1 text-xs text-[var(--muted)]">Preview 02</span>
-            <span className="surface-chip px-3 py-1 text-xs text-[var(--muted)]">Compare</span>
+            <span className="surface-chip px-3 py-1 text-xs text-[var(--muted)]">Fix list</span>
           </div>
           <span className="text-xs uppercase tracking-[0.16em] text-[var(--muted)]">
-            Model spread
+            Priority
           </span>
         </div>
         <div className="grid gap-4 p-5 md:grid-cols-2">
           {[
-            { name: "ChatGPT", score: "44%", note: "Mentioned #2" },
-            { name: "Claude", score: "12%", note: "Rare mention" },
-            { name: "Gemini", score: "39%", note: "Mentioned" },
+            { name: "Comparison page", score: "1", note: "Highest gap" },
+            { name: "Add proof", score: "2", note: "Weak claim" },
+            { name: "Pitch source", score: "3", note: "Competitor cited" },
           ].map((item) => (
             <div key={item.name} className="surface-inset rounded-[0.35rem] p-5">
               <div className="flex items-start justify-between gap-3">
@@ -99,10 +99,10 @@ const features = [
   },
   {
     id: "execute",
-    label: "04 · Execute",
-    title: "Ship the change — paste, don't guess.",
-    text: "Every recommendation becomes something your team can actually use: a ready-to-paste paragraph, a writer brief, a JSON-LD schema block, a short list of authority sites worth pitching. Execute is where Bitsy stops being a dashboard and starts being a workflow.",
-    points: ["Copy-paste content patches", "One-page writer briefs", "Authority outreach hit list"],
+    label: "04 · Fix",
+    title: "Ship the work.",
+    text: "Every recommendation becomes something usable: a paragraph to paste, a page brief, a schema block, or a list of sites to contact.",
+    points: ["Copy you can paste", "Briefs for new pages", "Sites worth pitching"],
     tone: "bg-[#f4eadc]",
     accent: "bg-[#fbf6ee]",
     preview: (
@@ -122,7 +122,8 @@ const features = [
               Paste into homepage hero
             </p>
             <p className="px-4 py-3 text-sm leading-relaxed text-[var(--ink)]">
-              &ldquo;Bitsy customers reach the top-3 on 73% of buyer queries within 14 days — 3.4× the category average, per our April 2026 benchmark of 50 brands.&rdquo;
+              &ldquo;Bitsy helps SaaS teams see where AI tools recommend competitors,
+              then gives them a clear fix list to improve the next run.&rdquo;
             </p>
             <div className="flex items-center justify-between border-t border-[color:var(--line)] bg-[rgba(247,243,236,0.62)] px-4 py-2 text-xs text-[var(--muted)]">
               <span>+3 stats &middot; +1 citation</span>
@@ -145,9 +146,9 @@ const features = [
   {
     id: "rerun",
     label: "05 · Verify",
-    title: "Log the change. See if it actually worked.",
-    text: "Bitsy records what you changed and when. Two weeks later it shows the actual mention-rate delta — per-query, per-model — on the features your change touched. Predictions are held honest against reality.",
-    points: ["Predicted vs actual lift", "14-day attribution window", "Calibration tracked over time"],
+    title: "See if it worked.",
+    text: "Save what changed. Run the same questions again later. Bitsy shows whether your brand appeared more often.",
+    points: ["Before and after runs", "Saved change log", "Progress over time"],
     tone: "bg-[#eaf2e4]",
     accent: "bg-[#f5f9f1]",
     preview: (

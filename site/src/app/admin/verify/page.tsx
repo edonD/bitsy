@@ -5,8 +5,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+import { API_BASE_URL as API, apiFetch } from "@/lib/config";
 
 const FEATURE_OPTIONS = [
   "citation_count",
@@ -66,8 +65,8 @@ export default function VerifyPage() {
   async function loadAttribution(b: string) {
     setLoading(true);
     try {
-      const r = await fetch(
-        `${API}/api/simulations/verify/attribution?brand=${encodeURIComponent(b)}`
+      const r = await apiFetch(
+        `/api/simulations/verify/attribution?brand=${encodeURIComponent(b)}`
       );
       const d = await r.json();
       setAttribution(d as Attribution);
@@ -86,7 +85,7 @@ export default function VerifyPage() {
     setLogMsg(null);
     setLogErr(null);
     try {
-      const r = await fetch(`${API}/api/simulations/verify/log-change`, {
+      const r = await apiFetch("/api/simulations/verify/log-change", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

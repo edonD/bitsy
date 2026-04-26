@@ -641,7 +641,7 @@ export interface Explanation {
 }
 
 /**
- * Decompose a prediction into per-feature contributions (mock SHAP).
+ * Decompose a prediction into importance-weighted per-feature contributions.
  *
  * Pure: (base, scenario, prediction) → Explanation.
  */

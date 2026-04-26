@@ -5,7 +5,7 @@
  * and a real XGBoost surrogate model.
  */
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+import { apiFetch } from "@/lib/config";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -53,7 +53,10 @@ export interface WhatIfResponse {
   ci_upper: number;
   confidence: string;
   contributions: Contribution[];
+  contribution_method: string;
   per_model?: Record<string, PerModelPrediction>;
+  data_days: number;
+  confidence_tier: "benchmark" | "emerging" | "established";
 }
 
 export interface StatusResponse {
@@ -90,9 +93,16 @@ export interface ModelDiagnosticsResponse {
     rmse: number;
     mae: number;
     r2: number;
+    in_sample_rmse: number;
+    in_sample_mae: number;
+    in_sample_r2: number;
+    evaluation_rmse: number;
+    evaluation_mae: number;
+    evaluation_r2: number;
     interval_radius: number;
     training_mode: string;
     validation_mode: string;
+    contribution_method: string;
     lag_feature_enabled: boolean;
     target_column: string;
   } | null;
@@ -106,6 +116,15 @@ export interface ModelDiagnosticsResponse {
     r2_score?: number;
     rmse?: number;
     mae?: number;
+    in_sample_r2?: number;
+    in_sample_rmse?: number;
+    in_sample_mae?: number;
+    evaluation_r2?: number;
+    evaluation_rmse?: number;
+    evaluation_mae?: number;
+    training_mode?: string;
+    validation_mode?: string;
+    contribution_method?: string;
     num_samples?: number;
     status?: string;
   } | null;
@@ -131,7 +150,7 @@ export interface Recommendation {
 // ── API calls ──────────────────────────────────────────────────────────────
 
 export async function getStatus(): Promise<StatusResponse> {
-  const res = await fetch(`${API}/api/simulations/status`);
+  const res = await apiFetch("/api/simulations/status");
   if (!res.ok) throw new Error(`Status failed: ${res.status}`);
   return res.json();
 }
@@ -151,7 +170,7 @@ export async function runCollection(params: {
   cross_validate_extraction?: boolean;
   cross_validate_rate?: number;
 }): Promise<CollectResponse> {
-  const res = await fetch(`${API}/api/simulations/collect`, {
+  const res = await apiFetch("/api/simulations/collect", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -182,7 +201,7 @@ export async function runWhatIf(params: {
   changes: Record<string, number>;
   model?: string;
 }): Promise<WhatIfResponse> {
-  const res = await fetch(`${API}/api/simulations/whatif`, {
+  const res = await apiFetch("/api/simulations/whatif", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(params),
@@ -195,25 +214,25 @@ export async function runWhatIf(params: {
 }
 
 export async function getFeatures(): Promise<{ features: Record<string, number>[] }> {
-  const res = await fetch(`${API}/api/simulations/features`);
+  const res = await apiFetch("/api/simulations/features");
   if (!res.ok) throw new Error(`Features failed: ${res.status}`);
   return res.json();
 }
 
 export async function getImportance(): Promise<{ importance: Record<string, number>; r2: number }> {
-  const res = await fetch(`${API}/api/simulations/importance`);
+  const res = await apiFetch("/api/simulations/importance");
   if (!res.ok) throw new Error(`Importance failed: ${res.status}`);
   return res.json();
 }
 
 export async function getModelDiagnostics(): Promise<ModelDiagnosticsResponse> {
-  const res = await fetch(`${API}/api/simulations/model-diagnostics`);
+  const res = await apiFetch("/api/simulations/model-diagnostics");
   if (!res.ok) throw new Error(`Model diagnostics failed: ${res.status}`);
   return res.json();
 }
 
 export async function getRecommendations(brand: string): Promise<{ brand: string; recommendations: Recommendation[] }> {
-  const res = await fetch(`${API}/api/simulations/recommendations?brand=${encodeURIComponent(brand)}`);
+  const res = await apiFetch(`/api/simulations/recommendations?brand=${encodeURIComponent(brand)}`);
   if (!res.ok) throw new Error(`Recommendations failed: ${res.status}`);
   return res.json();
 }
@@ -242,7 +261,7 @@ export interface ContentAnalysisResponse {
 }
 
 export async function analyzeContent(params: { url?: string; text?: string }): Promise<ContentAnalysisResponse> {
-  const res = await fetch(`${API}/api/simulations/analyze-content`, {
+  const res = await apiFetch("/api/simulations/analyze-content", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(params),
@@ -306,7 +325,7 @@ export async function analyzeCompetitors(params: {
   target: { brand: string; url?: string };
   competitors: { brand: string; url?: string }[];
 }): Promise<CompetitorAnalysisResponse> {
-  const res = await fetch(`${API}/api/simulations/analyze-competitors`, {
+  const res = await apiFetch("/api/simulations/analyze-competitors", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(params),
@@ -339,7 +358,7 @@ export interface QueryBreakdownResponse {
 }
 
 export async function getQueryBreakdown(days: number = 7): Promise<QueryBreakdownResponse> {
-  const res = await fetch(`${API}/api/simulations/query-breakdown?days=${days}`);
+  const res = await apiFetch(`/api/simulations/query-breakdown?days=${days}`);
   if (!res.ok) throw new Error(`Query breakdown failed: ${res.status}`);
   return res.json();
 }
@@ -361,7 +380,7 @@ export interface CitedSourcesResponse {
 }
 
 export async function getCitedSources(brand: string, days: number = 7): Promise<CitedSourcesResponse> {
-  const res = await fetch(`${API}/api/simulations/cited-sources?brand=${encodeURIComponent(brand)}&days=${days}`);
+  const res = await apiFetch(`/api/simulations/cited-sources?brand=${encodeURIComponent(brand)}&days=${days}`);
   if (!res.ok) throw new Error(`Cited sources failed: ${res.status}`);
   return res.json();
 }
@@ -383,7 +402,177 @@ export interface TrendsResponse {
 }
 
 export async function getTrends(brand: string, days: number = 30): Promise<TrendsResponse> {
-  const res = await fetch(`${API}/api/simulations/trends?brand=${encodeURIComponent(brand)}&days=${days}`);
+  const res = await apiFetch(`/api/simulations/trends?brand=${encodeURIComponent(brand)}&days=${days}`);
   if (!res.ok) throw new Error(`Trends failed: ${res.status}`);
+  return res.json();
+}
+
+// ── Execute playbook ───────────────────────────────────────────────────────
+
+export interface PlaybookEvidence {
+  id: string;
+  claim: string;
+  paper: string;
+  venue: string;
+  url: string;
+  finding: string;
+}
+
+export interface PlaybookChannel {
+  kind: string;
+  where: string;
+  evidence: PlaybookEvidence[];
+}
+
+export interface PlaybookAmpRow {
+  domain: string;
+  target_cite_count: number;
+  peer_cite_counts: Record<string, number>;
+  total_peer_cites: number;
+  gap: number;
+  pitch_angle: string;
+  evidence: PlaybookEvidence[];
+}
+
+export interface PlaybookPairingItem {
+  what: string;
+  why: string;
+  evidence: PlaybookEvidence[];
+}
+
+export interface PlaybookTimingItem {
+  ship_by: string;
+  refresh_cadence_days: number;
+  rationale: string;
+  evidence: PlaybookEvidence[];
+}
+
+export interface PlaybookBlogTemplate {
+  id: string;
+  title: string;
+  premise: string;
+  why_this_works: string;
+  outline: { heading: string; wordcount: number; note?: string | null }[];
+  target_word_count: number;
+  effort_hours: number;
+  evidence: PlaybookEvidence[];
+}
+
+export interface Playbook {
+  brand: string;
+  feature: string;
+  query: string | null;
+  user_value: number;
+  leader_value: number;
+  leader_brand: string | null;
+  content_patch: { text: string; char_count: number; evidence: PlaybookEvidence[] };
+  channels: PlaybookChannel[];
+  amplification: PlaybookAmpRow[];
+  content_pairing: PlaybookPairingItem[];
+  blog_templates: PlaybookBlogTemplate[];
+  timing: PlaybookTimingItem;
+  summary: string;
+  evidence_library_size: number;
+}
+
+export async function buildPlaybook(params: {
+  brand: string;
+  feature: string;
+  user_value: number;
+  leader_value: number;
+  leader_brand?: string | null;
+  peer_brands: string[];
+  query?: string;
+  category?: string;
+}): Promise<Playbook> {
+  const res = await apiFetch("/api/simulations/execute/playbook", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Playbook failed: ${err}`);
+  }
+  return res.json();
+}
+
+export async function savePlaybook(params: {
+  brand: string;
+  feature: string;
+  payload: Playbook;
+}): Promise<{ id: string | null; brand: string; feature: string }> {
+  const res = await apiFetch("/api/simulations/execute/save-playbook", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) throw new Error(`Save playbook failed: ${res.status}`);
+  return res.json();
+}
+
+// ── Verify (predicted-vs-actual attribution) ───────────────────────────────
+
+export interface VerifyChange {
+  id?: string;
+  brand: string;
+  feature: string;
+  description: string;
+  shipped_at: number;
+  shipped_date: string | null;
+  days_elapsed: number | null;
+  predicted_lift: number | null;
+  baseline_rate: number | null;
+  actual_rate: number | null;
+  actual_lift: number | null;
+  measured_at: string | null;
+  status: "accurate" | "close" | "off" | "pending";
+}
+
+export interface VerifyAttribution {
+  brand: string;
+  changes: VerifyChange[];
+  counts: {
+    total: number;
+    accurate: number;
+    close: number;
+    off: number;
+    pending: number;
+  };
+  calibration_pct: number | null;
+  signal_days_available: number;
+}
+
+export async function logChange(params: {
+  brand: string;
+  feature: string;
+  description: string;
+  predicted_lift?: number | null;
+  context?: Record<string, unknown>;
+}): Promise<{
+  id: string | null;
+  brand: string;
+  feature: string;
+  baseline_rate: number | null;
+  shipped_at: number;
+  note: string;
+}> {
+  const res = await apiFetch("/api/simulations/verify/log-change", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Log change failed: ${err}`);
+  }
+  return res.json();
+}
+
+export async function getAttribution(brand: string): Promise<VerifyAttribution> {
+  const res = await apiFetch(
+    `/api/simulations/verify/attribution?brand=${encodeURIComponent(brand)}`,
+  );
+  if (!res.ok) throw new Error(`Attribution failed: ${res.status}`);
   return res.json();
 }

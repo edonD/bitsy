@@ -2,8 +2,6 @@ import type { FeatureColumnGroup } from "./types";
 
 // Labels, colors, and feature lists used across the trace UI.
 
-export const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
-
 export const MODEL_LABELS: Record<string, string> = {
   chatgpt: "ChatGPT",
   claude: "Claude",

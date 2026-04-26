@@ -1,24 +1,5 @@
 "use client";
 
-// ════════════════════════════════════════════════════════════════════════════
-// DEV TRACE — fully transparent view of the simulation engine.
-// Blocked in production by middleware (/admin/* -> /#pricing).
-//
-// This file is the orchestrator. Everything with serious markup lives in
-// ./components; pure helpers are in ./types, ./constants, ./format, ./logic.
-//
-// Pipeline shown on screen, in order:
-//   1. Inputs (target, competitors, queries, modes)
-//   2. Status hero with progress
-//   3. Queries sent to LLMs — one card per call, live polling
-//   4. Brand aggregation
-//   5. Content features (if a target URL was crawled)
-//   6. Feature matrix fed to the surrogate model
-//   7. Surrogate model metrics + feature importance
-//   8. What the user sees (final output table)
-//   9. What-if simulator + recommendations
-// ════════════════════════════════════════════════════════════════════════════
-
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
@@ -27,8 +8,9 @@ import {
   getImportance,
   type CollectResponse,
 } from "@/lib/api";
+import { API_BASE_URL as API, apiFetch } from "@/lib/config";
 
-import { API, MODELS } from "./constants";
+import { MODELS } from "./constants";
 import type { ApiLog, CallCard, CallMode, TraceFeatureRow } from "./types";
 import { updateCardsFromLogs } from "./logic";
 import { AmbientBlobs, TraceAnimations } from "./components/Animations";
@@ -157,7 +139,7 @@ export default function TracePage() {
     // the moment its call finishes, so fast polling surfaces results live.
     pollRef.current = setInterval(async () => {
       try {
-        const res = await fetch(`${API}/api/simulations/logs?limit=200`);
+        const res = await apiFetch("/api/simulations/logs?limit=200");
         const data = await res.json();
         const logs: ApiLog[] = data.logs ?? [];
         setCards((prev) => updateCardsFromLogs(prev, logs, started));
@@ -187,7 +169,7 @@ export default function TracePage() {
 
       // One final poll to catch any straggler logs
       try {
-        const res = await fetch(`${API}/api/simulations/logs?limit=200`);
+        const res = await apiFetch("/api/simulations/logs?limit=200");
         const data = await res.json();
         const logs: ApiLog[] = data.logs ?? [];
         setCards((prev) => updateCardsFromLogs(prev, logs, started));

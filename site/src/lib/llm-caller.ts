@@ -2,13 +2,6 @@
  * Call LLMs to collect mention data
  */
 
-interface LLMResponse {
-  model: string;
-  query: string;
-  response: string;
-  mentioned_brands: string[];
-}
-
 export async function callClaude(query: string): Promise<string> {
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",

@@ -7,7 +7,6 @@ import {
   Callout,
   SourceList,
   Prose,
-  Quote,
 } from "@/components/ResearchPage";
 
 export const metadata = {

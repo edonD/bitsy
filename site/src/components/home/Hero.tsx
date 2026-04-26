@@ -7,22 +7,19 @@ export function Hero() {
     <section id="top" className="section-wash">
       <div className="mx-auto max-w-6xl px-6 pb-16 pt-16 md:pb-20 md:pt-20">
         <div className="mx-auto max-w-4xl text-center">
-          <p className="muted-label text-xs">AI search visibility, end to end</p>
+          <p className="muted-label text-xs">AI search, fixed step by step</p>
           <h1 className="mx-auto mt-6 max-w-4xl text-5xl font-semibold leading-[0.94] tracking-[-0.055em] text-[var(--ink)] sm:text-6xl md:text-7xl">
-            Close the gap between
+            Find out why AI
             <br />
             <span className="font-[family:var(--font-display)] text-[1.02em] font-medium italic tracking-[-0.035em]">
-              where you are
+              recommends competitors
             </span>{" "}
-            and where AI recommends you
+            instead of you
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-[var(--ink-soft)]">
-            Everyone else shows you the gap. Bitsy walks the five-step loop to
-            close it: <strong className="text-[var(--ink)]">Target</strong> the
-            buyer queries, <strong className="text-[var(--ink)]">Observe</strong> how
-            {" "}{tools.join(", ")} rank you, <strong className="text-[var(--ink)]">Simulate</strong>{" "}
-            the change, <strong className="text-[var(--ink)]">Execute</strong> with
-            ready-to-ship copy, <strong className="text-[var(--ink)]">Verify</strong> the lift.
+            Bitsy checks the questions your buyers ask in {tools.join(", ")}. It shows
+            where you appear, where competitors beat you, what to change, and whether
+            the change worked.
           </p>
 
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
@@ -36,12 +33,12 @@ export function Hero() {
               href="/#how-it-works"
               className="btn-secondary rounded-full px-8 py-3.5 font-mono text-sm font-semibold uppercase tracking-[0.08em]"
             >
-              See the loop
+              See how it works
             </Link>
           </div>
 
           <p className="mt-6 text-sm text-[var(--muted)]">
-            Coming soon &middot; 50% off for waitlist &middot; Tracks {tools.join(", ")}
+            Early access &middot; Built for SaaS teams &middot; Tracks {tools.join(", ")}
           </p>
         </div>
 
@@ -49,7 +46,7 @@ export function Hero() {
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[color:var(--line)] px-5 py-4">
             <div className="flex gap-2">
               <span className="surface-chip px-3 py-1 text-xs text-[var(--muted)]">Preview 01</span>
-              <span className="surface-chip px-3 py-1 text-xs text-[var(--muted)]">Scenario</span>
+              <span className="surface-chip px-3 py-1 text-xs text-[var(--muted)]">Fix list</span>
               <span className="surface-chip px-3 py-1 text-xs text-[var(--muted)]">Report</span>
             </div>
             <span className="text-xs uppercase tracking-[0.16em] text-[var(--muted)]">
@@ -64,7 +61,7 @@ export function Hero() {
                 {[
                   "Product: Bitsy",
                   "Competitors: 3 added",
-                  "Buyer prompts: 12",
+                  "Buyer questions: 12",
                   "Runs per tool: 5",
                 ].map((item) => (
                   <div
@@ -79,7 +76,7 @@ export function Hero() {
 
             <div className="p-5">
               <div className="surface-inset rounded-[0.35rem] p-5">
-                <p className="muted-label text-xs">Buyer prompt</p>
+                <p className="muted-label text-xs">Buyer question</p>
                 <h2 className="mt-3 text-3xl leading-tight text-[var(--ink)]">
                   Best AI search testing tools for SaaS teams
                 </h2>

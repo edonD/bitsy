@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-
-const API = "http://localhost:8000";
+import { apiFetch } from "@/lib/config";
 
 interface BenchmarkStatus {
   verticals: number;
@@ -21,7 +20,7 @@ export default function BenchmarkPage() {
   const [runResult, setRunResult] = useState<Record<string, unknown> | null>(null);
 
   useEffect(() => {
-    fetch(`${API}/api/simulations/benchmark/status`)
+    apiFetch("/api/simulations/benchmark/status")
       .then((r) => r.json())
       .then(setStatus)
       .catch(() => null)
@@ -32,11 +31,11 @@ export default function BenchmarkPage() {
     setRunning(true);
     setRunResult(null);
     try {
-      const res = await fetch(`${API}/api/simulations/benchmark/run`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "null" });
+      const res = await apiFetch("/api/simulations/benchmark/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: "null" });
       const data = await res.json();
       setRunResult(data);
       // Refresh status
-      const s = await fetch(`${API}/api/simulations/benchmark/status`).then((r) => r.json());
+      const s = await apiFetch("/api/simulations/benchmark/status").then((r) => r.json());
       setStatus(s);
     } catch (e) {
       setRunResult({ error: e instanceof Error ? e.message : "Failed" });

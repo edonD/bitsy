@@ -4,8 +4,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+import { apiFetch } from "@/lib/config";
 
 interface TodayRes {
   date: string;
@@ -42,8 +41,8 @@ export default function BudgetPage() {
     setLoading(true);
     try {
       const [a, b] = await Promise.all([
-        fetch(`${API}/api/simulations/budget/today`).then((r) => r.json()),
-        fetch(`${API}/api/simulations/budget/recent?days=30`).then((r) => r.json()),
+        apiFetch("/api/simulations/budget/today").then((r) => r.json()),
+        apiFetch("/api/simulations/budget/recent?days=30").then((r) => r.json()),
       ]);
       setToday(a as TodayRes);
       setRecent(b as RecentRes);

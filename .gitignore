@@ -4,3 +4,7 @@ __pycache__/
 *.pyd
 
 backend/venv/
+
+# Local dev tail logs (background uvicorn / next-dev capture files)
+.tmp.*.log
+**/.tmp.*.log

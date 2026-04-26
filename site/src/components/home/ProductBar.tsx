@@ -1,15 +1,15 @@
 const items = [
   {
     label: "What it does",
-    value: "Tests real buyer prompts across multiple AI tools.",
+    value: "Checks the real questions buyers ask AI tools.",
   },
   {
     label: "What you get",
-    value: "Mention rate, ranking, competitor overlap, and saved runs.",
+    value: "Who shows up, who wins, what to fix, and what changed later.",
   },
   {
     label: "Current scope",
-    value: "Point-in-time testing today. Runs are saved locally in your browser.",
+    value: "Start with one report. Repeat it to track progress over time.",
   },
 ];
 

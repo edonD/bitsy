@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-
-const API = "http://localhost:8000";
+import { apiFetch } from "@/lib/config";
 
 interface ApiLog {
   _id: string;
@@ -26,7 +25,7 @@ export default function LogsPage() {
   const [filter, setFilter] = useState<string>("all");
 
   useEffect(() => {
-    fetch(`${API}/api/simulations/logs?limit=100`)
+    apiFetch("/api/simulations/logs?limit=100")
       .then((r) => r.json())
       .then((data) => setLogs(data.logs ?? []))
       .catch(() => setLogs([]))
@@ -51,7 +50,7 @@ export default function LogsPage() {
           <button
             onClick={() => {
               setLoading(true);
-              fetch(`${API}/api/simulations/logs?limit=100`)
+              apiFetch("/api/simulations/logs?limit=100")
                 .then((r) => r.json())
                 .then((data) => setLogs(data.logs ?? []))
                 .catch(() => setLogs([]))

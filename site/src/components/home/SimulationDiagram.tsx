@@ -2,59 +2,59 @@ import Link from "next/link";
 
 const scenarios = [
   {
-    tag: "Baseline",
-    question: "Where does Bitsy stand today?",
-    meta: "12 buyer prompts · 4 AI models",
+    tag: "Measure",
+    question: "Where does Bitsy show up today?",
+    meta: "12 buyer questions · 3 AI tools",
     tone: "bg-[#ece4d2]",
   },
   {
-    tag: "New page",
-    question: "What if we publish a /vs/scope comparison?",
-    meta: "Draft · 800 words · 6 sections",
+    tag: "Gap",
+    question: "Which competitor is winning this question?",
+    meta: "Competitor answer · source found",
     tone: "bg-[#dde7f3]",
   },
   {
-    tag: "Page update",
-    question: "What if we add an FAQ block to /pricing?",
-    meta: "Update · 9 questions · use cases",
+    tag: "Fix",
+    question: "What page should we write next?",
+    meta: "Brief · outline · source list",
     tone: "bg-[#dceadf]",
   },
   {
-    tag: "Content rewrite",
-    question: "What if we rewrite /docs/testing-ai-search?",
-    meta: "Rewrite · sharper intro + examples",
+    tag: "Verify",
+    question: "Did the change improve the next run?",
+    meta: "Before · after · saved run",
     tone: "bg-[#e7dff0]",
   },
 ];
 
 const simulationOutputs = [
   {
-    label: "Current standing",
-    status: "Ranked #4 across 4 AI models",
+    label: "Current result",
+    status: "Mentioned by 2 of 3 AI tools",
     meta: "Now",
     tone: "bg-[#f2ead8]",
   },
   {
-    label: "Visibility gap",
-    status: "Missing from Claude & Gemini",
+    label: "Missing",
+    status: "Not mentioned by Claude",
     meta: "Spotted",
     tone: "bg-[#e5edf7]",
   },
   {
-    label: "Content idea",
-    status: "Publish 'Bitsy vs Scope' · +14% lift",
+    label: "Next fix",
+    status: "Write 'Bitsy vs Scope'",
     meta: "Suggested",
     tone: "bg-[#e7f0df]",
   },
   {
     label: "Page update",
-    status: "Add FAQ block to /pricing · +6% lift",
+    status: "Add FAQ block to /pricing",
     meta: "Ready",
     tone: "bg-[#efe6f5]",
   },
   {
     label: "Competitor move",
-    status: "Scope cited via /docs · close gap",
+    status: "Scope cited via /docs",
     meta: "Watch",
     tone: "bg-[#f6e8e6]",
   },
@@ -131,7 +131,7 @@ function CenterNode() {
     <div className="flex flex-col items-center">
       <div className="w-[224px] rounded-[0.4rem] border border-[color:var(--line)] bg-[var(--paper-deep)] p-4 shadow-[0_22px_44px_rgba(31,25,18,0.12)]">
         <p className="text-center font-mono text-[11px] uppercase tracking-[0.22em] text-[var(--ink)]">
-          Simulate
+          Bitsy
         </p>
         <div className="mt-3 grid grid-cols-2 gap-2">
           {brands.map((brand) => (
@@ -150,10 +150,10 @@ function CenterNode() {
         </div>
       </div>
       <div className="mt-5 space-y-1.5 text-center font-mono text-[10px] uppercase tracking-[0.18em]">
-        <p className="text-[var(--ink)]">Pages scanned</p>
-        <p className="text-[var(--muted)]">Drafts simulated</p>
-        <p className="text-[rgba(38,32,25,0.42)]">Lift predicted</p>
-        <p className="text-[rgba(38,32,25,0.28)]">Plan ready</p>
+        <p className="text-[var(--ink)]">Answers checked</p>
+        <p className="text-[var(--muted)]">Gaps found</p>
+        <p className="text-[rgba(38,32,25,0.42)]">Fix list ready</p>
+        <p className="text-[rgba(38,32,25,0.28)]">Progress tracked</p>
       </div>
     </div>
   );
@@ -165,14 +165,13 @@ export function SimulationDiagram() {
       <div className="mx-auto max-w-6xl px-6 py-16 md:py-20">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="max-w-3xl">
-            <p className="muted-label text-xs">Simulation layer</p>
+            <p className="muted-label text-xs">The report</p>
             <h2 className="mt-4 text-4xl leading-tight text-[var(--ink)]">
-              Ask &ldquo;where do I rank?&rdquo; — and &ldquo;what should I ship next?&rdquo;
+              Ask one question: what should we fix next?
             </h2>
             <p className="mt-4 max-w-2xl text-base leading-relaxed text-[var(--ink-soft)]">
-              Drop in a question or a draft — your live brand, a new comparison page, a pricing
-              rewrite. Bitsy simulates the AI answer for each one and returns the rewrites and
-              new pages most likely to lift your visibility.
+              Bitsy checks your buyer questions, compares the answers, and turns the gaps
+              into a short list of pages, edits, and sources worth acting on.
             </p>
           </div>
           <Link href="/#sample-report" className="ink-link w-fit text-sm">

@@ -1,9 +1,9 @@
 // HowItWorks — the five-step product loop:
-//   1. Target   — set your brand + competitors + buyer queries
-//   2. Observe  — nightly measurement across every major LLM
-//   3. Simulate — predict the mention-rate lift from content changes
-//   4. Execute  — ship the change with ready-to-use copy, briefs, schema
-//   5. Verify   — log the change, watch the real-world lift 14 days later
+//   1. Target   — set your brand, competitors, and buyer questions
+//   2. Observe  — check answers across major AI tools
+//   3. Decide   — pick the best fix
+//   4. Execute  — ship the change with ready-to-use copy and briefs
+//   5. Verify   — log the change and compare later runs
 //
 // Everything else on the homepage echoes this order. Same order in the app.
 
@@ -11,8 +11,8 @@ const panels = [
   {
     step: "01",
     title: "Target",
-    headline: "Point Bitsy at the brand and the buyer queries that matter.",
-    text: "Your product, your three to five real competitors, and the questions people actually ask AI about your category. No generic keyword lists.",
+    headline: "Tell Bitsy what buyers ask.",
+    text: "Add your product, your real competitors, and the questions buyers ask before they choose a tool.",
     preview: (
       <div className="grid h-full grid-cols-[0.95fr,1.05fr]">
         <div className="border-r border-[color:var(--line)] bg-[rgba(245,241,234,0.72)] p-4">
@@ -33,12 +33,12 @@ const panels = [
           </div>
         </div>
         <div className="p-4">
-          <p className="muted-label text-[10px]">Buyer queries</p>
+          <p className="muted-label text-[10px]">Buyer questions</p>
           <div className="mt-3 space-y-2 text-sm text-[var(--ink-soft)]">
             {[
-              "best AI search visibility tool",
-              "how to rank in ChatGPT answers",
-              "GEO tools for SaaS brands",
+              "best tools for testing AI answers",
+              "how to get recommended by ChatGPT",
+              "AI search tools for SaaS brands",
             ].map((q) => (
               <div
                 key={q}
@@ -55,8 +55,8 @@ const panels = [
   {
     step: "02",
     title: "Observe",
-    headline: "See exactly how each model ranks you every night.",
-    text: "Same queries, every model, 5x samples each. Mention rate, position, sentiment, cited sources — with the raw LLM responses always one click away.",
+    headline: "See where you show up.",
+    text: "Bitsy asks the same questions in ChatGPT, Claude, and Gemini. You see who was mentioned, where they appeared, and the raw answers.",
     preview: (
       <div className="p-4">
         <div className="border border-[color:var(--line)] bg-[rgba(255,255,255,0.82)]">
@@ -87,26 +87,26 @@ const panels = [
   },
   {
     step: "03",
-    title: "Simulate",
-    headline: "Test the change before you ship it.",
-    text: "What happens if you add 10 more citations? Improve readability? Refresh the page weekly? The surrogate model answers in milliseconds, grounded in data from every competitor in your category.",
+    title: "Decide",
+    headline: "Know what to fix first.",
+    text: "Bitsy turns the gaps into a short action list. It shows which page, claim, source, or comparison is most likely to help.",
     preview: (
       <div className="p-4">
         <div className="border border-[color:var(--line)] bg-[rgba(255,255,255,0.84)] p-4">
-          <p className="muted-label text-[10px]">Scenario</p>
-          <p className="mt-2 text-sm text-[var(--ink)]">Add 12 stats + 5 citations to homepage</p>
+          <p className="muted-label text-[10px]">Recommended fix</p>
+          <p className="mt-2 text-sm text-[var(--ink)]">Add a comparison page for high-intent buyers</p>
           <div className="mt-4 grid grid-cols-2 gap-3">
             <div className="rounded-[0.3rem] border border-[color:var(--line)] bg-[rgba(247,243,236,0.6)] p-3">
-              <p className="muted-label text-[10px]">Base</p>
+              <p className="muted-label text-[10px]">Now</p>
               <p className="mt-1 text-2xl text-[var(--ink)]">22%</p>
             </div>
             <div className="rounded-[0.3rem] border border-emerald-200 bg-emerald-50/70 p-3">
-              <p className="muted-label text-[10px]">Predicted</p>
+              <p className="muted-label text-[10px]">Goal</p>
               <p className="mt-1 text-2xl text-emerald-800">34%</p>
             </div>
           </div>
           <p className="mt-3 font-mono text-xs text-[var(--muted)]">
-            +12pp &middot; 95% CI [30%, 38%]
+            Directional estimate &middot; verify on the next run
           </p>
         </div>
       </div>
@@ -115,8 +115,8 @@ const panels = [
   {
     step: "04",
     title: "Execute",
-    headline: "Ship the change — paste, don't guess.",
-    text: "Bitsy turns every recommendation into something you can actually use: a ready-to-paste paragraph, a writer brief for your content team, a JSON-LD schema block, a short list of authority sites worth pitching.",
+    headline: "Ship the fix.",
+    text: "Get the actual work: a page brief, a paragraph to paste, a schema block, or a list of sites worth pitching.",
     preview: (
       <div className="p-4">
         <div className="border border-[color:var(--line)] bg-[rgba(255,255,255,0.84)]">
@@ -124,9 +124,8 @@ const panels = [
             Paste into homepage hero
           </div>
           <div className="px-4 py-3 text-sm leading-relaxed text-[var(--ink)]">
-            &ldquo;Bitsy customers reach the top-3 on 73% of buyer queries
-            within 14 days — 3.4× the category average, per our April 2026
-            benchmark of 50 brands.&rdquo;
+            &ldquo;Bitsy helps SaaS teams see where AI tools recommend competitors,
+            then gives them a clear fix list to improve the next run.&rdquo;
           </div>
           <div className="flex items-center justify-between border-t border-[color:var(--line)] bg-[rgba(247,243,236,0.62)] px-4 py-2 text-xs text-[var(--muted)]">
             <span>+3 stats &middot; +1 citation</span>
@@ -139,8 +138,8 @@ const panels = [
   {
     step: "05",
     title: "Verify",
-    headline: "Watch the real lift two weeks later.",
-    text: "Log what you changed and when. Bitsy shows the actual mention-rate delta on the queries most affected by that feature — honest, even when the prediction missed. Calibration tracked over time.",
+    headline: "Check if it worked.",
+    text: "Log what changed. Run the same questions again later. See whether your brand showed up more often.",
     preview: (
       <div className="p-4">
         <div className="border border-[color:var(--line)] bg-[rgba(255,255,255,0.84)]">
@@ -149,9 +148,9 @@ const panels = [
           </div>
           <div className="divide-y divide-[color:var(--line)] text-sm">
             {[
-              ["Predicted lift", "+12pp"],
-              ["Actual lift (14d)", "+11pp"],
-              ["Calibration", "✓ within CI"],
+              ["Before", "22%"],
+              ["After", "31%"],
+              ["Result", "up 9 points"],
             ].map(([label, value]) => (
               <div
                 key={label}
@@ -173,15 +172,13 @@ export function HowItWorks() {
     <section id="how-it-works">
       <div className="mx-auto max-w-6xl px-6 py-16 md:py-20">
         <div className="max-w-3xl">
-          <p className="muted-label text-xs">The loop</p>
+          <p className="muted-label text-xs">How it works</p>
           <h2 className="mt-4 text-4xl leading-tight text-[var(--ink)]">
-            Five steps. One closed feedback loop.
+            A simple loop for improving AI visibility.
           </h2>
           <p className="mt-4 max-w-2xl text-base leading-relaxed text-[var(--ink-soft)]">
-            Target what to measure. Observe your standing. Simulate your
-            change. Execute with ready-to-ship copy. Verify the lift. Then do
-            it again. Every step grounded in data from your own competitors —
-            not generic best-practice.
+            Measure the questions that matter. Find the gaps. Ship one clear
+            fix. Run the same questions again and see what changed.
           </p>
         </div>
         <div className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-5">

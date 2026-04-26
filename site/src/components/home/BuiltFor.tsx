@@ -1,8 +1,8 @@
 const audiences = [
   "Product marketers",
   "SEO and content teams",
-  "Founders launching new pages",
-  "Agencies tracking AI visibility",
+  "Founders improving high-intent pages",
+  "Agencies running client reports",
 ];
 
 export function BuiltFor() {
@@ -13,11 +13,11 @@ export function BuiltFor() {
           <div>
             <p className="muted-label text-xs">Built for</p>
             <h2 className="mt-4 text-4xl leading-tight text-[var(--ink)]">
-              Teams trying to win more AI mentions.
+              Teams that need buyers to find them in AI answers.
             </h2>
             <p className="mt-4 max-w-md text-base leading-relaxed text-[var(--ink-soft)]">
-              The product is most useful when a team cares about launch pages, comparison pages,
-              content updates, and competitor visibility.
+              Bitsy is most useful when you already know your buyers ask AI tools for
+              recommendations, comparisons, and shortlists.
             </p>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">

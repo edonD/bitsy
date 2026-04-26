@@ -1,90 +1,11 @@
 "use client";
 
-// Execute playbook — the "what to ship, where, when, with what evidence"
-// page. Input: one gap (brand + feature + peers). Output: a playbook
-// where every recommendation carries a research-backed citation.
-//
-// Deep-linkable: /admin/execute?brand=X&feature=Y&user_value=0&leader_value=14
-//   &leader_brand=Z&peers=A,B,C&autorun=1 pre-fills the form and runs the
-//   playbook automatically. Used from /admin/gap cards.
-
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
-
-interface EvidenceItem {
-  id: string;
-  claim: string;
-  paper: string;
-  venue: string;
-  url: string;
-  finding: string;
-}
-
-interface ChannelItem {
-  kind: string;
-  where: string;
-  evidence: EvidenceItem[];
-}
-
-interface AmpRow {
-  domain: string;
-  target_cite_count: number;
-  peer_cite_counts: Record<string, number>;
-  total_peer_cites: number;
-  gap: number;
-  pitch_angle: string;
-  evidence: EvidenceItem[];
-}
-
-interface PairingItem {
-  what: string;
-  why: string;
-  evidence: EvidenceItem[];
-}
-
-interface TimingItem {
-  ship_by: string;
-  refresh_cadence_days: number;
-  rationale: string;
-  evidence: EvidenceItem[];
-}
-
-interface BlogOutlineRow {
-  heading: string;
-  wordcount: number;
-  note?: string | null;
-}
-
-interface BlogTemplate {
-  id: string;
-  title: string;
-  premise: string;
-  why_this_works: string;
-  outline: BlogOutlineRow[];
-  target_word_count: number;
-  effort_hours: number;
-  evidence: EvidenceItem[];
-}
-
-interface Playbook {
-  brand: string;
-  feature: string;
-  query: string | null;
-  user_value: number;
-  leader_value: number;
-  leader_brand: string | null;
-  content_patch: { text: string; char_count: number; evidence: EvidenceItem[] };
-  channels: ChannelItem[];
-  amplification: AmpRow[];
-  content_pairing: PairingItem[];
-  blog_templates: BlogTemplate[];
-  timing: TimingItem;
-  summary: string;
-  evidence_library_size: number;
-}
+import { API_BASE_URL as API, apiFetch } from "@/lib/config";
+import { PlaybookView } from "./PlaybookView";
+import type { Playbook } from "./types";
 
 const FEATURE_OPTIONS = [
   "citation_count",
@@ -98,8 +19,18 @@ const FEATURE_OPTIONS = [
   "has_schema_org",
 ];
 
+interface PlaybookValues {
+  brand: string;
+  feature: string;
+  peers: string;
+  userValue: number;
+  leaderValue: number;
+  leaderBrand: string;
+  query: string;
+  category: string;
+}
+
 export default function ExecutePage() {
-  // useSearchParams requires a Suspense boundary during SSR/static build.
   return (
     <Suspense fallback={<div className="min-h-screen bg-[var(--paper)]" />}>
       <ExecutePageInner />
@@ -123,27 +54,17 @@ function ExecutePageInner() {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<Playbook | null>(null);
   const [copied, setCopied] = useState(false);
-  const autoRanRef = useRef(false);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
+  const autoRanRef = useRef(false);
 
-  // Shared fetch helper so both the button and the deep-link auto-run
-  // path can pass explicit values (state batching won't bite us).
-  async function runWith(values: {
-    brand: string;
-    feature: string;
-    peers: string;
-    userValue: number;
-    leaderValue: number;
-    leaderBrand: string;
-    query: string;
-    category: string;
-  }) {
+  async function runWith(values: PlaybookValues) {
     setRunning(true);
     setError(null);
     setResult(null);
     setCopied(false);
+
     try {
-      const res = await fetch(`${API}/api/simulations/execute/playbook`, {
+      const res = await apiFetch("/api/simulations/execute/playbook", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -152,7 +73,7 @@ function ExecutePageInner() {
           user_value: values.userValue,
           leader_value: values.leaderValue,
           leader_brand: values.leaderBrand,
-          peer_brands: values.peers.split(",").map((p) => p.trim()).filter(Boolean),
+          peer_brands: values.peers.split(",").map((peer) => peer.trim()).filter(Boolean),
           query: values.query,
           category: values.category,
         }),
@@ -172,35 +93,30 @@ function ExecutePageInner() {
     await runWith({ brand, feature, peers, userValue, leaderValue, leaderBrand, query, category });
   }
 
-  // Deep-link hydration: pull gap context from the URL once on mount,
-  // prefill the form, optionally auto-run. Driven by /admin/gap cards.
   useEffect(() => {
-    if (autoRanRef.current) return;
-    if (!searchParams) return;
+    if (autoRanRef.current || !searchParams) return;
 
-    const p = (key: string) => searchParams.get(key);
+    const getParam = (key: string) => searchParams.get(key);
+    const nextBrand = getParam("brand") ?? brand;
+    const nextFeature = getParam("feature") ?? feature;
+    const nextPeers = getParam("peers") ?? peers;
+    const nextUserValue = getParam("user_value") != null ? parseFloat(getParam("user_value")!) : userValue;
+    const nextLeaderValue = getParam("leader_value") != null ? parseFloat(getParam("leader_value")!) : leaderValue;
+    const nextLeaderBrand = getParam("leader_brand") ?? leaderBrand;
+    const nextQuery = getParam("query") ?? query;
+    const nextCategory = getParam("category") ?? category;
 
-    const nextBrand = p("brand") ?? brand;
-    const nextFeature = p("feature") ?? feature;
-    const nextPeers = p("peers") ?? peers;
-    const nextUserValue = p("user_value") != null ? parseFloat(p("user_value")!) : userValue;
-    const nextLeaderValue = p("leader_value") != null ? parseFloat(p("leader_value")!) : leaderValue;
-    const nextLeaderBrand = p("leader_brand") ?? leaderBrand;
-    const nextQuery = p("query") ?? query;
-    const nextCategory = p("category") ?? category;
+    if (getParam("brand")) setBrand(nextBrand);
+    if (getParam("feature")) setFeature(nextFeature);
+    if (getParam("peers")) setPeers(nextPeers);
+    if (getParam("user_value")) setUserValue(nextUserValue);
+    if (getParam("leader_value")) setLeaderValue(nextLeaderValue);
+    if (getParam("leader_brand")) setLeaderBrand(nextLeaderBrand);
+    if (getParam("query")) setQuery(nextQuery);
+    if (getParam("category")) setCategory(nextCategory);
 
-    if (p("brand")) setBrand(nextBrand);
-    if (p("feature")) setFeature(nextFeature);
-    if (p("peers")) setPeers(nextPeers);
-    if (p("user_value")) setUserValue(nextUserValue);
-    if (p("leader_value")) setLeaderValue(nextLeaderValue);
-    if (p("leader_brand")) setLeaderBrand(nextLeaderBrand);
-    if (p("query")) setQuery(nextQuery);
-    if (p("category")) setCategory(nextCategory);
-
-    if (p("autorun") === "1") {
+    if (getParam("autorun") === "1") {
       autoRanRef.current = true;
-      // Use the URL values directly — React state update hasn't flushed yet.
       runWith({
         brand: nextBrand,
         feature: nextFeature,
@@ -212,6 +128,7 @@ function ExecutePageInner() {
         category: nextCategory,
       });
     }
+    // The URL hydration intentionally runs once with the initial state defaults.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
@@ -226,9 +143,10 @@ function ExecutePageInner() {
 
   async function savePlaybook() {
     if (!result || saveState === "saving") return;
+
     setSaveState("saving");
     try {
-      const r = await fetch(`${API}/api/simulations/execute/save-playbook`, {
+      const res = await apiFetch("/api/simulations/execute/save-playbook", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -237,7 +155,7 @@ function ExecutePageInner() {
           payload: result,
         }),
       });
-      if (r.ok) {
+      if (res.ok) {
         setSaveState("saved");
         setTimeout(() => setSaveState("idle"), 2400);
       } else {
@@ -254,13 +172,12 @@ function ExecutePageInner() {
         <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
           <div>
             <Link href="/admin/gap" className="ink-link text-sm">
-              ← back to gap analysis
+              back to gap analysis
             </Link>
             <h1 className="mt-2 text-4xl text-[var(--ink)] md:text-5xl">Execute playbook</h1>
             <p className="mt-2 max-w-xl text-sm leading-relaxed text-[var(--muted)]">
-              Pick a gap. Get a five-section, evidence-backed plan:
-              content patch, channels, amplification targets, content pairings,
-              and timing — every recommendation cited to a paper or benchmark.
+              Pick a gap. Get a five-section, evidence-backed plan: content patch, channels, amplification targets,
+              content pairings, and timing.
             </p>
           </div>
           <div className="text-right text-xs text-[var(--muted)]">
@@ -269,25 +186,16 @@ function ExecutePageInner() {
           </div>
         </div>
 
-        {/* Inputs */}
         <section className="paper-panel rounded-[1.6rem] p-6 mb-6">
           <div className="grid gap-4 md:grid-cols-2">
             <Field label="Brand">
-              <input
-                value={brand}
-                onChange={(e) => setBrand(e.target.value)}
-                className="input"
-              />
+              <input value={brand} onChange={(e) => setBrand(e.target.value)} className="input" />
             </Field>
             <Field label="Feature gap">
-              <select
-                value={feature}
-                onChange={(e) => setFeature(e.target.value)}
-                className="input"
-              >
-                {FEATURE_OPTIONS.map((f) => (
-                  <option key={f} value={f}>
-                    {f}
+              <select value={feature} onChange={(e) => setFeature(e.target.value)} className="input">
+                {FEATURE_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
                   </option>
                 ))}
               </select>
@@ -309,46 +217,30 @@ function ExecutePageInner() {
               />
             </Field>
             <Field label="Leader brand">
-              <input
-                value={leaderBrand}
-                onChange={(e) => setLeaderBrand(e.target.value)}
-                className="input"
-              />
+              <input value={leaderBrand} onChange={(e) => setLeaderBrand(e.target.value)} className="input" />
             </Field>
             <Field label="Target buyer query">
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                className="input"
-              />
+              <input value={query} onChange={(e) => setQuery(e.target.value)} className="input" />
             </Field>
-            <Field label="Category (fills blog template slots)">
-              <input
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="input"
-              />
+            <Field label="Category">
+              <input value={category} onChange={(e) => setCategory(e.target.value)} className="input" />
             </Field>
             <div className="md:col-span-2">
-              <Field label="Peer brands (comma-separated, must be in brand_domains for amplification data)">
-                <input
-                  value={peers}
-                  onChange={(e) => setPeers(e.target.value)}
-                  className="input"
-                />
+              <Field label="Peer brands">
+                <input value={peers} onChange={(e) => setPeers(e.target.value)} className="input" />
               </Field>
             </div>
           </div>
           <div className="mt-6 flex items-center justify-between">
             <p className="text-xs text-[var(--muted)]">
-              {running ? "building playbook…" : result ? "done" : "fill in the gap and run"}
+              {running ? "building playbook..." : result ? "done" : "fill in the gap and run"}
             </p>
             <button
               onClick={run}
               disabled={running || !brand || !feature}
               className="btn-primary rounded-full px-6 py-2.5 text-sm font-semibold disabled:opacity-50"
             >
-              {running ? "running…" : "Build playbook"}
+              {running ? "running..." : "Build playbook"}
             </button>
           </div>
           {error && (
@@ -395,373 +287,5 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <span className="text-xs uppercase tracking-[0.16em] text-[var(--muted)]">{label}</span>
       {children}
     </label>
-  );
-}
-
-function PlaybookView({
-  playbook,
-  copied,
-  onCopy,
-  onSave,
-  saveState,
-}: {
-  playbook: Playbook;
-  copied: boolean;
-  onCopy: () => void;
-  onSave: () => void;
-  saveState: "idle" | "saving" | "saved";
-}) {
-  const verifyHref = (() => {
-    const params = new URLSearchParams({
-      brand: playbook.brand,
-      feature: playbook.feature,
-    });
-    return `/admin/verify?${params.toString()}`;
-  })();
-
-  return (
-    <>
-      {/* Summary */}
-      <section className="paper-panel rounded-[1.6rem] p-6 mb-6">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex-1 min-w-0">
-            <p className="muted-label text-xs">Playbook for {playbook.brand}</p>
-            <h2 className="mt-2 text-2xl text-[var(--ink)]">
-              {playbook.feature.replace(/_/g, " ")}
-              {playbook.query ? (
-                <span className="text-[var(--muted)] font-normal"> · “{playbook.query}”</span>
-              ) : null}
-            </h2>
-          </div>
-          <div className="shrink-0 flex flex-col gap-2">
-            <button
-              onClick={onSave}
-              disabled={saveState === "saving"}
-              className="rounded-full bg-[var(--ink)] text-[var(--paper)] px-4 py-1.5 text-xs font-semibold hover:opacity-90 transition-opacity disabled:opacity-60"
-            >
-              {saveState === "saving" ? "saving…" : saveState === "saved" ? "saved ✓" : "save playbook"}
-            </button>
-            <Link
-              href={verifyHref}
-              className="rounded-full border border-[color:var(--line)] px-4 py-1.5 text-xs text-[var(--ink-soft)] hover:text-[var(--ink)] hover:border-[var(--ink)] text-center transition-colors"
-            >
-              log as change →
-            </Link>
-          </div>
-        </div>
-        <p className="mt-3 text-sm leading-relaxed text-[var(--ink-soft)]">
-          {playbook.summary}
-        </p>
-        <div className="mt-4 flex flex-wrap gap-3 text-xs text-[var(--muted)]">
-          <span>
-            you: <span className="text-[var(--ink)] font-mono">{playbook.user_value}</span>
-          </span>
-          <span>
-            leader ({playbook.leader_brand ?? "—"}):{" "}
-            <span className="text-[var(--ink)] font-mono">{playbook.leader_value}</span>
-          </span>
-          <span>
-            evidence in library:{" "}
-            <span className="text-[var(--ink)] font-mono">{playbook.evidence_library_size}</span>
-          </span>
-        </div>
-      </section>
-
-      {/* 1 · Content patch */}
-      <Section number="01" title="Content patch">
-        <p className="text-sm text-[var(--muted)] mb-3">
-          Ready-to-paste paragraph. ≤100 words, one citation, no marketing adjectives.
-        </p>
-        <div className="rounded-xl border border-[color:var(--line)] bg-white/80 p-4">
-          <p className="text-base leading-relaxed text-[var(--ink)]">
-            {playbook.content_patch.text}
-          </p>
-          <div className="mt-3 flex items-center justify-between text-xs text-[var(--muted)]">
-            <span>{playbook.content_patch.char_count} chars</span>
-            <button
-              onClick={onCopy}
-              className="rounded-full border border-[color:var(--line)] px-3 py-1 font-mono hover:text-[var(--ink)] hover:border-[var(--ink)] transition-colors"
-            >
-              {copied ? "copied ✓" : "copy ↗"}
-            </button>
-          </div>
-        </div>
-        <EvidenceList items={playbook.content_patch.evidence} />
-      </Section>
-
-      {/* 2 · Channels */}
-      <Section number="02" title="Channels — where this content lives">
-        {playbook.channels.length === 0 ? (
-          <p className="text-sm italic text-[var(--muted)]">
-            No channel recommendations for this feature yet.
-          </p>
-        ) : (
-          <div className="space-y-3">
-            {playbook.channels.map((c, i) => (
-              <div
-                key={i}
-                className="rounded-xl border border-[color:var(--line)] bg-white/70 p-4"
-              >
-                <div className="flex items-baseline justify-between gap-3">
-                  <span className="text-sm font-semibold text-[var(--ink)]">{c.where}</span>
-                  <span className="rounded-full bg-[rgba(0,0,0,0.05)] px-2 py-0.5 text-[10px] uppercase tracking-wider text-[var(--muted)]">
-                    {c.kind}
-                  </span>
-                </div>
-                <EvidenceList items={c.evidence} compact />
-              </div>
-            ))}
-          </div>
-        )}
-      </Section>
-
-      {/* 3 · Amplification */}
-      <Section number="03" title="Amplification — who should cite you">
-        {playbook.amplification.length === 0 ? (
-          <p className="text-sm italic text-[var(--muted)]">
-            No amplification targets found — run /collect with these peers to populate{" "}
-            the cited-sources data.
-          </p>
-        ) : (
-          <div className="space-y-3">
-            {playbook.amplification.map((a) => (
-              <div
-                key={a.domain}
-                className="rounded-xl border border-[color:var(--line)] bg-white/70 p-4"
-              >
-                <div className="flex items-baseline justify-between gap-3">
-                  <span className="font-mono text-sm font-semibold text-[var(--ink)]">
-                    {a.domain}
-                  </span>
-                  <span className="text-[11px] text-[var(--muted)]">
-                    gap:{" "}
-                    <span className="text-[var(--ink)] font-mono">{a.gap}</span>
-                  </span>
-                </div>
-                <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
-                  {Object.entries(a.peer_cite_counts).map(([peer, count]) => (
-                    <span
-                      key={peer}
-                      className="rounded-full bg-[rgba(0,0,0,0.04)] px-2 py-0.5 text-[var(--ink-soft)]"
-                    >
-                      {peer}: {count}
-                    </span>
-                  ))}
-                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-amber-900">
-                    {playbook.brand}: {a.target_cite_count}
-                  </span>
-                </div>
-                <p className="mt-3 text-sm text-[var(--ink-soft)]">{a.pitch_angle}</p>
-                <EvidenceList items={a.evidence} compact />
-              </div>
-            ))}
-          </div>
-        )}
-      </Section>
-
-      {/* 4 · Content pairings */}
-      <Section number="04" title="Content pairings — build these so the patch lands">
-        {playbook.content_pairing.length === 0 ? (
-          <p className="text-sm italic text-[var(--muted)]">
-            No pairing recommendations yet.
-          </p>
-        ) : (
-          <div className="space-y-3">
-            {playbook.content_pairing.map((p, i) => (
-              <div
-                key={i}
-                className="rounded-xl border border-[color:var(--line)] bg-white/70 p-4"
-              >
-                <p className="text-sm font-semibold text-[var(--ink)]">{p.what}</p>
-                <p className="mt-1 text-sm text-[var(--ink-soft)]">{p.why}</p>
-                <EvidenceList items={p.evidence} compact />
-              </div>
-            ))}
-          </div>
-        )}
-      </Section>
-
-      {/* 5 · Blog templates */}
-      <Section number="05" title="Publish — research-backed blog templates">
-        <p className="text-sm text-[var(--muted)] mb-3">
-          Alternative path: publish a full post on your blog. Each template
-          is research-backed, the outline is ready, {playbook.blog_templates.length > 0 ? `${playbook.blog_templates[0].effort_hours}–${Math.max(...playbook.blog_templates.map((t) => t.effort_hours))}h of work to ship` : "low-effort"}.
-        </p>
-        {playbook.blog_templates.length === 0 ? (
-          <p className="text-sm italic text-[var(--muted)]">
-            No templates matched this feature yet.
-          </p>
-        ) : (
-          <div className="space-y-4">
-            {playbook.blog_templates.map((t) => (
-              <BlogTemplateCard key={t.id} template={t} />
-            ))}
-          </div>
-        )}
-      </Section>
-
-      {/* 6 · Timing */}
-      <Section number="06" title="Timing — when to ship and refresh">
-        <div className="rounded-xl border border-[color:var(--line)] bg-white/70 p-4">
-          <div className="grid gap-3 md:grid-cols-3">
-            <Stat label="Ship by" value={playbook.timing.ship_by} />
-            <Stat label="Refresh every" value={`${playbook.timing.refresh_cadence_days} days`} />
-            <Stat label="Window" value="monthly" />
-          </div>
-          <p className="mt-3 text-sm text-[var(--ink-soft)]">{playbook.timing.rationale}</p>
-          <EvidenceList items={playbook.timing.evidence} compact />
-        </div>
-      </Section>
-    </>
-  );
-}
-
-function Section({
-  number,
-  title,
-  children,
-}: {
-  number: string;
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="paper-panel rounded-[1.6rem] p-6 mb-6">
-      <div className="mb-4 flex items-center gap-3">
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--ink)] text-xs font-semibold text-[var(--paper)]">
-          {number}
-        </span>
-        <h3 className="text-lg text-[var(--ink)]">{title}</h3>
-      </div>
-      {children}
-    </section>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="metric-card">
-      <p className="text-xs uppercase tracking-[0.16em] text-[var(--muted)]">{label}</p>
-      <p className="mt-1 text-base font-mono text-[var(--ink)]">{value}</p>
-    </div>
-  );
-}
-
-function BlogTemplateCard({ template }: { template: BlogTemplate }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="rounded-xl border border-[color:var(--line)] bg-white/80">
-      <button
-        onClick={() => setOpen(!open)}
-        className="w-full text-left px-5 py-4"
-      >
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <p className="text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]">
-              Blog template · {template.id}
-            </p>
-            <h4 className="mt-1 text-lg font-semibold text-[var(--ink)] leading-snug">
-              {template.title}
-            </h4>
-          </div>
-          <div className="shrink-0 text-right">
-            <p className="text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]">effort</p>
-            <p className="font-mono text-sm text-[var(--ink)]">
-              ~{template.effort_hours}h
-            </p>
-            <p className="mt-1 text-[10px] text-[var(--muted)]">
-              {template.target_word_count.toLocaleString()} words
-            </p>
-          </div>
-        </div>
-        <p className="mt-3 text-sm text-[var(--ink-soft)] leading-relaxed">
-          {template.premise}
-        </p>
-        <p className="mt-2 text-xs italic text-[var(--muted)]">
-          {template.why_this_works}
-        </p>
-      </button>
-
-      {open && (
-        <div className="border-t border-[color:var(--line)] px-5 py-4 space-y-3 bg-white/50">
-          <p className="text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]">
-            Outline
-          </p>
-          <div className="rounded-lg border border-[color:var(--line)] bg-white/80">
-            {template.outline.map((row, i) => (
-              <div
-                key={i}
-                className="flex items-start justify-between gap-3 border-b border-[color:var(--line)] px-4 py-2.5 text-sm last:border-b-0"
-              >
-                <div className="flex-1">
-                  <p className="text-[var(--ink)]">{row.heading}</p>
-                  {row.note && (
-                    <p className="mt-0.5 text-[11px] italic text-[var(--muted)]">
-                      {row.note}
-                    </p>
-                  )}
-                </div>
-                <span className="shrink-0 font-mono text-xs text-[var(--muted)]">
-                  {row.wordcount > 0 ? `${row.wordcount} w` : "—"}
-                </span>
-              </div>
-            ))}
-          </div>
-          <EvidenceList items={template.evidence} compact />
-        </div>
-      )}
-
-      {!open && (
-        <div className="border-t border-[color:var(--line)] px-5 py-2 flex items-center justify-between text-[11px] text-[var(--muted)]">
-          <span>{template.outline.length} sections · research-backed</span>
-          <span className="font-mono">expand ↓</span>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function EvidenceList({
-  items,
-  compact,
-}: {
-  items: EvidenceItem[];
-  compact?: boolean;
-}) {
-  if (!items || items.length === 0) return null;
-  return (
-    <div className={`${compact ? "mt-2" : "mt-4"} space-y-1.5`}>
-      {items.map((e) => (
-        <details
-          key={e.id}
-          className="rounded-lg border border-[color:var(--line)] bg-[rgba(247,243,236,0.5)] px-3 py-2 text-xs"
-        >
-          <summary className="cursor-pointer list-none flex items-center justify-between gap-2">
-            <span className="truncate text-[var(--ink-soft)]">
-              <span className="font-semibold text-[var(--ink)]">{e.claim}</span>
-              <span className="mx-2 text-[var(--muted)]">·</span>
-              <span className="text-[var(--muted)]">{e.venue}</span>
-            </span>
-            <span className="text-[10px] text-[var(--muted)] font-mono">more</span>
-          </summary>
-          <div className="mt-2 space-y-1 text-[var(--ink-soft)] leading-relaxed">
-            <p>
-              <span className="text-[var(--muted)]">Source:</span> {e.paper}
-            </p>
-            <p>{e.finding}</p>
-            {e.url && (
-              <a
-                href={e.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-700 hover:underline break-all"
-              >
-                {e.url}
-              </a>
-            )}
-          </div>
-        </details>
-      ))}
-    </div>
   );
 }

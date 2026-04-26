@@ -1,7 +1,7 @@
 "use client";
 
 // What-if simulator for a single brand: edit feature values, run /whatif,
-// see predicted lift with per-feature SHAP-style contributions, and browse
+// see predicted lift with importance-weighted feature-change attribution, and browse
 // the engine's automatic recommendations for the brand.
 
 import { useEffect, useState } from "react";
@@ -160,7 +160,7 @@ export function WhatIfPanel({
             </div>
             <div>
               <p className="text-xs uppercase tracking-[0.16em] text-[var(--muted)]">
-                95% CI
+                Residual interval
               </p>
               <p className="mt-2 text-sm text-[var(--muted)] font-mono">
                 [{formatPercent(result.ci_lower)}, {formatPercent(result.ci_upper)}]
@@ -171,7 +171,10 @@ export function WhatIfPanel({
           {result.contributions.length > 0 && (
             <div className="mt-6">
               <p className="mb-3 text-xs uppercase tracking-[0.16em] text-[var(--muted)]">
-                Feature contributions
+                Importance-weighted feature changes
+              </p>
+              <p className="mb-4 text-xs leading-relaxed text-[var(--muted)]">
+                Not SHAP. Lift is allocated across changed features using feature delta times XGBoost built-in importance.
               </p>
               <div className="space-y-1.5">
                 {result.contributions.map((c) => (

@@ -64,6 +64,10 @@ export interface WhatIfResult {
   lift_pct: number;
   ci_lower: number;
   ci_upper: number;
+  confidence: string;
+  contribution_method: string;
+  data_days: number;
+  confidence_tier: "benchmark" | "emerging" | "established";
   contributions: { feature: string; contribution: number; pct: number }[];
   per_model?: Record<
     string,

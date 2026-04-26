@@ -2,12 +2,12 @@ const faq = [
   {
     question: "Who is Bitsy for?",
     answer:
-      "Bitsy is built for product marketers, SEO teams, founders, and agencies working on AI visibility.",
+      "Bitsy is for SaaS teams that want to know when AI tools recommend them, when they recommend competitors, and what to fix next.",
   },
   {
     question: "How is this different from SEO rank tracking?",
     answer:
-      "SEO tools measure search positions. Bitsy shows how AI tools talk about your product in their answers.",
+      "SEO tools track Google pages. Bitsy checks AI answers and shows the exact places where your product is missing.",
   },
   {
     question: "Which AI tools are supported?",
@@ -15,11 +15,15 @@ const faq = [
   },
   {
     question: "Can I compare competitors?",
-    answer: "Yes. Every run can compare your product with the brands buyers also consider.",
+    answer: "Yes. Competitor comparison is the point. Bitsy shows who AI recommends instead of you.",
   },
   {
-    question: "Is this live monitoring?",
-    answer: "Not yet. The current product is focused on point-in-time testing and saved runs.",
+    question: "Does Bitsy prove a fix caused the change?",
+    answer: "No. It tracks before and after runs honestly. It helps you see whether visibility moved after a change, but AI answers can shift for other reasons too.",
+  },
+  {
+    question: "Is this automatic monitoring?",
+    answer: "The product starts with reports you can rerun. Scheduled monitoring is part of the roadmap.",
   },
 ];
 

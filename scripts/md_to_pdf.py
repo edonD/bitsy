@@ -72,6 +72,12 @@ DOCS = [
         "title": "First Outreach Campaign",
         "subtitle": "Target list, sequence, and trackable metrics",
     },
+    {
+        "input": "BITSY_FIRST_SALES_SPRINT.md",
+        "output": "bitsy-first-sales-sprint.pdf",
+        "title": "Bitsy First Sales Sprint",
+        "subtitle": "The immediate action plan to validate demand",
+    },
 ]
 
 COMBINED_OUTPUT = "bitsy-combined-market-plan.pdf"

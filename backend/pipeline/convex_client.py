@@ -9,7 +9,10 @@ import requests
 from typing import Any
 
 # Convex site URL serves HTTP actions at the same origin.
-CONVEX_SITE_URL = os.getenv("CONVEX_SITE_URL")
+CONVEX_SITE_URL = os.getenv(
+    "CONVEX_SITE_URL",
+    "https://savory-goldfish-122.convex.site",
+)
 INTERNAL_TOKEN = os.getenv("BITSY_INTERNAL_API_TOKEN") or os.getenv("CONVEX_PIPELINE_TOKEN")
 
 
